@@ -1,42 +1,29 @@
 import { prisma } from '../../../database';
 
 export default async function handler(req, res) {
+    const { id } = req.query;
+
     if(req.method === 'DELETE') {
-        const id = Number(req.query.id);
-
-        const deleteFromCharacterSkills = prisma.characterSkills.deleteMany({
+        // Verificar se existem personagens usando esta skill - NOME CORRETO: CharacterSkills
+        const characterSkills = await prisma.characterSkills.findMany({
             where: {
-                skill_id: id
+                skill_id: Number(id)
             }
         });
 
-        const deleteSkill = prisma.skill.delete({
+        // Se existirem personagens usando, não podemos deletar
+        if(characterSkills.length > 0) {
+            return res.status(400).json({ error: 'Cannot delete skill: characters are using it' });
+        }
+
+        // Se não existirem, podemos deletar
+        await prisma.skills.delete({
             where: {
-                id
+                id: Number(id)
             }
         });
-
-        await prisma.$transaction([deleteFromCharacterSkills, deleteSkill]);
 
         return res.status(200).json({ success: true });
-    }
-    else if(req.method === 'PUT') {
-        const { body } = req;
-
-        if(!body.name) {
-            return res.status(400).json({ error: 'Name not set' });
-        }
-        
-        const id = Number(req.query.id);
-    
-        const skill = await prisma.skill.update({
-            where: {
-                id
-            },
-            data: body
-        });
-
-        return res.status(200).json(skill);
     }
     else {
         return res.status(404);

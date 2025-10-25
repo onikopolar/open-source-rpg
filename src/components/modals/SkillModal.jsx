@@ -4,17 +4,13 @@ import {
     TextField, Dialog, DialogActions, DialogContent, Grid,
     DialogTitle, Button
 } from '@mui/material'
-
 import { api } from '../../utils';
 
-const styles = theme => ({
-
-})
+const styles = theme => ({})
 
 function SkillModal({
     classes,
     handleClose,
-
     onSubmit,
     data,
     operation
@@ -30,8 +26,8 @@ function SkillModal({
         }
 
         setSkill({
-            name: data.name,
-            description: data.description
+            name: data.name || '',
+            description: data.description || ''
         });
     }, [data]);
     
@@ -44,18 +40,15 @@ function SkillModal({
 
     const submit = () => {
         if(!skill.name) {
+            alert('Preencha o nome da perícia!');
             return;
         }
 
         if(operation === 'create') {
             api.post('/skill', skill)
                 .then(() => {
-                    // Callback
                     onSubmit();
-
-                    // Close modal
                     handleClose();
-
                     resetState();
                 })
                 .catch(() => {
@@ -65,12 +58,8 @@ function SkillModal({
         else if (operation === 'edit') {
             api.put(`/skill/${data.id}`, skill)
                 .then(() => {
-                    // Callback
                     onSubmit();
-
-                    // Close modal
                     handleClose();
-
                     resetState();
                 })
                 .catch(() => {
@@ -80,78 +69,56 @@ function SkillModal({
     }
 
     return (
-        <Dialog
-            open={true}
-            onClose={handleClose}
-        >
+        <Dialog open={true} onClose={handleClose} maxWidth="sm" fullWidth>
             <DialogTitle>
-                {
-                    operation === 'create' ? 'Criar nova perícia' : 'Editar perícia'
-                }
+                {operation === 'create' ? 'Criar nova perícia' : 'Editar perícia'}
             </DialogTitle>
             <DialogContent>
                 <Grid container spacing={3}>
                     <Grid item xs={12}>
                         <TextField
-                            style={{
-                                marginTop: '15px'
-                            }}
+                            style={{ marginTop: '15px' }}
                             autoFocus
                             label="Nome"
                             type="text"
                             fullWidth
-                            variant="standard"
+                            variant="outlined"
                             value={skill.name}
-                            onChange={
-                                ({ target }) => {
-                                    const value = target.value;
-
-                                    setSkill(prevState => ({
-                                        ...prevState,
-                                        name: value
-                                    }));
-                                }
-                            }
+                            onChange={({ target }) => {
+                                setSkill(prevState => ({
+                                    ...prevState,
+                                    name: target.value
+                                }));
+                            }}
                             spellCheck={false}
                         />
                     </Grid>
                     <Grid item xs={12}>
                         <TextField
-                            style={{
-                                marginTop: '15px'
-                            }}
-                            autoFocus
+                            style={{ marginTop: '15px' }}
                             label="Descrição"
                             type="text"
                             fullWidth
                             multiline
-                            variant="standard"
+                            rows={3}
+                            variant="outlined"
                             value={skill.description}
-                            onChange={
-                                ({ target }) => {
-                                    const value = target.value;
-
-                                    setSkill(prevState => ({
-                                        ...prevState,
-                                        description: value
-                                    }));
-                                }
-                            }
+                            onChange={({ target }) => {
+                                setSkill(prevState => ({
+                                    ...prevState,
+                                    description: target.value
+                                }));
+                            }}
                             spellCheck={false}
                         />
                     </Grid>
                 </Grid>
             </DialogContent>
             <DialogActions>
-                <Button
-                    onClick={handleClose}
-                    color="secondary"
-                >
+                <Button onClick={handleClose} color="secondary">
                     Cancelar
                 </Button>
-                <Button
-                    onClick={submit}
-                >
+                <Button onClick={submit} variant="contained">
                     Confirmar
                 </Button>
             </DialogActions>

@@ -9,32 +9,21 @@ export default async function handler(req, res) {
         }
 
         const skill = await prisma.skill.create({
-            data: body
-        });
-
-        // Assign Created Skill to All Characters
-        const characters = await prisma.character.findMany();
-
-        characters.forEach(async character => {
-            await prisma.characterSkills.create({
-                data: {
-                    character_id: character.id,
-                    skill_id: skill.id
-                }
-            });
+            data: {
+                name: body.name,
+                description: body.description || '',
+                attribute_id: body.attribute_id ? Number(body.attribute_id) : null
+            }
         });
 
         return res.status(200).json(skill);
     }
     else if(req.method === 'GET') {
         const skills = await prisma.skill.findMany({
-            orderBy: [
-                {
-                    name: 'asc',
-                }
-            ]
+            include: {
+                attribute: true
+            }
         });
-
         return res.status(200).json(skills);
     }
     else {

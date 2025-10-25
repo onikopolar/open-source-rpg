@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { withStyles } from '@mui/styles';
 import {
     TextField, Dialog, DialogActions, DialogContent, DialogContentText,
-    DialogTitle, Button, Grid, Select, MenuItem, FormControl, InputLabel
+    DialogTitle, Button, Grid, Select, MenuItem, FormControl, InputLabel,
+    Box, Typography
 } from '@mui/material'
 
 import { api } from '../../utils'
@@ -14,16 +15,65 @@ const styles = theme => ({
 function DiceRollModal({
     classes,
     handleClose,
-
     characterId,
     onDiceRoll
 }) {
+    // Carregar preferências salvas ou usar padrão
     const [timesToRoll, setTimesToRoll] = useState(1);
     const [facesNumber, setFacesNumber] = useState(6);
-
     const [buttonDisabled, setButtonDisabled] = useState(false);
-
     const [result, setResult] = useState(null);
+
+    // Quando o modal abre, carrega as preferências salvas
+    useEffect(() => {
+        const savedTimes = localStorage.getItem('diceRoller_timesToRoll');
+        const savedFaces = localStorage.getItem('diceRoller_facesNumber');
+        
+        if (savedTimes) setTimesToRoll(Number(savedTimes));
+        if (savedFaces) setFacesNumber(Number(savedFaces));
+    }, []);
+
+    // Salvar preferências quando mudar
+    const savePreferences = (times, faces) => {
+        localStorage.setItem('diceRoller_timesToRoll', times);
+        localStorage.setItem('diceRoller_facesNumber', faces);
+    };
+
+    const getSuccessThreshold = (faces) => {
+        const thresholds = {
+            3: 2,
+            4: 3,
+            6: 4,
+            8: 5,
+            10: 6,
+            12: 7,
+            16: 9,
+            20: 11,
+            30: 16,
+            100: 51
+        };
+        return thresholds[faces] || Math.ceil(faces / 2);
+    }
+
+    const getRollResult = (rolls, faces) => {
+        const threshold = getSuccessThreshold(faces);
+        const total = rolls.reduce((acc, curr) => acc + curr.rolled_number, 0);
+        const successes = rolls.filter(roll => roll.rolled_number >= threshold).length;
+        const failures = rolls.filter(roll => roll.rolled_number < threshold).length;
+        const criticalSuccess = rolls.some(roll => roll.rolled_number === faces);
+        const criticalFailure = rolls.some(roll => roll.rolled_number === 1);
+
+        return {
+            rolls,
+            total,
+            successes,
+            failures,
+            criticalSuccess,
+            criticalFailure,
+            threshold,
+            faces
+        };
+    }
 
     const rollDice = () => {
         setButtonDisabled(true);
@@ -36,21 +86,40 @@ function DiceRollModal({
             return window.alert('O número de dados precisa ser maior que 1.');
         }
 
+        // Salvar as preferências atuais
+        savePreferences(timesToRoll, facesNumber);
+
         api.post('roll', {
             character_id: characterId,
             max_number: facesNumber,
             times: timesToRoll
         })
         .then(res => {
-            setResult(res.data);
-
+            const rollResult = getRollResult(res.data, facesNumber);
+            setResult(rollResult);
             setButtonDisabled(false);
 
-            onDiceRoll(res.data);
+            if(onDiceRoll) {
+                onDiceRoll(rollResult);
+            }
         })
         .catch(err => {
             console.log(err);
         });
+    }
+
+    const getResultColor = (result) => {
+        if (result.criticalSuccess) return '#4caf50';
+        if (result.criticalFailure) return '#f44336';
+        if (result.successes > 0) return '#2196f3';
+        return '#ff9800';
+    }
+
+    const getResultText = (result) => {
+        if (result.criticalSuccess) return 'Sucesso Crítico';
+        if (result.criticalFailure) return 'Falha Crítica';
+        if (result.successes > 0) return 'Sucesso';
+        return 'Falha';
     }
 
     return (
@@ -68,40 +137,83 @@ function DiceRollModal({
                     result ? (
                         <Grid container spacing={2}>
                             <Grid item xs={12}>
-                                <ul
-                                    style={{
-                                        margin: 0, 
-                                        padding: 0, 
-                                        paddingLeft: '16px', 
-                                        marginBottom: '16px', 
-                                        listStyleType: 'square' 
-                                    }}
-                                >
-                                    {
-                                        result.map((each, index) => (
-                                            <li key={index}>
-                                                {each.rolled_number}
-                                            </li>
-                                        ))
-                                    }
-                                </ul>
+                                <Box sx={{ 
+                                    p: 2, 
+                                    backgroundColor: getResultColor(result),
+                                    color: 'white',
+                                    borderRadius: 1,
+                                    textAlign: 'center',
+                                    fontWeight: 'bold',
+                                    mb: 2
+                                }}>
+                                    <Typography variant="h6">
+                                        {getResultText(result)}
+                                    </Typography>
+                                </Box>
+                                
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                                    {result.rolls.map((each, index) => (
+                                        <Box
+                                            key={index}
+                                            sx={{
+                                                width: 40,
+                                                height: 40,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                borderRadius: 1,
+                                                backgroundColor: '#e0e0e0',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            {each.rolled_number}
+                                        </Box>
+                                    ))}
+                                </Box>
 
-                                {
-                                    result.length > 1 && (
-                                        <span>
-                                            <strong>Total:</strong>
-                                            <span>&nbsp;</span>
-                                            {result.reduce((acc, curr) => acc + curr.rolled_number, 0)}
-                                        </span>
-                                    )
-                                }
+                                <Grid container spacing={2}>
+                                    <Grid item xs={6}>
+                                        <Typography variant="body1">
+                                            <strong>Total:</strong> {result.total}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Typography variant="body1">
+                                            <strong>Sucessos:</strong> {result.successes}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Typography variant="body1">
+                                            <strong>Falhas:</strong> {result.failures}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Typography variant="body1">
+                                            <strong>Limite:</strong> {result.threshold}+
+                                        </Typography>
+                                    </Grid>
+                                    {result.criticalSuccess && (
+                                        <Grid item xs={12}>
+                                            <Typography variant="body2" color="success.main">
+                                                <strong>Crítico:</strong> Valor máximo alcançado
+                                            </Typography>
+                                        </Grid>
+                                    )}
+                                    {result.criticalFailure && (
+                                        <Grid item xs={12}>
+                                            <Typography variant="body2" color="error.main">
+                                                <strong>Crítico:</strong> Valor mínimo alcançado
+                                            </Typography>
+                                        </Grid>
+                                    )}
+                                </Grid>
                             </Grid>
                         </Grid>
                     ) : (
                         <Grid container spacing={2}>
                             <Grid item xs={12}>
                                 <DialogContentText>
-                                    Selecione o número de dados que você deseja rolar ao <strong>mesmo tempo</strong> e o número de faces.
+                                    Selecione o número de dados que você deseja rolar ao mesmo tempo e o número de faces.
                                 </DialogContentText>
                             </Grid>
 
@@ -116,8 +228,9 @@ function DiceRollModal({
                                     onChange={
                                         ({ target }) => {
                                             const value = target.value;
-
                                             setTimesToRoll(Number(value));
+                                            // Salva automaticamente quando muda
+                                            savePreferences(Number(value), facesNumber);
                                         }
                                     }
                                 />
@@ -132,8 +245,9 @@ function DiceRollModal({
                                         onChange={
                                             ({ target }) => {
                                                 const value = target.value;
-            
                                                 setFacesNumber(Number(value));
+                                                // Salva automaticamente quando muda
+                                                savePreferences(timesToRoll, Number(value));
                                             }
                                         }
                                     >

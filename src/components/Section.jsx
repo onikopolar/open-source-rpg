@@ -1,59 +1,44 @@
-import React from 'react'
-import { withStyles } from '@mui/styles'
+import React from 'react';
+import { Box, Typography } from '@mui/material';
 
-const styles = theme => ({
-    root: {
-        background: theme.palette.primary[600],
-        borderRadius: '6px',
-        padding: '15px',
-        height: '100%',
-        overflow: 'auto'
-    },
-    title: {
-        color: theme.palette.primary.main,
-        textTransform: 'uppercase',
-        margin: 0,
-        marginTop: '10px',
-        marginBottom: '10px',
-        marginLeft: '5px'
-    },
-    subtitle: {
-        color: theme.palette.secondary.main,
-        margin: 0,
-        marginTop: '10px',
-        marginBottom: '10px',
-        marginLeft: '5px'
-    }
-})
+const Section = ({ title, children, renderButton, ...props }) => {
+  return (
+    <Box
+      sx={{
+        padding: 3,
+        margin: 2,
+        backgroundColor: 'background.paper',
+        borderRadius: 1,
+        boxShadow: 1,
+        border: '1px solid',
+        borderColor: 'divider',
+      }}
+      {...props}
+    >
+      {title && (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: 2 
+        }}>
+          <Typography 
+            variant="h5" 
+            component="h2" 
+            sx={{ 
+              color: 'primary.main',
+              fontWeight: 'bold',
+            }}
+          >
+            {title}
+          </Typography>
+          
+          {renderButton && renderButton()}
+        </Box>
+      )}
+      {children}
+    </Box>
+  );
+};
 
-const Section = ({
-    children,
-    classes,
-    title,
-    subtitle,
-
-    renderButton
-}) => {
-    return (
-        <div className={classes.root}>
-            <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-                <div>
-                    <h2 className={classes.title}>{title}</h2>
-                    <span className={classes.subtitle}>{subtitle}</span>
-                </div>
-                {
-                    renderButton && (
-                        <div style={{ alignSelf: 'center' }}>
-                            {renderButton()}
-                        </div>
-                    )
-                }
-            </div>
-            <div style={{ padding: '20px' }}>
-                {children}
-            </div>
-        </div>
-    )
-}
-
-export default withStyles(styles)(Section);
+export default Section;

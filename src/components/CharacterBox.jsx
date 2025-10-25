@@ -1,7 +1,5 @@
 import React from 'react';
-import { withStyles } from '@mui/styles';
-import { Button } from '@mui/material';
-
+import { Box, Button, Typography } from '@mui/material';
 import Image from 'next/image';
 
 import {
@@ -13,53 +11,9 @@ import {
 } from '@mui/icons-material';
 
 import useModal from '../hooks/useModal';
-
 import GeneratePortraitModal from './modals/GeneratePortraitModal';
 
-const styles = (theme) => ({
-  root: {
-    background: theme.palette.primary[900],
-    borderRadius: '5px',
-    padding: '15px',
-    width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    minHeight: '121px',
-    gap: '20px',
-  },
-
-  characterImage: {
-    width: '75px',
-    borderRadius: '50%',
-  },
-
-  characterName: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    marginTop: '8px',
-  },
-
-  hpInfo: {
-    fontWeight: 'bold',
-  },
-
-  mainInformations: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'start',
-    flexDirection: 'column',
-    gap: '10px',
-  },
-
-  btn: {
-    width: 40,
-    height: 40,
-    minWidth: 40,
-    borderRadius: '5px'
-  },
-});
-
-function CharacterBox({ classes, character, deleteCharacter, ...rest }) {
+function CharacterBox({ character, deleteCharacter, ...rest }) {
   const getCharacterPictureURL = () => {
     if(!character) {
       return null;
@@ -85,75 +39,127 @@ function CharacterBox({ classes, character, deleteCharacter, ...rest }) {
   ));
 
   return (
-    <div className={classes.root} {...rest}>
+    <Box
+      sx={{
+        backgroundColor: 'primary.900',
+        borderRadius: '5px',
+        padding: '15px',
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        minHeight: '121px',
+        gap: '20px',
+      }}
+      {...rest}
+    >
       <Image
         src={getCharacterPictureURL()}
         alt="Character Portrait"
-        className={classes.characterImage}
+        style={{
+          width: '75px',
+          height: '75px',
+          borderRadius: '50%',
+        }}
         width={70}
         height={100}
       />
-      <div className={classes.mainInformations}>
-        <span className={classes.characterName}>{character.name} (ID: {character.id})</span>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#E80A67',
-            gap: '3px',
-          }}
-        >
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'start',
+        flexDirection: 'column',
+        gap: '10px',
+      }}>
+        <Typography sx={{
+          fontSize: '18px',
+          fontWeight: 'bold',
+          marginTop: '8px',
+          color: 'white'
+        }}>
+          {character.name} (ID: {character.id})
+        </Typography>
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#E80A67',
+          gap: '3px',
+        }}>
           {character.current_hit_points === 0 ? (
             <HeartIconNoLife />
           ) : (
             <HeartIcon />
           )}
-          <span className={classes.hpInfo}>
+          <Typography sx={{ fontWeight: 'bold', color: 'white' }}>
             {character.current_hit_points}/{character.max_hit_points}
-          </span>
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            marginTop: '10px'
-          }}
-        >
-          <div>
-            <Button
-              variant="outlined"
-              href={`/sheet/${character.id}`}
-              target="_blank"
-              className={classes.btn}
-            >
-              <LinkIcon />
-            </Button>
-          </div>
-          <div>
-            <Button
-              variant="outlined"
-              className={classes.btn}
-              onClick={() => generatePortraitModal.appear({ characterId: character.id })}
-            >
-              <CameraIcon />
-            </Button>
-          </div>
-          <div>
-            <Button
-              variant="outlined"
-              onClick={() => deleteCharacter(character.id)}
-              className={classes.btn}
-            >
-              <DeleteIcon />
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+          </Typography>
+        </Box>
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '10px',
+          marginTop: '10px'
+        }}>
+          <Button
+            variant="outlined"
+            href={`/sheet/${character.id}`}
+            target="_blank"
+            sx={{ 
+              width: 40, 
+              height: 40, 
+              minWidth: 40, 
+              borderRadius: '5px',
+              color: 'white',
+              borderColor: 'white',
+              '&:hover': {
+                borderColor: 'primary.light',
+                backgroundColor: 'primary.700'
+              }
+            }}
+          >
+            <LinkIcon />
+          </Button>
+          <Button
+            variant="outlined"
+            sx={{ 
+              width: 40, 
+              height: 40, 
+              minWidth: 40, 
+              borderRadius: '5px',
+              color: 'white',
+              borderColor: 'white',
+              '&:hover': {
+                borderColor: 'primary.light',
+                backgroundColor: 'primary.700'
+              }
+            }}
+            onClick={() => generatePortraitModal.appear({ characterId: character.id })}
+          >
+            <CameraIcon />
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => deleteCharacter(character.id)}
+            sx={{ 
+              width: 40, 
+              height: 40, 
+              minWidth: 40, 
+              borderRadius: '5px',
+              color: 'white',
+              borderColor: 'white',
+              '&:hover': {
+                borderColor: 'error.light',
+                backgroundColor: 'error.dark'
+              }
+            }}
+          >
+            <DeleteIcon />
+          </Button>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
-export default withStyles(styles)(CharacterBox);
+export default CharacterBox;

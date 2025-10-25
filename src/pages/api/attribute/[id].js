@@ -1,42 +1,29 @@
 import { prisma } from '../../../database';
 
 export default async function handler(req, res) {
+    const { id } = req.query;
+
     if(req.method === 'DELETE') {
-        const id = Number(req.query.id);
-
-        const deleteFromCharacterAttributes = prisma.characterAttributes.deleteMany({
+        // Verificar se existem personagens usando este atributo - NOME CORRETO: CharacterAttributes
+        const characterAttributes = await prisma.characterAttributes.findMany({
             where: {
-                attribute_id: id
+                attribute_id: Number(id)
             }
         });
 
-        const deleteAttribute = prisma.attribute.delete({
+        // Se existirem personagens usando, não podemos deletar
+        if(characterAttributes.length > 0) {
+            return res.status(400).json({ error: 'Cannot delete attribute: characters are using it' });
+        }
+
+        // Se não existirem, podemos deletar
+        await prisma.attribute.delete({
             where: {
-                id
+                id: Number(id)
             }
         });
-
-        await prisma.$transaction([deleteFromCharacterAttributes, deleteAttribute]);
 
         return res.status(200).json({ success: true });
-    }
-    else if(req.method === 'PUT') {
-        const { body } = req;
-
-        if(!body.name) {
-            return res.status(400).json({ error: 'Name not set' });
-        }
-        
-        const id = Number(req.query.id);
-    
-        const attribute = await prisma.attribute.update({
-            where: {
-                id
-            },
-            data: body
-        });
-
-        return res.status(200).json(attribute);
     }
     else {
         return res.status(404);

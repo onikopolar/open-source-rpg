@@ -1,36 +1,55 @@
-import React from 'react'
-import { withStyles } from '@mui/styles'
-import { Add as AddIcon } from '@mui/icons-material'
+import React from 'react';
+import { Box, Typography } from '@mui/material';
 
-const styles = theme => ({
-    root: {
-        background: theme.palette.primary[900],
-        borderRadius: '3px',
-        padding: '15px',
+const AddBox = ({ title, children, onClick, ...props }) => {
+  return (
+    <Box
+      sx={{
+        backgroundColor: 'primary.main',
+        borderRadius: '8px',
+        padding: '20px',
         width: '100%',
+        minHeight: '120px',
+        cursor: 'pointer',
         display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        flexDirection: 'column',
-        height: '100%',
-        cursor: 'pointer',
-    },
+        '&:hover': {
+          backgroundColor: 'primary.dark',
+          transform: 'translateY(-2px)',
+          boxShadow: 3,
+        },
+        transition: 'all 0.3s ease',
+        boxShadow: 1,
+      }}
+      onClick={onClick}
+      {...props}
+    >
+      <Typography 
+        variant="h6" 
+        component="div"
+        sx={{ 
+          color: 'white', 
+          textAlign: 'center',
+          fontWeight: 'bold',
+          mb: 1
+        }}
+      >
+        {title || '+'}
+      </Typography>
+      <Typography 
+        variant="body2" 
+        sx={{ 
+          color: 'white', 
+          textAlign: 'center',
+          opacity: 0.9
+        }}
+      >
+        {children || 'Clique para adicionar'}
+      </Typography>
+    </Box>
+  );
+};
 
-    icon: {
-        fontSize: '65px',
-        color: theme.palette.primary.main
-    }
-})
-
-const AddBox = ({
-    classes,
-    ...rest
-}) => {
-    return (
-        <div className={classes.root} {...rest}>
-            <AddIcon className={classes.icon} />
-        </div>
-    )
-}
-
-export default withStyles(styles)(AddBox);
+export default AddBox;

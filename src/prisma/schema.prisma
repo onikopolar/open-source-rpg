@@ -1,6 +1,9 @@
+// Prisma Schema File - RPG Character Management System
+// Database configuration and data models
+
 datasource db {
-  provider = "mysql"
-  url      = env("DB_PROVIDER_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 generator client {
@@ -8,90 +11,111 @@ generator client {
 }
 
 model Character {
-  id Int @id @default(autoincrement())
-  name String
-  age Int?
-  gender String?
-  player_name String?
-  current_hit_points Int @default(0)
-  max_hit_points Int @default(0)
-  current_picture Int @default(1)
-  is_dead Boolean @default(false)
+  id                           Int     @id @default(autoincrement())
+  name                         String
+  age                          Int?
+  gender                       String?
+  player_name                  String?
+  rpg_system                   String  @default("classic")
+  current_hit_points           Int     @default(0)
+  max_hit_points               Int     @default(0)
+  current_picture              Int     @default(1)
+  is_dead                      Boolean @default(false)
   standard_character_picture_url String?
   injured_character_picture_url String?
+  created_at                   DateTime @default(now())
 
-  created_at DateTime @default(now())
-
+  // Relations
   attributes CharacterAttributes[]
-  skills CharacterSkills[]
-  rolls Roll[]
-  
+  skills     CharacterSkills[]
+  rolls      Roll[]
+
+  // Indexes and constraints
   @@map("character")
+  @@index([name])
+  @@index([player_name])
+  @@index([rpg_system])
+  @@index([created_at])
 }
 
 model CharacterAttributes {
-  character Character @relation(fields: [character_id], references: [id])
   character_id Int
-  attribute Attribute @relation(fields: [attribute_id], references: [id])
   attribute_id Int
+  value        String?
 
-  value String?
+  // Relations
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+  attribute Attribute @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
 
+  // Composite primary key
   @@id([character_id, attribute_id])
-
   @@map("character_attributes")
 }
 
 model Attribute {
-  id Int @id @default(autoincrement())
-  name String
+  id          Int    @id @default(autoincrement())
+  name        String
   description String?
 
+  // Relations
   characters CharacterAttributes[]
-  
+
+  // Indexes and constraints
   @@map("attribute")
+  @@unique([name])
+  @@index([name])
 }
 
 model CharacterSkills {
-  character Character @relation(fields: [character_id], references: [id])
   character_id Int
-  skill Skill @relation(fields: [skill_id], references: [id])
-  skill_id Int
+  skill_id     Int
+  value        String?
 
-  value String?
+  // Relations
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+  skill     Skill     @relation(fields: [skill_id], references: [id], onDelete: Cascade)
 
+  // Composite primary key
   @@id([character_id, skill_id])
   @@map("character_skills")
 }
 
 model Skill {
-  id Int @id @default(autoincrement())
-  name String
+  id          Int    @id @default(autoincrement())
+  name        String
   description String?
 
+  // Relations
   characters CharacterSkills[]
 
+  // Indexes and constraints
   @@map("skills")
+  @@unique([name])
+  @@index([name])
 }
 
 model Roll {
-  id Int @id @default(autoincrement())
-
-  max_number Int
+  id            Int      @id @default(autoincrement())
+  max_number    Int
   rolled_number Int
+  character_id  Int
+  rolled_at     DateTime @default(now())
 
-  character   Character @relation(fields: [character_id], references: [id])
-  character_id Int
+  // Relations
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
 
-  rolled_at DateTime @default(now())
-  
+  // Indexes and constraints
   @@map("roll")
+  @@index([character_id])
+  @@index([rolled_at])
 }
 
 model Config {
-  id Int @id @default(autoincrement())
-  name String @unique
+  id    Int    @id @default(autoincrement())
+  name  String @unique
   value String?
-  
+
+  // Indexes and constraints
   @@map("config")
+  @@index([name])
 }

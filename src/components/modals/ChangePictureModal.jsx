@@ -24,10 +24,13 @@ function ChangePictureModal({
     });
 
     useEffect(() => {
-        setPictureURLs({
-            standard_character_picture_url: character.standard_character_picture_url,
-            injured_character_picture_url: character.injured_character_picture_url
-        });
+        // CORREÇÃO: Verificar se character existe antes de acessar
+        if (character) {
+            setPictureURLs({
+                standard_character_picture_url: character.standard_character_picture_url || '',
+                injured_character_picture_url: character.injured_character_picture_url || ''
+            });
+        }
     }, [character]);
 
     function validateImageURL(url) {
@@ -62,6 +65,11 @@ function ChangePictureModal({
 
         if(!pictureURLs.injured_character_picture_url.endsWith('.png') && !pictureURLs.standard_character_picture_url.endsWith('.png')) {
             return window.alert('As artes precisam estar em formato PNG.');
+        }
+
+        // CORREÇÃO: Verificar se character existe
+        if (!character || !character.id) {
+            return window.alert('Personagem não encontrado!');
         }
 
         api.put(`/character/${character.id}`, {
