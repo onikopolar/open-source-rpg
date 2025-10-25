@@ -1,11 +1,13 @@
 export default function handler(req, res) {
   if (req.method === 'POST') {
-    // Simula criação de character
+    // Simula rolagem de dados
     return res.status(200).json({ 
       success: true, 
-      message: 'Personagem criado localmente',
-      id: Date.now().toString(),
-      data: req.body
+      message: 'Rolagem realizada localmente',
+      result: {
+        total: Math.floor(Math.random() * 20) + 1,
+        dice: [Math.floor(Math.random() * 6) + 1]
+      }
     });
   }
   

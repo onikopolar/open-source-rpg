@@ -47,6 +47,9 @@ import YearZeroSheet from '../../components/sheets/YearZeroSheet';
 import useModal from '../../hooks/useModal';
 import { prisma } from '../../database';
 
+/**
+ * Valida e converte o ID do personagem
+ */
 const validateCharacterId = (id) => {
   console.log('[DEBUG] validateCharacterId - Validando ID:', id);
   const characterId = Number(id);
@@ -55,6 +58,9 @@ const validateCharacterId = (id) => {
   return isValid ? characterId : null;
 };
 
+/**
+ * Props do servidor para a pagina de ficha do personagem
+ */
 export const getServerSideProps = async ({ params }) => {
   console.log('[DEBUG] getServerSideProps - Iniciando SSR com params:', params);
   
@@ -130,6 +136,9 @@ export const getServerSideProps = async ({ params }) => {
   }
 };
 
+/**
+ * Hook personalizado para gerenciar estados da ficha com sistema expansivel
+ */
 const useCharacterSheet = (rawCharacter) => {
   console.log('[DEBUG] useCharacterSheet - Inicializando hook com rawCharacter:', rawCharacter?.id);
   
@@ -152,6 +161,9 @@ const useCharacterSheet = (rawCharacter) => {
     isSheetExpanded
   });
 
+  /**
+   * Inicializa os valores dos atributos e habilidades
+   */
   useEffect(() => {
     console.log('[DEBUG] useCharacterSheet useEffect - Inicializando valores de atributos e habilidades');
     
@@ -174,6 +186,9 @@ const useCharacterSheet = (rawCharacter) => {
     }
   }, [character]);
 
+  /**
+   * Controla estados de loading
+   */
   const setLoading = useCallback((key, isLoading) => {
     console.log(`[DEBUG] useCharacterSheet setLoading - ${key}: ${isLoading}`);
     setLoadingStates(prev => ({
@@ -182,6 +197,9 @@ const useCharacterSheet = (rawCharacter) => {
     }));
   }, []);
 
+  /**
+   * Gerencia erros da aplicacao
+   */
   const handleApiError = useCallback((error, context) => {
     console.error(`[ERROR] useCharacterSheet handleApiError - Contexto: ${context}`, error);
     const errorMessage = error.response?.data?.error || error.message || `Erro ao ${context}`;
@@ -189,6 +207,9 @@ const useCharacterSheet = (rawCharacter) => {
     return errorMessage;
   }, []);
 
+  /**
+   * Limpa erro especifico
+   */
   const clearError = useCallback((context) => {
     console.log(`[DEBUG] useCharacterSheet clearError - Limpando erro: ${context}`);
     setErrors(prev => {
@@ -198,6 +219,9 @@ const useCharacterSheet = (rawCharacter) => {
     });
   }, []);
 
+  /**
+   * Manipula a mudanca do sistema RPG
+   */
   const handleSystemChange = useCallback(async (newSystem) => {
     console.log('[DEBUG] useCharacterSheet handleSystemChange - Nova solicitacao:', { 
       currentSystem: rpgSystem, 
@@ -282,6 +306,9 @@ const useCharacterSheet = (rawCharacter) => {
   };
 };
 
+/**
+ * Componente principal da ficha do personagem com sistema expansivel
+ */
 function CharacterSheet({ rawCharacter, error: serverError }) {
   console.log('[DEBUG] CharacterSheet - Componente renderizado com props:', {
     rawCharacterId: rawCharacter?.id,
@@ -326,11 +353,17 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     errorsCount: Object.keys(errors).length
   });
 
+  /**
+   * Atualiza os dados da pagina
+   */
   const refreshData = useCallback(() => {
     console.log('[DEBUG] CharacterSheet refreshData - Atualizando dados da pagina');
     return router.replace(router.asPath);
   }, [router]);
 
+  /**
+   * Manipula o envio das informacoes do personagem
+   */
   const handleCharacterInfoSubmit = useCallback(async (values) => {
     console.log('[DEBUG] CharacterSheet handleCharacterInfoSubmit - Iniciando atualizacao:', values);
     setLoading('characterInfo', true);
@@ -348,6 +381,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }
   }, [character, setLoading, clearError, handleApiError]);
 
+  /**
+   * Manipula a atualizacao dos pontos de vida
+   */
   const handleHitPointsUpdate = useCallback(async (newData) => {
     console.log('[DEBUG] CharacterSheet handleHitPointsUpdate - Atualizando pontos de vida:', newData);
     setLoading('hitPoints', true);
@@ -391,6 +427,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }
   }, [character, setLoading, clearError, handleApiError, setCharacter]);
 
+  /**
+   * Manipula mudancas rapidas de saude (cura/dano)
+   */
   const handleQuickHealthChange = useCallback(async (amount, type = 'heal') => {
     console.log(`[DEBUG] CharacterSheet handleQuickHealthChange - ${type} ${amount} pontos`);
     
@@ -441,6 +480,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }
   }, [character, setLoading, clearError, handleApiError, setCharacter]);
 
+  /**
+   * Manipula a alteracao de valores de atributos
+   */
   const handleAttributeChange = useCallback((attributeId, newValue) => {
     console.log(`[DEBUG] CharacterSheet handleAttributeChange - Atributo ${attributeId}: ${newValue}`);
     const numericValue = newValue === '' ? '' : parseInt(newValue) || 0;
@@ -451,6 +493,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }));
   }, []);
 
+  /**
+   * Manipula a alteracao de valores de habilidades
+   */
   const handleSkillChange = useCallback((skillId, newValue) => {
     console.log(`[DEBUG] CharacterSheet handleSkillChange - Habilidade ${skillId}: ${newValue}`);
     const numericValue = newValue === '' ? '' : parseInt(newValue) || 0;
@@ -461,6 +506,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }));
   }, []);
 
+  /**
+   * Salva o valor de um atributo
+   */
   const saveAttributeValue = useCallback(async (attributeId) => {
     console.log(`[DEBUG] CharacterSheet saveAttributeValue - Salvando atributo ${attributeId}`);
     setLoading(`attribute-${attributeId}`, true);
@@ -470,7 +518,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       const value = attributeValues[attributeId] || 0;
       console.log(`[DEBUG] CharacterSheet saveAttributeValue - Valor a ser salvo: ${value}`);
       
-      await api.put('/yearzero/attribute', {
+      await api.put('/character/attribute', {
         character_id: character.id,
         attribute_id: attributeId,
         value: value
@@ -494,6 +542,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }
   }, [character, attributeValues, setLoading, clearError, handleApiError, setCharacter]);
 
+  /**
+   * Salva o valor de uma habilidade
+   */
   const saveSkillValue = useCallback(async (skillId) => {
     console.log(`[DEBUG] CharacterSheet saveSkillValue - Salvando habilidade ${skillId}`);
     setLoading(`skill-${skillId}`, true);
@@ -503,7 +554,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       const value = skillValues[skillId] || 0;
       console.log(`[DEBUG] CharacterSheet saveSkillValue - Valor a ser salvo: ${value}`);
       
-      await api.put('/yearzero/skill', {
+      await api.put('/character/skill', {
         character_id: character.id,
         skill_id: skillId,
         value: value
@@ -527,6 +578,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }
   }, [character, skillValues, setLoading, clearError, handleApiError, setCharacter]);
 
+  /**
+   * Obtem o valor atual de um atributo
+   */
   const getAttributeValue = useCallback((charAttr) => {
     if (!charAttr?.attribute) {
       console.warn(`[WARN] CharacterSheet getAttributeValue - Atributo invalido:`, charAttr);
@@ -544,6 +598,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     return result;
   }, [attributeValues]);
 
+  /**
+   * Obtem o valor atual de uma habilidade
+   */
   const getSkillValue = useCallback((charSkill) => {
     if (!charSkill?.skill) {
       console.warn(`[WARN] CharacterSheet getSkillValue - Habilidade invalida:`, charSkill);
@@ -561,6 +618,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     return result;
   }, [skillValues]);
 
+  /**
+   * Valida entrada numerica
+   */
   const validateNumericInput = useCallback((event) => {
     const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
     if (allowedKeys.includes(event.key)) return;
@@ -570,6 +630,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }
   }, []);
 
+  /**
+   * Modais da aplicacao - ORDEM CORRIGIDA
+   */
   const attributeDiceModal = useModal(({ close, custom }) => {
     console.log('[DEBUG] CharacterSheet attributeDiceModal - Criando modal com props:', custom);
     return (
@@ -596,6 +659,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     );
   });
 
+  // YEAR ZERO DICE MODAL MOVED TO BE DEFINED BEFORE IT'S USED
   const yearZeroDiceModal = useModal(({ close, custom }) => {
     console.log('[DEBUG] CharacterSheet yearZeroDiceModal - Criando modal com props:', custom);
     return (
@@ -637,6 +701,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     );
   });
 
+  /**
+   * Renderiza um atributo individual (Sistema Classico)
+   */
   const renderAttribute = useCallback((charAttr) => {
     if (!charAttr?.attribute?.id) {
       console.error('[ERROR] CharacterSheet renderAttribute - Atributo invalido:', charAttr);
@@ -724,6 +791,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     );
   }, [character, attributeDiceModal, getAttributeValue, handleAttributeChange, saveAttributeValue, validateNumericInput, loadingStates, errors, isMobile]);
 
+  /**
+   * Renderiza uma habilidade individual (Sistema Classico)
+   */
   const renderSkill = useCallback((charSkill) => {
     const skillId = charSkill.skill.id;
     const isLoading = loadingStates[`skill-${skillId}`];
@@ -806,6 +876,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     );
   }, [character, diceRollModal, getSkillValue, handleSkillChange, saveSkillValue, validateNumericInput, loadingStates, errors, isMobile]);
 
+  /**
+   * Configura listeners do socket para atualizacoes em tempo real
+   */
   useEffect(() => {
     console.log('[DEBUG] CharacterSheet useEffect - Configurando listeners do socket');
     
@@ -832,6 +905,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     };
   }, [character, refreshData]);
 
+  // Verificacao de erro do servidor
   if (serverError || !character) {
     console.error('[ERROR] CharacterSheet - Erro do servidor ou character ausente:', { serverError, hasCharacter: !!character });
     return (
@@ -866,6 +940,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       <Header />
 
       <Container maxWidth="lg" sx={{ py: 2, px: { xs: 1, sm: 2, md: 3 } }}>
+        {/* Exibicao de erros */}
         {Object.keys(errors).map(errorKey => (
           <Alert 
             key={errorKey} 
@@ -880,6 +955,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Alert>
         ))}
 
+        {/* Secao de Informacoes do Personagem */}
         <Section title="Informacoes do Personagem">
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
@@ -926,6 +1002,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Grid>
         </Section>
 
+        {/* SELETOR DE SISTEMA EXPANSIVEL - RECOLHE APOS SELECAO */}
         <Collapse in={isSelectorExpanded} timeout="auto" unmountOnExit>
           <Section title="Selecionar Sistema RPG">
             <SheetSelector
@@ -937,6 +1014,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Section>
         </Collapse>
 
+        {/* BOTAO TROCAR SISTEMA */}
         {!isSelectorExpanded && (
           <Box sx={{ 
             textAlign: 'center', 
@@ -977,7 +1055,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                   fontWeight: 700
                 }}
               >
-                {rpgSystem === 'year_zero' ? 'Year Zero Engine' : 'Sistema Classico'}
+                {rpgSystem === 'year_zero' ? 'Year Zero Engine' : 'Sistema Clássico'}
               </Box>
             </Typography>
             
@@ -990,7 +1068,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 mx: 'auto'
               }}
             >
-              Nao e o que voce esperava? Experimente outro estilo de sistema RPG!
+              Não é o que você esperava? Experimente outro estilo de sistema RPG!
             </Typography>
 
             <Button
@@ -1024,8 +1102,10 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Box>
         )}
 
+        {/* FICHA EXPANSIVEL - APARECE APOS SELECAO DO SISTEMA */}
         <Collapse in={isSheetExpanded} timeout="auto" unmountOnExit>
           <Box sx={{ mt: 3 }}>
+            {/* Cabecalho da ficha expansivel */}
             <Box sx={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -1044,6 +1124,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
               </Typography>
             </Box>
 
+            {/* Conteudo da ficha selecionada */}
             {rpgSystem === 'year_zero' ? (
               <YearZeroSheet 
                 character={character}
@@ -1074,28 +1155,23 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                   console.log('[DEBUG] CharacterSheet onUpdate YearZero - Chamado:', { type, name, value });
                   
                   if (type === 'attribute') {
+                    // Mapear atributos do Year Zero para atributos do sistema
                     const yearZeroToSystemMap = {
                       'FORÇA': 'FORÇA',
-                      'AGILIDADE': 'AGILIDADE', 
-                      'RACIOCÍNIO': 'RACIOCÍNIO',
-                      'EMPATIA': 'EMPATIA'
+                      'AGILIDADE': 'DESTREZA', 
+                      'RACIOCÍNIO': 'INTELIGÊNCIA',
+                      'EMPATIA': 'CARISMA'
                     };
                     
                     const systemAttributeName = yearZeroToSystemMap[name] || name;
                     console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Mapeando atributo: ${name} -> ${systemAttributeName}`);
                     
+                    // Encontrar o ID do atributo pelo nome do sistema
                     const attribute = character.attributes?.find(attr => 
                       attr.attribute?.name === systemAttributeName
                     );
                     if (attribute) {
                       console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Encontrado atributo: ${systemAttributeName} -> ID: ${attribute.attribute_id}`);
-                      
-                      const numericValue = value === '' ? '' : parseInt(value) || 0;
-                      setAttributeValues(prev => ({
-                        ...prev,
-                        [attribute.attribute_id]: numericValue
-                      }));
-                      
                       saveAttributeValue(attribute.attribute_id);
                     } else {
                       console.warn(`[WARN] CharacterSheet onUpdate YearZero - Atributo nao encontrado: ${systemAttributeName}. Atributos disponiveis:`, 
@@ -1103,48 +1179,15 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                     }
                   } else if (type === 'skill') {
                     console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Habilidade do Year Zero: ${name}`);
-                    
-                    const yearZeroSkillToSystemMap = {
-                      'Combate Corpo a Corpo': 'Combate Corpo a Corpo',
-                      'Maquinario Pesado': 'Maquinário Pesado',
-                      'Resistencia': 'Resistência', 
-                      'Combate a Distancia': 'Combate à Distância',
-                      'Mobilidade': 'Mobilidade',
-                      'Pilotagem': 'Pilotagem',
-                      'Observação': 'Observação',
-                      'Sobrevivência': 'Sobrevivência', 
-                      'Tecnologia': 'Tecnologia',
-                      'Manipulação': 'Manipulação',
-                      'Comando': 'Comando',
-                      'Cuidados Médicos': 'Cuidados Médicos'
-                    };
-                    
-                    const systemSkillName = yearZeroSkillToSystemMap[name] || name;
-                    console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Mapeando habilidade: ${name} -> ${systemSkillName}`);
-                    
-                    const skill = character.skills?.find(s => 
-                      s.skill?.name === systemSkillName
-                    );
-                    
-                    if (skill) {
-                      console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Encontrada habilidade: ${systemSkillName} -> ID: ${skill.skill_id}`);
-                      
-                      const numericValue = value === '' ? '' : parseInt(value) || 0;
-                      setSkillValues(prev => ({
-                        ...prev,
-                        [skill.skill_id]: numericValue
-                      }));
-                      
-                      saveSkillValue(skill.skill_id);
-                    } else {
-                      console.warn(`[WARN] CharacterSheet onUpdate YearZero - Habilidade nao encontrada: ${systemSkillName}. Habilidades disponiveis:`, 
-                        character.skills?.map(s => s.skill?.name));
-                    }
+                    console.log(`[WARN] CharacterSheet onUpdate YearZero - Habilidades do Year Zero nao sao salvas no banco. Apenas logando.`);
+                    console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Valor da habilidade: ${value}`);
+                    console.log(`[INFO] CharacterSheet onUpdate YearZero - Para salvar habilidades do Year Zero, criar mapeamento no banco.`);
                   }
                 }}
 
                 onAttributeRoll={(attributeName, attributeValue) => {
                   console.log('[DEBUG] CharacterSheet - Rolagem de atributo Year Zero:', { attributeName, attributeValue });
+                  // Lógica para calcular dados base do Year Zero
                   let baseDice = 0;
                   const value = parseInt(attributeValue) || 0;
                   if (value >= 5) baseDice = 2;
@@ -1163,12 +1206,13 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 }}
                 onSkillRoll={(skillName, skillValue) => {
                   console.log('[DEBUG] CharacterSheet - Rolagem de skill Year Zero:', { skillName, skillValue });
+                  // Lógica para calcular dados base + skill do Year Zero
                   const skillToAttributeMap = {
                     'Combate Corpo a Corpo': 'FORÇA',
                     'Maquinario Pesado': 'FORÇA',
                     'Resistencia': 'FORÇA',
                     'Combate a Distancia': 'AGILIDADE',
-                    'Mobilidade': 'AGILIDADE', 
+                    'Mobilidade': 'AGILIDADE',
                     'Pilotagem': 'AGILIDADE',
                     'Observação': 'RACIOCÍNIO',
                     'Sobrevivência': 'RACIOCÍNIO',
@@ -1214,7 +1258,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 isMobile={isMobile}
               />
             ) : (
+              // SISTEMA CLASSICO - Layout Tradicional
               <Box>
+                {/* STATUS BAR - AGORA DENTRO DO SISTEMA CLASSICO */}
                 <Section title="Status">
                   <StatusBar
                     character={character}
@@ -1250,6 +1296,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Box>
         </Collapse>
 
+        {/* Botoes de Rolagem de Dados - SEMPRE VISIVEIS */}
         <Box sx={{ textAlign: 'center', mt: 4, mb: 2 }}>
           <Button
             variant="contained"

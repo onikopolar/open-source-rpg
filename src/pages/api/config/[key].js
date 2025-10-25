@@ -1,11 +1,10 @@
 export default function handler(req, res) {
-  if (req.method === 'POST') {
-    // Simula criação de character
+  if (req.method === 'PUT') {
+    const { key } = req.query;
     return res.status(200).json({ 
       success: true, 
-      message: 'Personagem criado localmente',
-      id: Date.now().toString(),
-      data: req.body
+      message: \`Config \${key} atualizada localmente\`,
+      value: req.body.value
     });
   }
   

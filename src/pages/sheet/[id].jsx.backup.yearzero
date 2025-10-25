@@ -470,7 +470,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       const value = attributeValues[attributeId] || 0;
       console.log(`[DEBUG] CharacterSheet saveAttributeValue - Valor a ser salvo: ${value}`);
       
-      await api.put('/yearzero/attribute', {
+      await api.put('/character/attribute', {
         character_id: character.id,
         attribute_id: attributeId,
         value: value
@@ -503,7 +503,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       const value = skillValues[skillId] || 0;
       console.log(`[DEBUG] CharacterSheet saveSkillValue - Valor a ser salvo: ${value}`);
       
-      await api.put('/yearzero/skill', {
+      await api.put('/character/skill', {
         character_id: character.id,
         skill_id: skillId,
         value: value
@@ -1076,9 +1076,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                   if (type === 'attribute') {
                     const yearZeroToSystemMap = {
                       'FORÇA': 'FORÇA',
-                      'AGILIDADE': 'AGILIDADE', 
-                      'RACIOCÍNIO': 'RACIOCÍNIO',
-                      'EMPATIA': 'EMPATIA'
+                      'AGILIDADE': 'DESTREZA', 
+                      'RACIOCÍNIO': 'INTELIGÊNCIA',
+                      'EMPATIA': 'CARISMA'
                     };
                     
                     const systemAttributeName = yearZeroToSystemMap[name] || name;
@@ -1105,18 +1105,10 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                     console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Habilidade do Year Zero: ${name}`);
                     
                     const yearZeroSkillToSystemMap = {
-                      'Combate Corpo a Corpo': 'Combate Corpo a Corpo',
-                      'Maquinario Pesado': 'Maquinário Pesado',
-                      'Resistencia': 'Resistência', 
-                      'Combate a Distancia': 'Combate à Distância',
-                      'Mobilidade': 'Mobilidade',
-                      'Pilotagem': 'Pilotagem',
-                      'Observação': 'Observação',
-                      'Sobrevivência': 'Sobrevivência', 
-                      'Tecnologia': 'Tecnologia',
-                      'Manipulação': 'Manipulação',
-                      'Comando': 'Comando',
-                      'Cuidados Médicos': 'Cuidados Médicos'
+                      'ARMAS BRANCAS': 'LUTA',
+                      'ARMAS DE FOGO': 'PONTARIA',
+                      'FURTIVIDADE': 'FURTIVIDADE',
+                      'SOBREVIVÊNCIA': 'SOBREVIVÊNCIA'
                     };
                     
                     const systemSkillName = yearZeroSkillToSystemMap[name] || name;
@@ -1168,7 +1160,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                     'Maquinario Pesado': 'FORÇA',
                     'Resistencia': 'FORÇA',
                     'Combate a Distancia': 'AGILIDADE',
-                    'Mobilidade': 'AGILIDADE', 
+                    'Mobilidade': 'AGILIDADE',
                     'Pilotagem': 'AGILIDADE',
                     'Observação': 'RACIOCÍNIO',
                     'Sobrevivência': 'RACIOCÍNIO',

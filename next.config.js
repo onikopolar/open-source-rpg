@@ -1,28 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
-  },
-  compiler: {
-    emotion: true,
-  },
-  // Adicionar suporte experimental para ES modules
   experimental: {
-    esmExternals: true,
+    turbo: {
+      // Configurações para reduzir conflitos
+      resolveAlias: {
+        // Aliases específicos se necessário
+      }
+    }
   },
-  // Configurar webpack para JSX
-  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
-    config.resolve.extensions.push('.jsx');
-    return config;
-  },
-  // Configurações de página
-  pageExtensions: ['js', 'jsx', 'ts', 'tsx'],
-};
+  // Garantir que o Prisma funcione corretamente
+  webpack: (config) => {
+    config.externals.push('@prisma/client')
+    return config
+  }
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig

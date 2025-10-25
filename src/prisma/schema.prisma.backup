@@ -20,10 +20,6 @@ model Character {
   is_dead                        Boolean               @default(false)
   standard_character_picture_url String?
   injured_character_picture_url  String?
-  stress_level                   Int?                  @default(0)
-  trauma_level                   Int?                  @default(0)
-  willpower                      Int?                  @default(0)
-  experience                     Int?                  @default(0)
   created_at                     DateTime              @default(now())
   attributes                     CharacterAttributes[]
   skills                         CharacterSkills[]
@@ -39,7 +35,7 @@ model Character {
 model CharacterAttributes {
   character_id Int
   attribute_id Int
-  value        Int
+  value        String?
   attribute    Attribute @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
   character    Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
 
@@ -60,7 +56,7 @@ model Attribute {
 model CharacterSkills {
   character_id Int
   skill_id     Int
-  value        Int
+  value        String?
   skill        Skill     @relation(fields: [skill_id], references: [id], onDelete: Cascade)
   character    Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
 

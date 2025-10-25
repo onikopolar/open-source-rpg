@@ -1,11 +1,9 @@
 export default function handler(req, res) {
   if (req.method === 'POST') {
-    // Simula criação de character
+    // Simula setup do sistema
     return res.status(200).json({ 
       success: true, 
-      message: 'Personagem criado localmente',
-      id: Date.now().toString(),
-      data: req.body
+      message: 'Setup realizado localmente'
     });
   }
   

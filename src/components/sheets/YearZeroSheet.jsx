@@ -313,9 +313,9 @@ function YearZeroSheet({
 
   const defaultSkills = [
     { name: 'Combate Corpo a Corpo', year_zero_value: 1 },
-    { name: 'Maquinario Pesado', year_zero_value: 1 },
-    { name: 'Resistencia', year_zero_value: 1 },
-    { name: 'Combate a Distancia', year_zero_value: 1 },
+    { name: 'Maquinário Pesado', year_zero_value: 1 },
+    { name: 'Resistência', year_zero_value: 1 },
+    { name: 'Combate à Distância', year_zero_value: 1 },
     { name: 'Mobilidade', year_zero_value: 1 },
     { name: 'Pilotagem', year_zero_value: 1 },
     { name: 'Observação', year_zero_value: 1 },
@@ -351,8 +351,8 @@ function YearZeroSheet({
       collisionSize: '120px',
       skills: {
         top: 'Combate Corpo a Corpo',
-        left: 'Maquinario Pesado', 
-        right: 'Resistencia'
+        left: 'Maquinário Pesado', 
+        right: 'Resistência'
       },
       skillPositions: {
         top: { top: '-63px', left: '50%', transform: 'translateX(-50%)' },
@@ -364,7 +364,7 @@ function YearZeroSheet({
       position: classes.positionLeft,
       collisionSize: '120px',
       skills: {
-        top: 'Combate a Distancia',
+        top: 'Combate à Distância',
         left: 'Mobilidade',
         bottom: 'Pilotagem'
       },
