@@ -101,7 +101,7 @@ function YearZeroDiceModal({
             maxWidth="sm"
         >
             <DialogTitle>
-                {result ? 'Resultado Year Zero Engine' : 'Rolar Dados Year Zero Engine'}
+                {result ? 'Resultado Year Zero Engine' : 'Rolar Year Zero Engine'}
             </DialogTitle>
             <DialogContent>
                 {
@@ -149,7 +149,7 @@ function YearZeroDiceModal({
                                 <Grid item xs={12}>
                                     <DialogContentText>
                                         <Warning style={{ verticalAlign: 'middle', marginRight: 8 }} />
-                                        Voce pode empurrar a rolagem para rerolar dados.
+                                        Voce pode empurrar a rolagem para reRolar.
                                     </DialogContentText>
                                 </Grid>
                             )}
@@ -254,7 +254,7 @@ function YearZeroDiceModal({
                         disabled={buttonDisabled}
                         startIcon={<Casino />}
                     >
-                        Rolar Dados
+                        Rolar
                     </Button>
                 )}
             </DialogActions>

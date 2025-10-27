@@ -281,7 +281,7 @@ function DiceRollModal({
                         }}
                         disabled={buttonDisabled}
                     >
-                        {result ? 'Rolar Outro Dado' : 'Rolar'}
+                        {result ? 'Novos Dados' : 'Rolar'}
                     </Button>
             </DialogActions>
         </Dialog>
