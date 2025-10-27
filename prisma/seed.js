@@ -97,7 +97,7 @@ async function main() {
     for (const character of [character1, character2]) {
       for (const attribute of createdAttributes) {
         // Valores aleatorios entre 8-15 para os atributos
-        const attributeValue = Math.floor(Math.random() * 8 + 8).toString();
+        const attributeValue = Math.floor(Math.random() * 8 + 8);
         
         characterAttributes.push(
           prisma.characterAttributes.create({
@@ -120,7 +120,7 @@ async function main() {
     for (const character of [character1, character2]) {
       for (const skill of createdSkills) {
         // Valores aleatorios entre 3-8 para as habilidades
-        const skillValue = Math.floor(Math.random() * 6 + 3).toString();
+        const skillValue = Math.floor(Math.random() * 6 + 3);
         
         characterSkills.push(
           prisma.characterSkills.create({

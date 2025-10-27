@@ -64,7 +64,7 @@ const YEAR_ZERO_CONFIG = {
   }
 };
 
-// Serviço de API robusto
+// Serviço de API
 const YearZeroAPIService = {
   async request(endpoint, options = {}) {
     const url = `/api/yearzero/${endpoint}`;
@@ -146,7 +146,7 @@ const YearZeroAPIService = {
   }
 };
 
-// Hook personalizado para gerenciamento de estado
+// Hook personalizado pra gerenciamento de estado
 const useYearZeroCharacter = (characterId) => {
   const [state, setState] = useState({
     data: null,
@@ -226,7 +226,7 @@ const useYearZeroCharacter = (characterId) => {
 };
 
 /**
- * Componente de ficha Year Zero Engine - VERDADEIRAMENTE Robusto
+ * Componente de ficha Year Zero Engine
  * Completamente alinhado com a API e mecânicas do sistema
  */
 const YearZeroSheet = ({ 

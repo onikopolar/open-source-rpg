@@ -6,15 +6,15 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model Character {
   id        Int      @id @default(autoincrement())
   name      String
   createdAt DateTime @default(now())
-  
+
   characterAttributes CharacterAttributes[]
   characterSkills     CharacterSkills[]
   rolls              Roll[]
@@ -24,7 +24,7 @@ model Attribute {
   id          Int                   @id @default(autoincrement())
   name        String
   description String?
-  
+
   characterAttributes CharacterAttributes[]
 }
 
@@ -32,7 +32,7 @@ model Skill {
   id          Int               @id @default(autoincrement())
   name        String
   description String?
-  
+
   characterSkills CharacterSkills[]
 }
 
@@ -42,7 +42,7 @@ model CharacterAttributes {
   characterId Int
   attribute   Attribute @relation(fields: [attributeId], references: [id])
   attributeId Int
-  value       Int       @default(1)  // ← Agora é Int com default 1
+  value       Int       @default(1)
   @@map("character_attributes")
 }
 
@@ -52,7 +52,7 @@ model CharacterSkills {
   characterId Int
   skill       Skill     @relation(fields: [skillId], references: [id])
   skillId     Int
-  value       Int       @default(0)  // ← Agora é Int
+  value       Int       @default(0)
   @@map("character_skills")
 }
 
@@ -62,4 +62,12 @@ model Roll {
   characterId Int
   result      String
   createdAt   DateTime  @default(now())
+}
+
+model Config {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  value String
+  
+  @@map("config")
 }

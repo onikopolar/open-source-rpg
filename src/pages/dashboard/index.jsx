@@ -20,7 +20,7 @@ import { prisma } from '../../database';
 export const getServerSideProps = async () => {
   function parseConfigs(array) {
     return array.map(config => {
-      if(config.name === 'DICE_ON_SCREEN_TIMEOUT_IN_MS' || 'TIME_BETWEEN_DICES_IN_MS') {
+      if(config.name === 'DICE_ON_SCREEN_TIMEOUT_IN_MS' || config.name === 'TIME_BETWEEN_DICES_IN_MS') {
         return {
           ...config,
           value: parseInt(config.value) / 1000
@@ -382,3 +382,5 @@ const styles = (theme) => ({
 });
 
 export default withStyles(styles)(Dashboard);
+
+
