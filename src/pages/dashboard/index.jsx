@@ -75,13 +75,16 @@ export const getServerSideProps = async () => {
 function Dashboard({
   classes,
 
-  characters,
-  attributes,
-  skills,
+  characters: initialCharacters,
+  attributes: initialAttributes,
+  skills: initialSkills,
   configs
 }) {
   const router = useRouter();
 
+  const [characters, setCharacters] = useState(initialCharacters);
+  const [attributes, setAttributes] = useState(initialAttributes);
+  const [skills, setSkills] = useState(initialSkills);
   const [updatedConfigs, setUpdatedConfigs] = useState({
     DICE_ON_SCREEN_TIMEOUT_IN_MS: null,
     TIME_BETWEEN_DICES_IN_MS: null
@@ -95,10 +98,6 @@ function Dashboard({
       }));
     });
   }, [configs]);
-
-  const refreshData = () => {
-    return router.replace(router.asPath);
-  }
 
   const updateConfigs = () => {
     api.put('/config/DICE_ON_SCREEN_TIMEOUT_IN_MS', {
@@ -131,7 +130,13 @@ function Dashboard({
         api
           .delete(`/${type}/${id}`)
           .then(() => {
-            refreshData();
+            if (type === 'attribute') {
+              setAttributes(prev => prev.filter(attr => attr.id !== id));
+            } else if (type === 'skill') {
+              setSkills(prev => prev.filter(skill => skill.id !== id));
+            } else if (type === 'character') {
+              setCharacters(prev => prev.filter(char => char.id !== id));
+            }
           })
           .catch(() => {
             alert(`Erro ao apagar: ${type}`);
@@ -144,7 +149,10 @@ function Dashboard({
     <CreateCharacterModal
       handleClose={close}
       onCharacterCreated={() => {
-        refreshData();
+        // Recarrega apenas os personagens
+        api.get('/character')
+          .then(res => setCharacters(res.data))
+          .catch(() => alert('Erro ao carregar personagens'));
       }}
     />
   ));
@@ -153,8 +161,14 @@ function Dashboard({
     <AttributeModal
       handleClose={close}
       data={custom.data || null}
-      onSubmit={() => {
-        refreshData();
+      onSubmit={(newAttribute) => {
+        if (custom.operation === 'create') {
+          setAttributes(prev => [...prev, newAttribute]);
+        } else if (custom.operation === 'edit') {
+          setAttributes(prev => prev.map(attr => 
+            attr.id === newAttribute.id ? newAttribute : attr
+          ));
+        }
       }}
       operation={custom.operation}
     />
@@ -164,8 +178,14 @@ function Dashboard({
     <SkillModal
       handleClose={close}
       data={custom.data || null}
-      onSubmit={() => {
-        refreshData();
+      onSubmit={(newSkill) => {
+        if (custom.operation === 'create') {
+          setSkills(prev => [...prev, newSkill]);
+        } else if (custom.operation === 'edit') {
+          setSkills(prev => prev.map(skill => 
+            skill.id === newSkill.id ? newSkill : skill
+          ));
+        }
       }}
       operation={custom.operation}
     />
@@ -382,5 +402,3 @@ const styles = (theme) => ({
 });
 
 export default withStyles(styles)(Dashboard);
-
-

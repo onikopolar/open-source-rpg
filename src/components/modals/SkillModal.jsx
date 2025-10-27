@@ -30,7 +30,7 @@ function SkillModal({
             description: data.description || ''
         });
     }, [data]);
-    
+
     const resetState = () => {
         return setSkill({
             name: '',
@@ -46,8 +46,8 @@ function SkillModal({
 
         if(operation === 'create') {
             api.post('/skill', skill)
-                .then(() => {
-                    onSubmit();
+                .then((res) => {
+                    onSubmit(res.data); // Passa a perícia criada
                     handleClose();
                     resetState();
                 })
@@ -57,8 +57,8 @@ function SkillModal({
         }
         else if (operation === 'edit') {
             api.put(`/skill/${data.id}`, skill)
-                .then(() => {
-                    onSubmit();
+                .then((res) => {
+                    onSubmit(res.data); // Passa a perícia atualizada
                     handleClose();
                     resetState();
                 })

@@ -16,6 +16,23 @@ const EditableRow = ({
     editRow,
     deleteRow
 }) => {
+    if (!data) {
+        return (
+            <div className={classes.root}>
+                <Grid container>
+                    <Grid item md={8} xs={12}>
+                        <TextField
+                            disabled
+                            value="Carregando..."
+                            variant="standard"
+                            fullWidth
+                        />
+                    </Grid>
+                </Grid>
+            </div>
+        )
+    }
+
     return (
         <div className={classes.root}>
             <Grid container>
@@ -32,7 +49,7 @@ const EditableRow = ({
                 <Grid item md={8} xs={12}>
                     <TextField
                         disabled
-                        value={data.name}
+                        value={data.name || ''}
                         variant="standard"
                         fullWidth
                     />

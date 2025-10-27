@@ -46,8 +46,8 @@ function AttributeModal({
 
         if(operation === 'create') {
             api.post('/attribute', attribute)
-                .then(() => {
-                    onSubmit();
+                .then((res) => {
+                    onSubmit(res.data); // Passa o atributo criado
                     handleClose();
                     resetState();
                 })
@@ -57,8 +57,8 @@ function AttributeModal({
         }
         else if (operation === 'edit') {
             api.put(`/attribute/${data.id}`, attribute)
-                .then(() => {
-                    onSubmit();
+                .then((res) => {
+                    onSubmit(res.data); // Passa o atributo atualizado
                     handleClose();
                     resetState();
                 })
