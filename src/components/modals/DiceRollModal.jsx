@@ -7,6 +7,7 @@ import {
 } from '@mui/material'
 
 import { api } from '../../utils'
+import socket from '../../utils/socket'
 
 const styles = theme => ({
 
@@ -28,7 +29,7 @@ function DiceRollModal({
     useEffect(() => {
         const savedTimes = localStorage.getItem('diceRoller_timesToRoll');
         const savedFaces = localStorage.getItem('diceRoller_facesNumber');
-        
+
         if (savedTimes) setTimesToRoll(Number(savedTimes));
         if (savedFaces) setFacesNumber(Number(savedFaces));
     }, []);
@@ -99,12 +100,26 @@ function DiceRollModal({
             setResult(rollResult);
             setButtonDisabled(false);
 
+            // EMITIR EVENTO SOCKET PARA A TELA DE DADOS
+            if (socket && characterId) {
+                console.log('[DEBUG] DiceRollModal - Emitindo evento socket para rolagem:', {
+                    character_id: characterId,
+                    rolls: res.data
+                });
+                
+                socket.emit('dice_roll', {
+                    character_id: characterId,
+                    rolls: res.data
+                });
+            }
+
             if(onDiceRoll) {
                 onDiceRoll(rollResult);
             }
         })
         .catch(err => {
             console.log(err);
+            setButtonDisabled(false);
         });
     }
 
@@ -137,8 +152,8 @@ function DiceRollModal({
                     result ? (
                         <Grid container spacing={2}>
                             <Grid item xs={12}>
-                                <Box sx={{ 
-                                    p: 2, 
+                                <Box sx={{
+                                    p: 2,
                                     backgroundColor: getResultColor(result),
                                     color: 'white',
                                     borderRadius: 1,
@@ -150,7 +165,7 @@ function DiceRollModal({
                                         {getResultText(result)}
                                     </Typography>
                                 </Box>
-                                
+
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                                     {result.rolls.map((each, index) => (
                                         <Box
