@@ -11,6 +11,7 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     console.log('POST - Criando personagem no banco:', req.body)
     try {
+      // 1. Primeiro cria o personagem
       const character = await prisma.character.create({
         data: {
           name: req.body.name,
@@ -25,11 +26,64 @@ export default async function handler(req, res) {
 
       console.log('POST - Personagem criado com ID:', character.id)
 
+      // 2. Buscar todos os attributes do sistema
+      const allAttributes = await prisma.attribute.findMany()
+      console.log(`POST - Encontrados ${allAttributes.length} attributes no sistema`)
+
+      // 3. Associar todos os attributes ao personagem individualmente
+      if (allAttributes.length > 0) {
+        for (const attr of allAttributes) {
+          await prisma.characterAttributes.create({
+            data: {
+              character: { connect: { id: character.id } },
+              attribute: { connect: { id: attr.id } },
+              value: 1
+            }
+          })
+        }
+        console.log(`POST - ${allAttributes.length} attributes associados ao personagem`)
+      }
+
+      // 4. Buscar todos os skills do sistema
+      const allSkills = await prisma.skill.findMany()
+      console.log(`POST - Encontrados ${allSkills.length} skills no sistema`)
+
+      // 5. Associar todos os skills ao personagem individualmente
+      if (allSkills.length > 0) {
+        for (const skill of allSkills) {
+          await prisma.characterSkills.create({
+            data: {
+              character: { connect: { id: character.id } },
+              skill: { connect: { id: skill.id } },
+              value: 0
+            }
+          })
+        }
+        console.log(`POST - ${allSkills.length} skills associados ao personagem`)
+      }
+
+      // 6. Buscar o personagem completo com relações para retornar
+      const completeCharacter = await prisma.character.findUnique({
+        where: { id: character.id },
+        include: {
+          attributes: {
+            include: {
+              attribute: true
+            }
+          },
+          skills: {
+            include: {
+              skill: true
+            }
+          }
+        }
+      })
+
       const response = {
         success: true,
         message: 'Personagem criado com sucesso',
         id: character.id,
-        data: character
+        data: completeCharacter
       }
       console.log('POST - Resposta:', response)
       return res.status(200).json(response)
