@@ -1,4 +1,4 @@
-import { prisma } from '../../database';
+import { prisma } from '../../../../database';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -41,15 +41,15 @@ export default async function handler(req, res) {
     try {
       // Extrai o ID da URL (ex: /api/attribute/43)
       const id = req.url.split('/').pop();
-      
+
       console.log('DELETE request - URL:', req.url);
       console.log('DELETE request - Extracted ID:', id);
-      
+
       await prisma.attribute.delete({
         where: { id }
       });
-      
-      return res.status(200).json({ 
+
+      return res.status(200).json({
         success: true,
         debug: {
           url: req.url,
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.log('DELETE Error:', error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Erro ao deletar atributo',
         debug: {
           url: req.url,

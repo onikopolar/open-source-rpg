@@ -1,4 +1,4 @@
-import { prisma } from '../../database';
+import { prisma } from '../../../../database';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {

@@ -26,8 +26,8 @@ CREATE TABLE "character_attributes" (
     "value" INTEGER NOT NULL,
 
     PRIMARY KEY ("character_id", "attribute_id"),
-    CONSTRAINT "character_attributes_character_id_fkey" FOREIGN KEY ("character_id") REFERENCES "character" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "character_attributes_attribute_id_fkey" FOREIGN KEY ("attribute_id") REFERENCES "attribute" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "character_attributes_attribute_id_fkey" FOREIGN KEY ("attribute_id") REFERENCES "attribute" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "character_attributes_character_id_fkey" FOREIGN KEY ("character_id") REFERENCES "character" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -44,8 +44,8 @@ CREATE TABLE "character_skills" (
     "value" INTEGER NOT NULL,
 
     PRIMARY KEY ("character_id", "skill_id"),
-    CONSTRAINT "character_skills_character_id_fkey" FOREIGN KEY ("character_id") REFERENCES "character" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "character_skills_skill_id_fkey" FOREIGN KEY ("skill_id") REFERENCES "skills" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "character_skills_skill_id_fkey" FOREIGN KEY ("skill_id") REFERENCES "skills" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "character_skills_character_id_fkey" FOREIGN KEY ("character_id") REFERENCES "character" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
