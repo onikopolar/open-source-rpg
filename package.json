@@ -10,7 +10,8 @@
     "heroku-postbuild": "npx prisma migrate deploy && next build"
   },
   "prisma": {
-    "schema": "src/prisma/schema.prisma"
+    "schema": "src/prisma/schema.prisma",
+    "seed": "node prisma/seed.js"
   },
   "dependencies": {
     "@emotion/react": "^11.4.1",
