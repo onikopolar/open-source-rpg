@@ -87,6 +87,16 @@ export const getServerSideProps = async ({ params }) => {
           include: {
             skill: true
           }
+        },
+        yearzero_attributes: {
+          include: {
+            attribute: true
+          }
+        },
+        yearzero_skills: {
+          include: {
+            skill: true
+          }
         }
       }
     });
@@ -97,8 +107,52 @@ export const getServerSideProps = async ({ params }) => {
       name: character?.name,
       rpgSystem: character?.rpg_system,
       attributesCount: character?.attributes?.length,
-      skillsCount: character?.skills?.length
+      skillsCount: character?.skills?.length,
+      yearZeroAttributesCount: character?.yearzero_attributes?.length,
+      yearZeroSkillsCount: character?.yearzero_skills?.length
     });
+
+    // AUTO-SETUP: Se o personagem e Year Zero mas nao tem atributos configurados
+    if (character?.rpg_system === 'year_zero' && 
+        (!character.yearzero_attributes || character.yearzero_attributes.length === 0)) {
+      console.log('[DEBUG] getServerSideProps - Executando auto-setup para Year Zero');
+      try {
+        const setupResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/yearzero/setup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            character_id: characterId
+          })
+        });
+        
+        if (setupResponse.ok) {
+          console.log('[DEBUG] getServerSideProps - Auto-setup concluido com sucesso');
+          
+          // Recarregar dados apos setup
+          const updatedCharacter = await prisma.character.findUnique({
+            where: { id: characterId },
+            include: {
+              attributes: { include: { attribute: true } },
+              skills: { include: { skill: true } },
+              yearzero_attributes: { include: { attribute: true } },
+              yearzero_skills: { include: { skill: true } }
+            }
+          });
+          
+          if (updatedCharacter) {
+            character.yearzero_attributes = updatedCharacter.yearzero_attributes;
+            character.yearzero_skills = updatedCharacter.yearzero_skills;
+            console.log('[DEBUG] getServerSideProps - Dados Year Zero recarregados apos setup');
+          }
+        } else {
+          console.error('[ERROR] getServerSideProps - Erro no auto-setup:', await setupResponse.text());
+        }
+      } catch (error) {
+        console.error('[ERROR] getServerSideProps - Erro no auto-setup:', error);
+      }
+    }
 
     if (!character) {
       console.error('[ERROR] getServerSideProps - Personagem nao encontrado');
@@ -130,7 +184,7 @@ export const getServerSideProps = async ({ params }) => {
   }
 };
 
-const useCharacterSheet = (rawCharacter) => {
+const useCharacterSheet = (rawCharacter, refreshData) => {
   console.log('[DEBUG] useCharacterSheet - Inicializando hook com rawCharacter:', rawCharacter?.id);
   
   const [character, setCharacter] = useState(rawCharacter);
@@ -242,6 +296,29 @@ const useCharacterSheet = (rawCharacter) => {
       }));
       
       console.log('[DEBUG] useCharacterSheet handleSystemChange - Mudanca de sistema concluida com sucesso');
+
+      console.log("[DEBUG] handleSystemChange - Chamando API de setup para Year Zero");
+      if (newSystem === "year_zero") {
+        console.log("[DEBUG] handleSystemChange - Configurando personagem para Year Zero Engine");
+        console.log("[DEBUG] handleSystemChange - Iniciando setup para character ID:", character.id);
+        try {
+          await api.post("/yearzero/setup", {
+            character_id: character.id
+          });
+          console.log("[DEBUG] handleSystemChange - Personagem configurado para Year Zero");
+          
+          // RECARREGAR DADOS APOS SETUP - CORREÇÃO CRÍTICA
+          if (refreshData) {
+            console.log("[DEBUG] handleSystemChange - Recarregando dados apos setup");
+            await refreshData();
+          } else {
+            console.warn("[WARN] handleSystemChange - refreshData nao disponivel");
+          }
+        } catch (error) {
+          console.error("[ERROR] handleSystemChange - Erro no setup Year Zero:", error);
+        }
+      }
+
       setIsChangingSystem(false);
       
     } catch (error) {
@@ -255,7 +332,7 @@ const useCharacterSheet = (rawCharacter) => {
       setIsChangingSystem(false);
       throw new Error(errorMessage);
     }
-  }, [character, rpgSystem, clearError, handleApiError, setCharacter]);
+  }, [character, rpgSystem, clearError, handleApiError, setCharacter, refreshData]);
 
   return {
     character,
@@ -297,6 +374,11 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     theme: theme.palette.mode
   });
 
+  const refreshData = useCallback(() => {
+    console.log('[DEBUG] CharacterSheet refreshData - Atualizando dados da pagina');
+    return router.replace(router.asPath);
+  }, [router]);
+
   const {
     character,
     setCharacter,
@@ -314,7 +396,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     isSelectorExpanded,
     isSheetExpanded,
     handleSystemChange
-  } = useCharacterSheet(rawCharacter);
+  } = useCharacterSheet(rawCharacter, refreshData); // PASSA refreshData PARA O HOOK
 
   console.log('[DEBUG] CharacterSheet - Estados do hook:', {
     characterId: character?.id,
@@ -325,11 +407,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     loadingStatesCount: Object.keys(loadingStates).length,
     errorsCount: Object.keys(errors).length
   });
-
-  const refreshData = useCallback(() => {
-    console.log('[DEBUG] CharacterSheet refreshData - Atualizando dados da pagina');
-    return router.replace(router.asPath);
-  }, [router]);
 
   const handleCharacterInfoSubmit = useCallback(async (values) => {
     console.log('[DEBUG] CharacterSheet handleCharacterInfoSubmit - Iniciando atualizacao:', values);
@@ -813,7 +890,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       console.log('[DEBUG] CharacterSheet socket - Character atualizado:', data);
       if (data.id === character?.id) {
         console.log('[DEBUG] CharacterSheet socket - Atualizando dados locais');
-        refreshData();
       }
     };
 
@@ -1047,102 +1123,101 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
             {rpgSystem === 'year_zero' ? (
               <YearZeroSheet 
                 character={character}
-                attributeValues={attributeValues}
-                skillValues={skillValues}
- 
-  attributes={(() => {
-    const attributesArray = character.attributes?.map(attr => ({
-      name: attr.attribute?.name,
-      year_zero_value: attributeValues[attr.attribute_id] || attr.value || 1
-    })) || [];
-    console.log('[DEBUG] CharacterSheet - Atributos sendo passados para YearZeroSheet:', attributesArray);
-    return attributesArray;
-  })()}
-
-  skills={(() => {
-    const skillsArray = character.skills?.map(skill => ({
-      name: skill.skill?.name, 
-      year_zero_value: skillValues[skill.skill_id] || skill.value || 1
-    })) || [];
-    console.log('[DEBUG] CharacterSheet - Habilidades sendo passadas para YearZeroSheet:', skillsArray);
-    return skillsArray;
-  })()}
-                onAttributeChange={handleAttributeChange}
-                onSkillChange={handleSkillChange}
-
-                onUpdate={(type, name, value) => {
-                  console.log('[DEBUG] CharacterSheet onUpdate YearZero - Chamado:', { type, name, value });
+                attributes={(() => {
+                  const attributesArray = character.yearzero_attributes?.map(attr => ({
+                    name: attr.attribute?.name,
+                    year_zero_value: attributeValues[attr.attribute_id] || attr.value || 1
+                  })) || [];
+                  console.log("[DEBUG] CharacterSheet - Estrutura completa dos atributos:", character.attributes);
+                  console.log('[DEBUG] CharacterSheet - Atributos sendo passados para YearZeroSheet:', attributesArray);
+                  return attributesArray;
+                })()}
+                skills={(() => {
+                  const skillsArray = character.yearzero_skills?.map(skill => ({
+                    name: skill.skill?.name,
+                    year_zero_value: skillValues[skill.skill_id] || skill.value || 1
+                  })) || [];
+                  console.log('[DEBUG] CharacterSheet - Habilidades sendo passadas para YearZeroSheet:', skillsArray);
+                  return skillsArray;
+                })()}
+                onUpdate={async (type, name, value) => {
+                  console.log("[DEBUG] onUpdate INICIADO - Sistema:", rpgSystem, "Type:", type, "Name:", name, "Value:", value);
+                  const getAttributeIdByName = (attrName) => {
+                    const attributesList = rpgSystem === 'year_zero'
+                      ? character.yearzero_attributes
+                      : character.attributes;
+                    
+                    console.log("[SERVER DEBUG] getAttributeIdByName - Sistema:", rpgSystem, 
+                      "YearZero Attributes:", character.yearzero_attributes?.map(a => a.attribute?.name),
+                      "Classic Attributes:", character.attributes?.map(a => a.attribute?.name),
+                      "Procurando por:", attrName);
+                    
+                    const attr = attributesList?.find(a => a.attribute?.name === attrName);
+                    const foundId = attr?.attribute?.id;
+                    console.log("[SERVER DEBUG] Resultado:", foundId);
+                    return foundId;
+                  };
                   
-                  if (type === 'attribute') {
-                    const yearZeroToSystemMap = {
-                      'FORÇA': 'FORÇA',
-                      'AGILIDADE': 'AGILIDADE', 
-                      'RACIOCÍNIO': 'RACIOCÍNIO',
-                      'EMPATIA': 'EMPATIA'
-                    };
-                    
-                    const systemAttributeName = yearZeroToSystemMap[name] || name;
-                    console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Mapeando atributo: ${name} -> ${systemAttributeName}`);
-                    
-                    const attribute = character.attributes?.find(attr => 
-                      attr.attribute?.name === systemAttributeName
-                    );
-                    if (attribute) {
-                      console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Encontrado atributo: ${systemAttributeName} -> ID: ${attribute.attribute_id}`);
+                  const getSkillIdByName = (skillName) => {
+                    const skillsList = rpgSystem === 'year_zero' 
+                      ? character.yearzero_skills 
+                      : character.skills;
+                    const skill = skillsList?.find(s => s.skill?.name === skillName);
+                    return skill?.skill?.id;
+                  };
+                  
+                  console.log('[DEBUG] CharacterSheet onUpdate YearZero - Chamado:', { type, name, value });
+                  console.log("[DEBUG] CharacterSheet onUpdate - Nomes disponíveis:", { 
+                    attributes: rpgSystem === 'year_zero' ? character.yearzero_attributes?.map(a => a.attribute?.name) : character.attributes?.map(a => a.attribute?.name), 
+                    skills: rpgSystem === 'year_zero' ? character.yearzero_skills?.map(s => s.skill?.name) : character.skills?.map(s => s.skill?.name) 
+                  });
+                  console.log("[DEBUG] - Sistema atual:", rpgSystem, "Year Zero Attributes:", character.yearzero_attributes?.map(a => a.attribute?.name));
+                  try {
+                    if (type === 'attribute') {
+                      console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Salvando atributo Year Zero: ${name} = ${value}`);
+                      const availableAttributes = rpgSystem === 'year_zero' ? character.yearzero_attributes?.map(a => a.attribute?.name) : character.attributes?.map(a => a.attribute?.name);
+                      console.log("[DEBUG] - Nome recebido:", name, "Nomes disponíveis:", availableAttributes);
                       
-                      const numericValue = value === '' ? '' : parseInt(value) || 0;
-                      setAttributeValues(prev => ({
-                        ...prev,
-                        [attribute.attribute_id]: numericValue
-                      }));
+                      const attributeId = getAttributeIdByName(name);
+                      console.log(`[DEBUG] CharacterSheet onUpdate - Mapeando atributo "${name}" para ID:`, attributeId);
                       
-                      saveAttributeValue(attribute.attribute_id);
-                    } else {
-                      console.warn(`[WARN] CharacterSheet onUpdate YearZero - Atributo nao encontrado: ${systemAttributeName}. Atributos disponiveis:`, 
-                        character.attributes?.map(a => a.attribute?.name));
+                      if (!attributeId) {
+                        throw new Error(`Atributo "${name}" não encontrado`);
+                      }
+                      
+                      await api.put('/yearzero/attribute', {
+                        character_id: character.id,
+                        attribute_id: attributeId,
+                        value: parseInt(value) || 1
+                      });
+                      
+                      console.log(`[SUCCESS] CharacterSheet onUpdate YearZero - Atributo ${name} salvo com sucesso`);
+                      
+                    } else if (type === 'skill') {
+                      const skillId = getSkillIdByName(name);
+                      console.log(`[DEBUG] CharacterSheet onUpdate - Mapeando skill "${name}" para ID:`, skillId);
+                      
+                      if (!skillId) {
+                        throw new Error(`Skill "${name}" não encontrada`);
+                      }
+                      
+                      console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Salvando skill Year Zero: ${name} = ${value}`);
+                      
+                      await api.put('/yearzero/skill', {
+                        character_id: character.id,
+                        skill_id: skillId,
+                        value: parseInt(value) || 1
+                      });
+                      
+                      console.log(`[SUCCESS] CharacterSheet onUpdate YearZero - Skill ${name} salva com sucesso`);
                     }
-                  } else if (type === 'skill') {
-                    console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Habilidade do Year Zero: ${name}`);
                     
-                    const yearZeroSkillToSystemMap = {
-                      'Combate Corpo a Corpo': 'Combate Corpo a Corpo',
-                      'Maquinario Pesado': 'Maquinário Pesado',
-                      'Resistencia': 'Resistência', 
-                      'Combate a Distancia': 'Combate à Distância',
-                      'Mobilidade': 'Mobilidade',
-                      'Pilotagem': 'Pilotagem',
-                      'Observação': 'Observação',
-                      'Sobrevivência': 'Sobrevivência', 
-                      'Tecnologia': 'Tecnologia',
-                      'Manipulação': 'Manipulação',
-                      'Comando': 'Comando',
-                      'Cuidados Médicos': 'Cuidados Médicos'
-                    };
-                    
-                    const systemSkillName = yearZeroSkillToSystemMap[name] || name;
-                    console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Mapeando habilidade: ${name} -> ${systemSkillName}`);
-                    
-                    const skill = character.skills?.find(s => 
-                      s.skill?.name === systemSkillName
-                    );
-                    
-                    if (skill) {
-                      console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Encontrada habilidade: ${systemSkillName} -> ID: ${skill.skill_id}`);
-                      
-                      const numericValue = value === '' ? '' : parseInt(value) || 0;
-                      setSkillValues(prev => ({
-                        ...prev,
-                        [skill.skill_id]: numericValue
-                      }));
-                      
-                      saveSkillValue(skill.skill_id);
-                    } else {
-                      console.warn(`[WARN] CharacterSheet onUpdate YearZero - Habilidade nao encontrada: ${systemSkillName}. Habilidades disponiveis:`, 
-                        character.skills?.map(s => s.skill?.name));
-                    }
+                  } catch (error) {
+                    console.error(`[ERROR] CharacterSheet onUpdate YearZero - Erro ao salvar ${type} ${name}:`, error);
+                    const errorMessage = error.response?.data?.error || error.message || `Erro ao salvar ${type}`;
+                    console.error(`[ERROR] CharacterSheet onUpdate YearZero - Erro: ${errorMessage}`);
                   }
                 }}
-
                 onAttributeRoll={(attributeName, attributeValue) => {
                   console.log('[DEBUG] CharacterSheet - Rolagem de atributo Year Zero:', { attributeName, attributeValue });
                   let baseDice = 0;
@@ -1164,18 +1239,18 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 onSkillRoll={(skillName, skillValue) => {
                   console.log('[DEBUG] CharacterSheet - Rolagem de skill Year Zero:', { skillName, skillValue });
                   const skillToAttributeMap = {
-                    'Combate Corpo a Corpo': 'FORÇA',
-                    'Maquinario Pesado': 'FORÇA',
-                    'Resistencia': 'FORÇA',
-                    'Combate a Distancia': 'AGILIDADE',
-                    'Mobilidade': 'AGILIDADE', 
-                    'Pilotagem': 'AGILIDADE',
-                    'Observação': 'RACIOCÍNIO',
-                    'Sobrevivência': 'RACIOCÍNIO',
-                    'Tecnologia': 'RACIOCÍNIO',
-                    'Manipulação': 'EMPATIA',
-                    'Comando': 'EMPATIA',
-                    'Cuidados Médicos': 'EMPATIA'
+                    "COMBATE CORPO A CORPO": "Força",
+                    "MAQUINÁRIO PESADO": "Força",
+                    "RESISTÊNCIA": "Força",
+                    "COMBATE À DISTÂNCIA": "Agilidade",
+                    "MOBILIDADE": "Agilidade",
+                    "PILOTAGEM": "Agilidade",
+                    "OBSERVAÇÃO": "Inteligência",
+                    "SOBREVIVÊNCIA": "Inteligência",
+                    "TECNOLOGIA": "Inteligência",
+                    "MANIPULAÇÃO": "Empatia",
+                    "COMANDO": "Empatia",
+                    "AJUDA MÉDICA": "Empatia"
                   };
                   
                   const relatedAttribute = skillToAttributeMap[skillName] || 'FORÇA';

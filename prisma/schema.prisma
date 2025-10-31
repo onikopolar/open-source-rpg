@@ -1,73 +1,152 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 model Character {
-  id        Int      @id @default(autoincrement())
-  name      String
-  createdAt DateTime @default(now())
+  id                             Int                   @id @default(autoincrement())
+  name                           String
+  age                            Int?
+  gender                         String?
+  player_name                    String?
+  rpg_system                     String                @default("classic")
+  current_hit_points             Int                   @default(0)
+  max_hit_points                 Int                   @default(0)
+  current_picture                Int                   @default(1)
+  is_dead                        Boolean               @default(false)
+  standard_character_picture_url String?
+  injured_character_picture_url  String?
+  stress_level                   Int?                  @default(0)
+  trauma_level                   Int?                  @default(0)
+  willpower                      Int?                  @default(0)
+  experience                     Int?                  @default(0)
+  created_at                     DateTime              @default(now())
+  
+  // Dados para sistema clássico
+  attributes                     CharacterAttributes[]
+  skills                         CharacterSkills[]
+  
+  // Dados para sistema Year Zero
+  yearzero_attributes            YearZeroAttributes[]
+  yearzero_skills                YearZeroSkills[]
+  
+  rolls                          Roll[]
 
-  characterAttributes CharacterAttributes[]
-  characterSkills     CharacterSkills[]
-  rolls              Roll[]
+  @@index([name])
+  @@index([player_name])
+  @@index([rpg_system])
+  @@index([created_at])
+  @@map("character")
+}
+
+// Tabelas para sistema clássico
+model CharacterAttributes {
+  character_id Int
+  attribute_id Int
+  value        Int
+  attribute    Attribute @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
+  character    Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@id([character_id, attribute_id])
+  @@map("character_attributes")
 }
 
 model Attribute {
   id          Int                   @id @default(autoincrement())
-  name        String
+  name        String                @unique
   description String?
+  characters  CharacterAttributes[]
 
-  characterAttributes CharacterAttributes[]
+  @@index([name])
+  @@map("attribute")
+}
+
+model CharacterSkills {
+  character_id Int
+  skill_id     Int
+  value        Int
+  skill        Skill     @relation(fields: [skill_id], references: [id], onDelete: Cascade)
+  character    Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@id([character_id, skill_id])
+  @@map("character_skills")
 }
 
 model Skill {
   id          Int               @id @default(autoincrement())
-  name        String
+  name        String            @unique
   description String?
+  characters  CharacterSkills[]
 
-  characterSkills CharacterSkills[]
+  @@index([name])
+  @@map("skills")
 }
 
-model CharacterAttributes {
-  id          Int       @id @default(autoincrement())
-  character   Character @relation(fields: [characterId], references: [id])
-  characterId Int
-  attribute   Attribute @relation(fields: [attributeId], references: [id])
-  attributeId Int
-  value       Int       @default(1)
-  @@map("character_attributes")
+// Tabelas para sistema Year Zero
+model YearZeroAttributes {
+  character_id Int
+  attribute_id Int
+  value        Int                   @default(1)
+  attribute    YearZeroAttribute     @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
+  character    Character             @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@id([character_id, attribute_id])
+  @@map("yearzero_attributes")
 }
 
-model CharacterSkills {
-  id          Int       @id @default(autoincrement())
-  character   Character @relation(fields: [characterId], references: [id])
-  characterId Int
-  skill       Skill     @relation(fields: [skillId], references: [id])
-  skillId     Int
-  value       Int       @default(0)
-  @@map("character_skills")
+model YearZeroAttribute {
+  id          Int                   @id @default(autoincrement())
+  name        String                @unique
+  description String?
+  characters  YearZeroAttributes[]
+
+  @@index([name])
+  @@map("yearzero_attribute")
+}
+
+model YearZeroSkills {
+  character_id Int
+  skill_id     Int
+  value        Int               @default(1)
+  skill        YearZeroSkill     @relation(fields: [skill_id], references: [id], onDelete: Cascade)
+  character    Character         @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@id([character_id, skill_id])
+  @@map("yearzero_skills")
+}
+
+model YearZeroSkill {
+  id          Int               @id @default(autoincrement())
+  name        String            @unique
+  description String?
+  characters  YearZeroSkills[]
+
+  @@index([name])
+  @@map("yearzero_skill")
 }
 
 model Roll {
-  id          Int       @id @default(autoincrement())
-  character   Character @relation(fields: [characterId], references: [id])
-  characterId Int
-  result      String
-  createdAt   DateTime  @default(now())
+  id            Int       @id @default(autoincrement())
+  max_number    Int
+  rolled_number Int
+  character_id  Int
+  rolled_at     DateTime  @default(now())
+  character     Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@index([character_id])
+  @@index([rolled_at])
+  @@map("roll")
 }
 
 model Config {
-  id    Int    @id @default(autoincrement())
-  name  String @unique
-  value String
+  id    Int     @id @default(autoincrement())
+  name  String  @unique
+  value String?
 
+  @@index([name])
   @@map("config")
 }

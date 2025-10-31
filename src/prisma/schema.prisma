@@ -25,8 +25,15 @@ model Character {
   willpower                      Int?                  @default(0)
   experience                     Int?                  @default(0)
   created_at                     DateTime              @default(now())
+  
+  // Dados para sistema clássico
   attributes                     CharacterAttributes[]
   skills                         CharacterSkills[]
+  
+  // Dados para sistema Year Zero
+  yearzero_attributes            YearZeroAttributes[]
+  yearzero_skills                YearZeroSkills[]
+  
   rolls                          Roll[]
 
   @@index([name])
@@ -36,6 +43,7 @@ model Character {
   @@map("character")
 }
 
+// Tabelas para sistema clássico
 model CharacterAttributes {
   character_id Int
   attribute_id Int
@@ -76,6 +84,49 @@ model Skill {
 
   @@index([name])
   @@map("skills")
+}
+
+// Tabelas para sistema Year Zero
+model YearZeroAttributes {
+  character_id Int
+  attribute_id Int
+  value        Int                   @default(1)
+  attribute    YearZeroAttribute     @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
+  character    Character             @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@id([character_id, attribute_id])
+  @@map("yearzero_attributes")
+}
+
+model YearZeroAttribute {
+  id          Int                   @id @default(autoincrement())
+  name        String                @unique
+  description String?
+  characters  YearZeroAttributes[]
+
+  @@index([name])
+  @@map("yearzero_attribute")
+}
+
+model YearZeroSkills {
+  character_id Int
+  skill_id     Int
+  value        Int               @default(1)
+  skill        YearZeroSkill     @relation(fields: [skill_id], references: [id], onDelete: Cascade)
+  character    Character         @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@id([character_id, skill_id])
+  @@map("yearzero_skills")
+}
+
+model YearZeroSkill {
+  id          Int               @id @default(autoincrement())
+  name        String            @unique
+  description String?
+  characters  YearZeroSkills[]
+
+  @@index([name])
+  @@map("yearzero_skill")
 }
 
 model Roll {

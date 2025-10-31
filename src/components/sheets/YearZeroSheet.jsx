@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { withStyles } from '@mui/styles';
 import { Box, Typography, TextField, Paper, IconButton } from '@mui/material';
 import { Casino } from '@mui/icons-material';
@@ -304,55 +304,54 @@ function YearZeroSheet({
     characterSkills: character?.skills
   });
 
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
+  const [localAttributes, setLocalAttributes] = useState([]);
+  const [localSkills, setLocalSkills] = useState([]);
+
+  useEffect(() => {
+    console.log('[DEBUG] YearZeroSheet - Inicializando dados locais');
+    setLocalAttributes(attributes);
+    setLocalSkills(skills);
+  }, [attributes, skills]);
+
   const defaultAttributes = [
-    { name: 'FORÇA', year_zero_value: 1 },
-    { name: 'AGILIDADE', year_zero_value: 1 },
-    { name: 'RACIOCÍNIO', year_zero_value: 1 },
-    { name: 'EMPATIA', year_zero_value: 1 }
+    { name: 'Força', year_zero_value: 1 },
+    { name: 'Agilidade', year_zero_value: 1 },
+    { name: 'Inteligência', year_zero_value: 1 },
+    { name: 'Empatia', year_zero_value: 1 }
   ];
 
   const defaultSkills = [
-    { name: 'Combate Corpo a Corpo', year_zero_value: 1 },
-    { name: 'Maquinário Pesado', year_zero_value: 1 },
-    { name: 'Resistência', year_zero_value: 1 },
-    { name: 'Combate à Distância', year_zero_value: 1 },
-    { name: 'Mobilidade', year_zero_value: 1 },
-    { name: 'Pilotagem', year_zero_value: 1 },
-    { name: 'Observação', year_zero_value: 1 },
-    { name: 'Sobrevivência', year_zero_value: 1 },
-    { name: 'Tecnologia', year_zero_value: 1 },
-    { name: 'Manipulação', year_zero_value: 1 },
-    { name: 'Comando', year_zero_value: 1 },
-    { name: 'Cuidados Médicos', year_zero_value: 1 }
+    { name: 'COMBATE CORPO A CORPO', year_zero_value: 1 },
+    { name: 'MAQUINÁRIO PESADO', year_zero_value: 1 },
+    { name: 'RESISTÊNCIA', year_zero_value: 1 },
+    { name: 'COMBATE À DISTÂNCIA', year_zero_value: 1 },
+    { name: 'MOBILIDADE', year_zero_value: 1 },
+    { name: 'PILOTAGEM', year_zero_value: 1 },
+    { name: 'OBSERVAÇÃO', year_zero_value: 1 },
+    { name: 'SOBREVIVÊNCIA', year_zero_value: 1 },
+    { name: 'TECNOLOGIA', year_zero_value: 1 },
+    { name: 'MANIPULAÇÃO', year_zero_value: 1 },
+    { name: 'COMANDO', year_zero_value: 1 },
+    { name: 'AJUDA MÉDICA', year_zero_value: 1 }
   ];
 
-  const validatedAttributes = Array.isArray(attributes) && attributes.length > 0 ? attributes : defaultAttributes;
-  const validatedSkills = Array.isArray(skills) && skills.length > 0 ? skills : defaultSkills;
-
-  console.log('[DEBUG] YearZeroSheet - Validacao final:', {
-    attributesRecebidas: attributes,
-    skillsRecebidas: skills,
-    validatedAttributes: validatedAttributes,
-    validatedSkills: validatedSkills,
-    usandoDefaultAttributes: validatedAttributes === defaultAttributes,
-    usandoDefaultSkills: validatedSkills === defaultSkills
-  });
+  const validatedAttributes = Array.isArray(localAttributes) && localAttributes.length > 0 ? localAttributes : defaultAttributes;
+  const validatedSkills = Array.isArray(localSkills) && localSkills.length > 0 ? localSkills : defaultSkills;
 
   console.log('[DEBUG] YearZeroSheet - Dados validados:', {
     validatedAttributesCount: validatedAttributes.length,
-    validatedSkillsCount: validatedSkills.length,
-    usingDefaultAttributes: validatedAttributes === defaultAttributes,
-    usingDefaultSkills: validatedSkills === defaultSkills
+    validatedSkillsCount: validatedSkills.length
   });
 
   const attributeConfig = {
-    'FORÇA': {
+    'Força': {
       position: classes.positionTop,
       collisionSize: '120px',
       skills: {
-        top: 'Combate Corpo a Corpo',
-        left: 'Maquinário Pesado', 
-        right: 'Resistência'
+        top: 'COMBATE CORPO A CORPO',
+        left: 'MAQUINÁRIO PESADO', 
+        right: 'RESISTÊNCIA'
       },
       skillPositions: {
         top: { top: '-63px', left: '50%', transform: 'translateX(-50%)' },
@@ -360,13 +359,13 @@ function YearZeroSheet({
         right: { top: '50%', right: '-65px', transform: 'translateY(-50%)' }
       }
     },
-    'AGILIDADE': {
+    'Agilidade': {
       position: classes.positionLeft,
       collisionSize: '120px',
       skills: {
-        top: 'Combate à Distância',
-        left: 'Mobilidade',
-        bottom: 'Pilotagem'
+        top: 'COMBATE À DISTÂNCIA',
+        left: 'MOBILIDADE',
+        bottom: 'PILOTAGEM'
       },
       skillPositions: {
         top: { top: '-60px', left: '50%', transform: 'translateX(-50%)' },
@@ -374,13 +373,13 @@ function YearZeroSheet({
         bottom: { bottom: '-60px', left: '50%', transform: 'translateX(-50%)' }
       }
     },
-    'RACIOCÍNIO': {
+    'Inteligência': {
       position: classes.positionRight,
       collisionSize: '120px',
       skills: {
-        top: 'Observação', 
-        right: 'Sobrevivência',
-        bottom: 'Tecnologia'
+        top: 'OBSERVAÇÃO', 
+        right: 'SOBREVIVÊNCIA',
+        bottom: 'TECNOLOGIA'
       },
       skillPositions: {
         top: { top: '-60px', left: '50%', transform: 'translateX(-50%)' },
@@ -388,13 +387,13 @@ function YearZeroSheet({
         bottom: { bottom: '-60px', left: '50%', transform: 'translateX(-50%)' }
       }
     },
-    'EMPATIA': {
+    'Empatia': {
       position: classes.positionBottom,
       collisionSize: '120px',
       skills: {
-        left: 'Manipulação',
-        right: 'Comando', 
-        bottom: 'Cuidados Médicos'
+        left: 'COMANDO',
+        right: 'AJUDA MÉDICA', 
+        bottom: 'MANIPULAÇÃO'
       },
       skillPositions: {
         left: { top: '50%', left: '-65px', transform: 'translateY(-50%)' },
@@ -405,159 +404,120 @@ function YearZeroSheet({
   };
 
   const getAttributeValue = (attributeName) => {
-    console.log(`[DEBUG] YearZeroSheet getAttributeValue - Buscando valor para: ${attributeName}`);
     const attribute = validatedAttributes.find(a => a && a.name === attributeName);
     const value = attribute ? (attribute.year_zero_value || 1) : 1;
     const finalValue = Math.max(1, Math.min(6, value));
-    console.log(`[DEBUG] YearZeroSheet getAttributeValue - Resultado: ${attributeName} = ${finalValue}`);
     return finalValue;
   };
 
   const getSkillValue = (skillName) => {
-    console.log(`[DEBUG] YearZeroSheet getSkillValue - Buscando valor para: ${skillName}`);
     const skill = validatedSkills.find(s => s && s.name === skillName);
     const value = skill ? (skill.year_zero_value || 1) : 1;
     const finalValue = Math.max(1, Math.min(6, value));
-    console.log(`[DEBUG] YearZeroSheet getSkillValue - Resultado: ${skillName} = ${finalValue}`);
     return finalValue;
   };
 
-  const updateAttribute = (attributeName, value) => {
+  const updateAttribute = async (attributeName, value) => {
     console.log(`[DEBUG] YearZeroSheet updateAttribute - Iniciando atualizacao: ${attributeName} = ${value}`);
+    
+    const numValue = value === "" ? 1 : Math.max(1, Math.min(6, parseInt(value) || 1));
+    
+    setLocalAttributes(prev => 
+      prev.map(attr => 
+        attr.name === attributeName 
+          ? { ...attr, year_zero_value: numValue }
+          : attr
+      )
+    );
+    
+    setLastUpdate(Date.now());
+    
     if (onUpdate && typeof onUpdate === 'function') {
-      let numValue = parseInt(value);
-      console.log(`[DEBUG] YearZeroSheet updateAttribute - Valor parseado: ${numValue}`);
-      if (isNaN(numValue)) {
-        console.log('[DEBUG] YearZeroSheet updateAttribute - Valor NaN, usando 1');
-        numValue = 1;
-      }
-      numValue = Math.max(1, Math.min(6, numValue));
-      console.log(`[DEBUG] YearZeroSheet updateAttribute - Valor final validado: ${numValue}`);
+      console.log(`[DEBUG] YearZeroSheet updateAttribute - Chamando onUpdate: ${attributeName} = ${numValue}`);
       onUpdate('attribute', attributeName, numValue);
-    } else {
-      console.error('[ERROR] YearZeroSheet updateAttribute - onUpdate nao disponivel');
     }
   };
 
-  const updateSkill = (skillName, value) => {
+  const updateSkill = async (skillName, value) => {
     console.log(`[DEBUG] YearZeroSheet updateSkill - Iniciando atualizacao: ${skillName} = ${value}`);
     
-    // APENAS LOGAR se a skill existe, mas SEMPRE TENTAR SALVAR
-    const skillExists = validatedSkills.some(s => s.name === skillName);
-    console.log(`[DEBUG] YearZeroSheet updateSkill - Skill "${skillName}" existe: ${skillExists}`);
+    const numValue = value === "" ? 1 : Math.max(1, Math.min(6, parseInt(value) || 1));
     
-    if (!skillExists) {
-      console.warn(`[WARN] YearZeroSheet updateSkill - Skill nao encontrada: ${skillName}. Tentando salvar mesmo assim.`);
-    }
+    setLocalSkills(prev => 
+      prev.map(skill => 
+        skill.name === skillName 
+          ? { ...skill, year_zero_value: numValue }
+          : skill
+      )
+    );
+    
+    setLastUpdate(Date.now());
     
     if (onUpdate && typeof onUpdate === 'function') {
-      let numValue = parseInt(value);
-      console.log(`[DEBUG] YearZeroSheet updateSkill - Valor parseado: ${numValue}`);
-      if (isNaN(numValue)) {
-        console.log('[DEBUG] YearZeroSheet updateSkill - Valor NaN, usando 1');
-        numValue = 1;
-      }
-      numValue = Math.max(1, Math.min(6, numValue));
-      console.log(`[DEBUG] YearZeroSheet updateSkill - Valor final validado: ${numValue}`);
+      console.log(`[DEBUG] YearZeroSheet updateSkill - Chamando onUpdate: ${skillName} = ${numValue}`);
       onUpdate('skill', skillName, numValue);
-    } else {
-      console.error('[ERROR] YearZeroSheet updateSkill - onUpdate nao disponivel');
     }
   };
 
   const handleInputChange = (e, callback, name) => {
     const value = e.target.value;
-    console.log(`[DEBUG] YearZeroSheet handleInputChange - Input alterado: ${name} = "${value}"`);
     
     if (value === '') {
-      console.log(`[DEBUG] YearZeroSheet handleInputChange - Campo vazio, chamando callback com string vazia`);
       callback(name, '');
       return;
     }
     
     const numValue = parseInt(value);
     if (!isNaN(numValue)) {
-      console.log(`[DEBUG] YearZeroSheet handleInputChange - Valor numerico valido: ${numValue}`);
       callback(name, numValue);
-    } else {
-      console.log(`[DEBUG] YearZeroSheet handleInputChange - Valor invalido, ignorando: ${value}`);
     }
   };
 
   const handleBlur = (e, callback, name) => {
     let value = e.target.value;
-    console.log(`[DEBUG] YearZeroSheet handleBlur - Campo perdeu foco: ${name} = "${value}"`);
     
     if (value === '') {
-      console.log(`[DEBUG] YearZeroSheet handleBlur - Campo vazio, definindo para 1`);
       value = '1';
     }
     
     const numValue = parseInt(value);
     if (isNaN(numValue) || numValue < 1) {
-      console.log(`[DEBUG] YearZeroSheet handleBlur - Valor invalido ou menor que 1, definindo para 1`);
       value = '1';
     } else if (numValue > 6) {
-      console.log(`[DEBUG] YearZeroSheet handleBlur - Valor maior que 6, definindo para 6`);
       value = '6';
     }
     
-    console.log(`[DEBUG] YearZeroSheet handleBlur - Chamando callback com valor final: ${value}`);
     callback(name, value);
   };
 
   const handleKeyDown = (e, currentValue, callback, name) => {
-    console.log(`[DEBUG] YearZeroSheet handleKeyDown - Tecla pressionada: ${e.key} para ${name}`);
-    
     if (e.key === 'ArrowUp') {
-      console.log(`[DEBUG] YearZeroSheet handleKeyDown - Seta para cima, incrementando valor`);
       e.preventDefault();
       const newValue = Math.min(6, currentValue + 1);
-      console.log(`[DEBUG] YearZeroSheet handleKeyDown - Novo valor: ${newValue}`);
       callback(name, newValue);
     } else if (e.key === 'ArrowDown') {
-      console.log(`[DEBUG] YearZeroSheet handleKeyDown - Seta para baixo, decrementando valor`);
       e.preventDefault();
       const newValue = Math.max(1, currentValue - 1);
-      console.log(`[DEBUG] YearZeroSheet handleKeyDown - Novo valor: ${newValue}`);
       callback(name, newValue);
-    } else {
-      console.log(`[DEBUG] YearZeroSheet handleKeyDown - Tecla normal: ${e.key}`);
     }
   };
 
   const handleAttributeRoll = (attributeName) => {
-    console.log(`[DEBUG] YearZeroSheet handleAttributeRoll - Clicou para rolar atributo: ${attributeName}`);
     if (onAttributeRoll && typeof onAttributeRoll === 'function') {
       const value = getAttributeValue(attributeName);
-      console.log(`[DEBUG] YearZeroSheet handleAttributeRoll - Chamando onAttributeRoll com: ${attributeName}, ${value}`);
       onAttributeRoll(attributeName, value);
-    } else {
-      console.error('[ERROR] YearZeroSheet handleAttributeRoll - onAttributeRoll nao disponivel');
     }
   };
 
   const handleSkillRoll = (skillName) => {
-    console.log(`[DEBUG] YearZeroSheet handleSkillRoll - Clicou para rolar skill: ${skillName}`);
     if (onSkillRoll && typeof onSkillRoll === 'function') {
       const value = getSkillValue(skillName);
-      console.log(`[DEBUG] YearZeroSheet handleSkillRoll - Chamando onSkillRoll com: ${skillName}, ${value}`);
       onSkillRoll(skillName, value);
-    } else {
-      console.error('[ERROR] YearZeroSheet handleSkillRoll - onSkillRoll nao disponivel');
     }
   };
 
   const AttributeWithAuras = ({ attributeName, config }) => {
-    console.log(`[DEBUG] YearZeroSheet AttributeWithAuras - Renderizando: ${attributeName}`);
-    
-    if (!attributeName || !config) {
-      console.error('[ERROR] YearZeroSheet AttributeWithAuras - attributeName ou config ausente');
-      return null;
-    }
-    
     const currentAttributeValue = getAttributeValue(attributeName);
-    console.log(`[DEBUG] YearZeroSheet AttributeWithAuras - Valor atual do atributo: ${attributeName} = ${currentAttributeValue}`);
     
     return (
       <Box className={`${classes.attributeSlot} ${config.position}`}>
@@ -570,18 +530,7 @@ function YearZeroSheet({
         />
         
         {Object.entries(config.skills).map(([position, skillName]) => {
-          console.log(`[DEBUG] YearZeroSheet AttributeWithAuras - Renderizando skill: ${skillName} na posicao ${position}`);
-          
-          // APENAS LOGAR se a skill existe, mas SEMPRE RENDERIZAR
-          const skillExists = validatedSkills.some(s => s.name === skillName);
-          console.log(`[DEBUG] YearZeroSheet AttributeWithAuras - Skill "${skillName}" existe: ${skillExists}`);
-          
-          if (!skillExists) {
-            console.warn(`[WARN] YearZeroSheet AttributeWithAuras - Skill nao encontrada: ${skillName}. Usando valor padrao.`);
-          }
-          
           const currentSkillValue = getSkillValue(skillName);
-          console.log(`[DEBUG] YearZeroSheet AttributeWithAuras - Valor da skill: ${skillName} = ${currentSkillValue}`);
           
           return (
             <div key={position}>
@@ -599,22 +548,19 @@ function YearZeroSheet({
               >
                 <Box className={classes.skillContainer}>
                   <Typography className={classes.skillName}>
-                    {skillName}
+                    {skillName.replace(/_/g, ' ')}
                   </Typography>
                   <Box className={classes.skillInputRow}>
                     <TextField
                       type="number"
                       value={currentSkillValue}
                       onChange={(e) => {
-                        console.log(`[DEBUG] YearZeroSheet Skill Input - onChange: ${skillName}`);
                         handleInputChange(e, updateSkill, skillName);
                       }}
                       onBlur={(e) => {
-                        console.log(`[DEBUG] YearZeroSheet Skill Input - onBlur: ${skillName}`);
                         handleBlur(e, updateSkill, skillName);
                       }}
                       onKeyDown={(e) => {
-                        console.log(`[DEBUG] YearZeroSheet Skill Input - onKeyDown: ${skillName}, tecla: ${e.key}`);
                         handleKeyDown(e, currentSkillValue, updateSkill, skillName);
                       }}
                       inputProps={{ 
@@ -627,7 +573,6 @@ function YearZeroSheet({
                     <IconButton 
                       className={classes.skillDiceButton}
                       onClick={() => {
-                        console.log(`[DEBUG] YearZeroSheet Skill Dice Button - Clicou: ${skillName}`);
                         handleSkillRoll(skillName);
                       }}
                       size="small"
@@ -651,15 +596,12 @@ function YearZeroSheet({
                 type="number"
                 value={currentAttributeValue}
                 onChange={(e) => {
-                  console.log(`[DEBUG] YearZeroSheet Attribute Input - onChange: ${attributeName}`);
                   handleInputChange(e, updateAttribute, attributeName);
                 }}
                 onBlur={(e) => {
-                  console.log(`[DEBUG] YearZeroSheet Attribute Input - onBlur: ${attributeName}`);
                   handleBlur(e, updateAttribute, attributeName);
                 }}
                 onKeyDown={(e) => {
-                  console.log(`[DEBUG] YearZeroSheet Attribute Input - onKeyDown: ${attributeName}, tecla: ${e.key}`);
                   handleKeyDown(e, currentAttributeValue, updateAttribute, attributeName);
                 }}
                 inputProps={{ 
@@ -672,7 +614,6 @@ function YearZeroSheet({
               <IconButton 
                 className={classes.attributeDiceButton}
                 onClick={() => {
-                  console.log(`[DEBUG] YearZeroSheet Attribute Dice Button - Clicou: ${attributeName}`);
                   handleAttributeRoll(attributeName);
                 }}
                 size="small"
@@ -691,16 +632,13 @@ function YearZeroSheet({
   return (
     <Box className={classes.container}>
       <Box className={classes.diamondGrid}>
-        {Object.entries(attributeConfig).map(([attributeName, config]) => {
-          console.log(`[DEBUG] YearZeroSheet - Mapeando atributo para renderizacao: ${attributeName}`);
-          return (
-            <AttributeWithAuras 
-              key={attributeName}
-              attributeName={attributeName} 
-              config={config} 
-            />
-          );
-        })}
+        {Object.entries(attributeConfig).map(([attributeName, config]) => (
+          <AttributeWithAuras 
+            key={attributeName}
+            attributeName={attributeName} 
+            config={config} 
+          />
+        ))}
       </Box>
     </Box>
   );
