@@ -1,19 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone', 
+  output: 'standalone',
   trailingSlash: true,
   webpack: (config) => {
     config.externals.push('@prisma/client')
     return config
   },
-  // Desativa ESLint durante build
-  eslint: {
-    ignoreDuringBuilds: true,
+  // DESATIVA COMPLETAMENTE A GERAÇÃO ESTÁTICA
+  experimental: {
+    esmExternals: 'loose'
   },
-  // Desativa verificação de tipos durante build  vamo ver
-  typescript: {
-    ignoreBuildErrors: true,
-  }
+  // Garante que todas as páginas sejam server-rendered
+  poweredByHeader: false
 }
 
 module.exports = nextConfig

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node src/server.js",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && next build --no-export",
     "start": "node src/server.js",
     "lint": "next lint"
   },
