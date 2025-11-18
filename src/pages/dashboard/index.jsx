@@ -15,9 +15,9 @@ import { Header, Section, CharacterBox, AddBox,
 import { api } from '../../utils';
 import useModal from '../../hooks/useModal';
 
-import { prisma } from '../../database';
-
 export const getServerSideProps = async () => {
+  const { prisma } = await import('../../database');
+
   function parseConfigs(array) {
     return array.map(config => {
       if(config.name === 'DICE_ON_SCREEN_TIMEOUT_IN_MS' || config.name === 'TIME_BETWEEN_DICES_IN_MS') {
@@ -74,7 +74,6 @@ export const getServerSideProps = async () => {
 
 function Dashboard({
   classes,
-
   characters: initialCharacters,
   attributes: initialAttributes,
   skills: initialSkills,
@@ -149,7 +148,6 @@ function Dashboard({
     <CreateCharacterModal
       handleClose={close}
       onCharacterCreated={() => {
-        // Recarrega apenas os personagens
         api.get('/character')
           .then(res => setCharacters(res.data))
           .catch(() => alert('Erro ao carregar personagens'));
