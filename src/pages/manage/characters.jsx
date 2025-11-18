@@ -8,6 +8,12 @@ import CreateCharacterModal from '../../components/modals/CreateCharacterModal';
 import useModal from '../../hooks/useModal';
 import { api } from '../../utils';
 
+export async function getServerSideProps() {
+  return {
+    props: {},
+  }
+}
+
 export default function ManageCharacters() {
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);

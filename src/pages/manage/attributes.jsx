@@ -8,6 +8,12 @@ import AttributeModal from '../../components/modals/AttributeModal';
 import useModal from '../../hooks/useModal';
 import { api } from '../../utils';
 
+export async function getServerSideProps() {
+  return {
+    props: {},
+  }
+}
+
 export default function ManageAttributes() {
   const [attributes, setAttributes] = useState([]);
   const [loading, setLoading] = useState(true);

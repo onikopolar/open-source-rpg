@@ -8,6 +8,12 @@ import SkillModal from '../../components/modals/SkillModal';
 import useModal from '../../hooks/useModal';
 import { api } from '../../utils';
 
+export async function getServerSideProps() {
+  return {
+    props: {},
+  }
+}
+
 export default function ManageSkills() {
   const [skills, setSkills] = useState([]);
   const [loading, setLoading] = useState(true);
