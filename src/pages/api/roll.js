@@ -1,23 +1,22 @@
-export default function handler(req, res) {
-  if (req.method === 'POST') {
-    const { character_id, max_number = 20, times = 1 } = req.body;
-    
-    // Simula rolagem de dados múltiplos
-    const rolls = Array.from({ length: times }, () => ({
-      rolled_number: Math.floor(Math.random() * max_number) + 1
-    }));
-    
-    const total = rolls.reduce((sum, roll) => sum + roll.rolled_number, 0);
-    
-    console.log('[DEBUG] API Roll - Rolagem realizada:', {
-      character_id,
-      max_number, 
-      times,
-      rolls,
-      total
-    });
+import { prisma } from '../../lib/prisma';
 
-    return res.status(200).json(rolls);
+export default async function handler(req, res) {
+  if (req.method === 'POST') {
+    try {
+      const { character_id, max_number, rolled_number } = req.body;
+
+      const roll = await prisma.roll.create({
+        data: {
+          character_id,
+          max_number,
+          rolled_number
+        }
+      });
+
+      return res.status(200).json(roll);
+    } catch (error) {
+      return res.status(500).json({ error: 'Erro ao salvar rolagem' });
+    }
   }
 
   res.status(404).json({ error: 'Método não permitido' });

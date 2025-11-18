@@ -11,14 +11,11 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'ID do personagem inválido' })
       }
 
-      // Buscar todos os atributos Year Zero
       const yearZeroAttributes = await prisma.yearZeroAttribute.findMany()
-      // Buscar todas as skills Year Zero
       const yearZeroSkills = await prisma.yearZeroSkill.findMany()
 
-      console.log(`[DEBUG] YearZero Setup - Vinculando ${yearZeroAttributes.length} atributos e ${yearZeroSkills.length} skills ao personagem ${charId}`)
+      console.log(`[DEBUG] YearZero Setup - Vinculando ${yearZeroAttributes.length} atributos e ${yearZeroSkills.length} skills ao personagem ${charId}`)        
 
-      // Vincular atributos ao personagem
       for (const attribute of yearZeroAttributes) {
         await prisma.yearZeroAttributes.upsert({
           where: {
@@ -27,7 +24,7 @@ export default async function handler(req, res) {
               attribute_id: attribute.id
             }
           },
-          update: {}, // Não atualiza se já existir
+          update: {},
           create: {
             character_id: charId,
             attribute_id: attribute.id,
@@ -36,7 +33,6 @@ export default async function handler(req, res) {
         })
       }
 
-      // Vincular skills ao personagem
       for (const skill of yearZeroSkills) {
         await prisma.yearZeroSkills.upsert({
           where: {
@@ -45,7 +41,7 @@ export default async function handler(req, res) {
               skill_id: skill.id
             }
           },
-          update: {}, // Não atualiza se já existir
+          update: {},
           create: {
             character_id: charId,
             skill_id: skill.id,

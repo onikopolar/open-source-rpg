@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../../../lib/prisma'
 
 export default async function handler(req, res) {
   const { id } = req.query
@@ -19,9 +17,15 @@ export default async function handler(req, res) {
           age: req.body.age || null,
           gender: req.body.gender || null,
           player_name: req.body.player_name || null,
-          rpg_system: req.body.rpg_system || 'classic',
+          rpg_system: req.body.rpg_system !== undefined ? req.body.rpg_system : undefined,
           current_hit_points: req.body.current_hit_points || 0,
-          max_hit_points: req.body.max_hit_points || 0
+          max_hit_points: req.body.max_hit_points || 0,
+          stress_level: req.body.stress_level || 0,
+          trauma_level: req.body.trauma_level || 0,
+          willpower: req.body.willpower || 0,
+          experience: req.body.experience || 0,
+          health_squares: req.body.health_squares !== undefined ? JSON.stringify(req.body.health_squares) : undefined,
+          stress_squares: req.body.stress_squares !== undefined ? JSON.stringify(req.body.stress_squares) : undefined
         }
       })
 

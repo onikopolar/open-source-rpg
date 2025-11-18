@@ -1,18 +1,17 @@
 {
   "name": "open-source-rpg-app",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "node src/server.js",
-    "build": "next build",
-    "start": "node src/server.js",
-    "lint": "next lint",
-    "heroku-postbuild": "npx prisma migrate deploy && next build"
-  },
+  "dev": "node src/server.js",
+  "build": "prisma generate && next build",
+  "start": "node src/server.js", 
+  "lint": "next lint"
+},
   "prisma": {
-    "schema": "src/prisma/schema.prisma",
-    "seed": "node src/prisma/seed.js"
-  },
+  "schema": "src/prisma/schema.prisma",
+  "seed": "node src/prisma/seed.js"
+},
   "dependencies": {
     "@emotion/react": "^11.4.1",
     "@emotion/server": "^11.4.0",

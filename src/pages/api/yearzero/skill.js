@@ -17,7 +17,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Valor da skill deve estar entre 1 e 6' })
       }
 
-      // CORREÇÃO: Usar yearZeroSkills em vez de characterSkills
       const result = await prisma.yearZeroSkills.upsert({
         where: {
           character_id_skill_id: {

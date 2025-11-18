@@ -1,4 +1,4 @@
-import { prisma } from '../../../../src/lib/prisma'
+import { prisma } from '../../../lib/prisma'
 
 export default async function handler(req, res) {
   if (req.method === 'PUT') {
@@ -17,7 +17,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Valor do atributo deve estar entre 1 e 6' })
       }
 
-      // CORREÇÃO: Usar yearZeroAttributes em vez de characterAttributes
       const result = await prisma.yearZeroAttributes.upsert({
         where: {
           character_id_attribute_id: {

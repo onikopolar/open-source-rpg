@@ -1,4 +1,4 @@
-import { prisma } from '../../../database';
+import { prisma } from '../../../lib/prisma';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -13,15 +13,14 @@ export default async function handler(req, res) {
   if (req.method === 'DELETE') {
     try {
       console.log('Attempting to delete attribute with ID:', id);
-      
-      // Converter ID para número
+
       const attributeId = parseInt(id, 10);
       console.log('Converted ID:', attributeId);
-      
+
       const result = await prisma.attribute.delete({
         where: { id: attributeId }
       });
-      
+
       console.log('Delete successful:', result);
       return res.status(200).json({ success: true });
     } catch (error) {

@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../../../lib/prisma'
 
 export default async function handler(req, res) {
   console.log('=== CHARACTER API ===')
@@ -11,7 +9,6 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     console.log('POST - Criando personagem no banco:', req.body)
     try {
-      // Validar dados obrigatórios
       if (!req.body.name) {
         return res.status(400).json({
           success: false,
@@ -19,7 +16,6 @@ export default async function handler(req, res) {
         })
       }
 
-      // 1. Primeiro cria o personagem
       const character = await prisma.character.create({
         data: {
           name: req.body.name,
@@ -35,11 +31,9 @@ export default async function handler(req, res) {
       console.log('POST - Personagem criado com ID:', character.id)
       console.log('POST - Sistema RPG selecionado:', req.body.rpg_system || 'classic')
 
-      // 2. Buscar todos os attributes do sistema classico
       const allAttributes = await prisma.attribute.findMany()
       console.log(`POST - Encontrados ${allAttributes.length} attributes classicos no sistema`)
 
-      // 3. Associar todos os attributes classicos ao personagem
       if (allAttributes.length > 0) {
         for (const attr of allAttributes) {
           await prisma.characterAttributes.create({
@@ -53,11 +47,9 @@ export default async function handler(req, res) {
         console.log(`POST - ${allAttributes.length} attributes classicos associados ao personagem`)
       }
 
-      // 4. Buscar todos os skills do sistema classico
       const allSkills = await prisma.skill.findMany()
       console.log(`POST - Encontrados ${allSkills.length} skills classicos no sistema`)
 
-      // 5. Associar todos os skills classicos ao personagem
       if (allSkills.length > 0) {
         for (const skill of allSkills) {
           await prisma.characterSkills.create({
@@ -71,17 +63,14 @@ export default async function handler(req, res) {
         console.log(`POST - ${allSkills.length} skills classicos associados ao personagem`)
       }
 
-      // 6. SE FOR SISTEMA YEAR ZERO, criar atributos e skills Year Zero
       const isYearZeroSystem = req.body.rpg_system === 'year_zero'
       if (isYearZeroSystem) {
         console.log('POST - Sistema Year Zero detectado, criando atributos e skills Year Zero')
-        
+
         try {
-          // Buscar atributos Year Zero
           const yearZeroAttributes = await prisma.yearZeroAttribute.findMany()
           console.log(`POST - Encontrados ${yearZeroAttributes.length} atributos Year Zero`)
-          
-          // Vincular atributos Year Zero
+
           if (yearZeroAttributes.length > 0) {
             for (const attr of yearZeroAttributes) {
               await prisma.yearZeroAttributes.create({
@@ -94,12 +83,10 @@ export default async function handler(req, res) {
             }
             console.log(`POST - ${yearZeroAttributes.length} atributos Year Zero vinculados`)
           }
-          
-          // Buscar skills Year Zero
+
           const yearZeroSkills = await prisma.yearZeroSkill.findMany()
           console.log(`POST - Encontrados ${yearZeroSkills.length} skills Year Zero`)
-          
-          // Vincular skills Year Zero
+
           if (yearZeroSkills.length > 0) {
             for (const skill of yearZeroSkills) {
               await prisma.yearZeroSkills.create({
@@ -112,15 +99,13 @@ export default async function handler(req, res) {
             }
             console.log(`POST - ${yearZeroSkills.length} skills Year Zero vinculados`)
           }
-          
+
           console.log('POST - Configuracao Year Zero concluida com sucesso')
         } catch (yearZeroError) {
           console.error('POST - Erro ao configurar Year Zero:', yearZeroError)
-          // Nao interrompe a criacao do personagem, apenas loga o erro
         }
       }
 
-      // 7. Buscar o personagem completo com todas as relacoes para retornar
       const completeCharacter = await prisma.character.findUnique({
         where: { id: character.id },
         include: {
@@ -203,12 +188,12 @@ export default async function handler(req, res) {
   if (req.method === 'DELETE') {
     console.log('DELETE - Deletando personagem')
     try {
-      // Extrai o ID da URL (ex: /api/character/2)
-      const id = parseInt(req.url.split('/').pop())
+      const { id } = req.query;
 
       console.log('DELETE - ID do personagem:', id)
 
-      if (isNaN(id)) {
+      const characterId = parseInt(id, 10);
+      if (isNaN(characterId)) {
         return res.status(400).json({
           success: false,
           error: 'ID do personagem invalido'
@@ -216,7 +201,7 @@ export default async function handler(req, res) {
       }
 
       await prisma.character.delete({
-        where: { id }
+        where: { id: characterId }
       })
 
       console.log('DELETE - Personagem deletado com sucesso')
@@ -234,8 +219,8 @@ export default async function handler(req, res) {
   }
 
   console.log('Método não permitido:', req.method)
-  res.status(405).json({ 
+  res.status(405).json({
     success: false,
-    error: 'Método não permitido' 
+    error: 'Método não permitido'
   })
 }

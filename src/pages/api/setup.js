@@ -1,4 +1,4 @@
-import { prisma } from '../../../database';
+import { prisma } from '../../lib/prisma';
 
 export default async function handler(req, res) {
   console.log('=== SETUP API ===')
@@ -9,7 +9,6 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     console.log('POST - Iniciando setup do banco')
     try {
-      // Usar upsert para criar ou atualizar configurações
       console.log('Configurando DICE_ON_SCREEN_TIMEOUT_IN_MS')
       await prisma.config.upsert({
         where: { name: 'DICE_ON_SCREEN_TIMEOUT_IN_MS' },

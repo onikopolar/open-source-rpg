@@ -1,4 +1,4 @@
-import { prisma } from '../../../../database';
+import { prisma } from '../../../lib/prisma';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -18,6 +18,45 @@ export default async function handler(req, res) {
       const attribute = await prisma.attribute.create({
         data: { name, description }
       });
+
+      console.log(`[DEBUG] Novo atributo criado: ${attribute.name} (ID: ${attribute.id})`);
+
+      // Vincular o novo atributo a todos os personagens existentes do sistema clássico
+      try {
+        const classicCharacters = await prisma.character.findMany({
+          where: {
+            rpg_system: 'classic'
+          },
+          select: {
+            id: true
+          }
+        });
+
+        console.log(`[DEBUG] Vinculando atributo a ${classicCharacters.length} personagens clássicos`);
+
+        for (const character of classicCharacters) {
+          await prisma.characterAttributes.upsert({
+            where: {
+              character_id_attribute_id: {
+                character_id: character.id,
+                attribute_id: attribute.id
+              }
+            },
+            update: {}, // Não atualiza se já existir
+            create: {
+              character_id: character.id,
+              attribute_id: attribute.id,
+              value: 1 // Valor padrão
+            }
+          });
+        }
+
+        console.log(`[DEBUG] Atributo vinculado com sucesso a ${classicCharacters.length} personagens`);
+      } catch (linkError) {
+        console.error('[ERROR] Erro ao vincular atributo aos personagens:', linkError);
+        // Não falha a criação do atributo, apenas loga o erro
+      }
+
       return res.status(200).json(attribute);
     } catch (error) {
       return res.status(500).json({ error: 'Erro ao criar atributo' });
@@ -39,21 +78,19 @@ export default async function handler(req, res) {
 
   if (req.method === 'DELETE') {
     try {
-      // Extrai o ID da URL (ex: /api/attribute/43)
-      const id = req.url.split('/').pop();
+      const { id } = req.query;
 
-      console.log('DELETE request - URL:', req.url);
-      console.log('DELETE request - Extracted ID:', id);
+      console.log('DELETE request - ID:', id);
 
+      const attributeId = parseInt(id, 10);
       await prisma.attribute.delete({
-        where: { id }
+        where: { id: attributeId }
       });
 
       return res.status(200).json({
         success: true,
         debug: {
-          url: req.url,
-          extractedId: id,
+          id: id,
           method: req.method
         }
       });
@@ -62,8 +99,7 @@ export default async function handler(req, res) {
       return res.status(500).json({
         error: 'Erro ao deletar atributo',
         debug: {
-          url: req.url,
-          extractedId: req.url.split('/').pop(),
+          id: req.query.id,
           error: error.message
         }
       });

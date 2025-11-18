@@ -39,7 +39,7 @@ export default function ManageCharacters() {
   const handleDelete = async (characterId) => {
     if (window.confirm('Tem certeza que deseja excluir este personagem?')) {
       try {
-        await api.delete(\/character/\\);
+        await api.delete(`/character/${characterId}`);
         fetchCharacters();
       } catch (error) {
         alert('Erro ao excluir personagem');

@@ -1,11 +1,10 @@
-import { prisma } from '../../../database';
+import { prisma } from '../../../lib/prisma';
 
 export default async function handler(req, res) {
   const { id } = req.query;
 
   if (req.method === 'DELETE') {
     try {
-      // Converter ID para número
       const skillId = parseInt(id, 10);
       await prisma.skill.delete({
         where: { id: skillId }

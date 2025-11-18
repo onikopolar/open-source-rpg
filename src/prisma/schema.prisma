@@ -3,12 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Character {
-  id                             Int                   @id @default(autoincrement())
+   id                             Int                   @id @default(autoincrement())
   name                           String
   age                            Int?
   gender                         String?
@@ -24,6 +24,11 @@ model Character {
   trauma_level                   Int?                  @default(0)
   willpower                      Int?                  @default(0)
   experience                     Int?                  @default(0)
+  
+  // NOVOS CAMPOS PARA SISTEMA YEAR ZERO
+  health_squares                 String?               @default("[]") // Array de booleanos como JSON
+  stress_squares                 String?               @default("[]") // Array de booleanos como JSON
+  
   created_at                     DateTime              @default(now())
   
   // Dados para sistema clássico
