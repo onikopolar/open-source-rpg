@@ -17,7 +17,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 /**
  * Componente para selecao do sistema RPG
- * Permite alternar entre Sistema Classico e Year Zero Engine
+ * Permite alternar entre Sistema Classico, Year Zero Engine e Feiticeiros & Maldições
  * Implementacao robusta e acessivel
  */
 const SheetSelector = ({ 
@@ -43,7 +43,7 @@ const SheetSelector = ({
       compatibleGames: ['D&D 5e', 'Pathfinder', 'Tormenta RPG', 'Old Dragon', '3D&T']
     },
     {
-      id: 'year_zero', // CORRIGIDO: year_zero em vez de yearzero
+      id: 'year_zero',
       name: 'Year Zero Engine',
       description: 'Sistema moderno utilizado em Alien RPG, Mutant Year Zero e Forbidden Lands. Foca em dados de habilidade e mecanicas de push.',
       icon: <AutoAwesomeIcon sx={{ fontSize: 40 }} />,
@@ -56,6 +56,21 @@ const SheetSelector = ({
         'Design de diamante para atributos nucleares'
       ],
       compatibleGames: ['Alien RPG', 'Mutant Year Zero', 'Forbidden Lands', 'Vaesen', 'Twilight 2000']
+    },
+    {
+      id: 'feiticeiros',
+      name: 'Feiticeiros & Maldições',
+      description: 'Sistema baseado no universo de Jujutsu Kaisen, focado em energia amaldiçoada, técnicas únicas e domínios expansion.',
+      icon: <AutoAwesomeIcon sx={{ fontSize: 40 }} />,
+      color: '#9c27b0',
+      features: [
+        'Sistema de Energia Amaldiçoada',
+        'Técnicas Amaldiçoadas únicas',
+        'Domínio Expansion',
+        'Sistema de Grade (Grau 4 a Especial)',
+        'Combate tático com maldições'
+      ],
+      compatibleGames: ['Jujutsu Kaisen RPG', 'Sistemas de anime']
     }
   ];
 
@@ -223,7 +238,7 @@ const SheetSelector = ({
           const isDisabled = isSaving;
           
           return (
-            <Grid item xs={12} md={6} key={system.id}>
+            <Grid item xs={12} md={4} key={system.id}>
               <Tooltip 
                 title={getTooltipTitle(system)}
                 placement="top"

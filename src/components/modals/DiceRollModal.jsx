@@ -10,22 +10,23 @@ import { api } from '../../utils'
 import socket from '../../utils/socket'
 
 const styles = theme => ({
-
+    dialogPaper: {
+        zIndex: '9999 !important'
+    }
 })
 
 function DiceRollModal({
     classes,
     handleClose,
     characterId,
-    onDiceRoll
+    onDiceRoll,
+    zIndex = 9999
 }) {
-    // Carregar preferências salvas ou usar padrão
     const [timesToRoll, setTimesToRoll] = useState(1);
     const [facesNumber, setFacesNumber] = useState(6);
     const [buttonDisabled, setButtonDisabled] = useState(false);
     const [result, setResult] = useState(null);
 
-    // Quando o modal abre, carrega as preferências salvas
     useEffect(() => {
         const savedTimes = localStorage.getItem('diceRoller_timesToRoll');
         const savedFaces = localStorage.getItem('diceRoller_facesNumber');
@@ -34,61 +35,57 @@ function DiceRollModal({
         if (savedFaces) setFacesNumber(Number(savedFaces));
     }, []);
 
-    // Salvar preferências quando mudar
     const savePreferences = (times, faces) => {
         localStorage.setItem('diceRoller_timesToRoll', times);
         localStorage.setItem('diceRoller_facesNumber', faces);
     };
 
-    const getSuccessThreshold = (faces) => {
-        const thresholds = {
-            3: 2,
-            4: 3,
-            6: 4,
-            8: 5,
-            10: 6,
-            12: 7,
-            16: 9,
-            20: 11,
-            30: 16,
-            100: 51
-        };
-        return thresholds[faces] || Math.ceil(faces / 2);
-    }
-
     const getRollResult = (rolls, faces) => {
-        const threshold = getSuccessThreshold(faces);
         const total = rolls.reduce((acc, curr) => acc + curr.rolled_number, 0);
-        const successes = rolls.filter(roll => roll.rolled_number >= threshold).length;
-        const failures = rolls.filter(roll => roll.rolled_number < threshold).length;
-        const criticalSuccess = rolls.some(roll => roll.rolled_number === faces);
-        const criticalFailure = rolls.some(roll => roll.rolled_number === 1);
-
+        
         return {
             rolls,
             total,
-            successes,
-            failures,
-            criticalSuccess,
-            criticalFailure,
-            threshold,
             faces
         };
     }
+
+    const rollDiceLocal = () => {
+        const fakeRolls = Array.from({ length: timesToRoll }, () => ({
+            rolled_number: Math.floor(Math.random() * facesNumber) + 1
+        }));
+        
+        const rollResult = getRollResult(fakeRolls, facesNumber);
+        
+        setResult(rollResult);
+        setButtonDisabled(false);
+        
+        if(onDiceRoll) {
+            onDiceRoll(rollResult);
+        }
+    };
 
     const rollDice = () => {
         setButtonDisabled(true);
 
         if(!timesToRoll || !facesNumber) {
-            return window.alert('É necessário escolher todos os campos!');
+            window.alert('É necessário escolher todos os campos!');
+            setButtonDisabled(false);
+            return;
         }
 
         if(timesToRoll < 1) {
-            return window.alert('O número de dados precisa ser maior que 1.');
+            window.alert('O número de dados precisa ser maior que 0.');
+            setButtonDisabled(false);
+            return;
         }
 
-        // Salvar as preferências atuais
         savePreferences(timesToRoll, facesNumber);
+
+        if (!characterId) {
+            rollDiceLocal();
+            return;
+        }
 
         api.post('roll', {
             character_id: characterId,
@@ -96,17 +93,23 @@ function DiceRollModal({
             times: timesToRoll
         })
         .then(res => {
+            if (!res.data) {
+                setButtonDisabled(false);
+                window.alert('Erro: resposta vazia da API');
+                return;
+            }
+
+            if (!Array.isArray(res.data)) {
+                setButtonDisabled(false);
+                window.alert('Erro: formato de resposta inválido');
+                return;
+            }
+
             const rollResult = getRollResult(res.data, facesNumber);
             setResult(rollResult);
             setButtonDisabled(false);
 
-            // EMITIR EVENTO SOCKET PARA A TELA DE DADOS
             if (socket && characterId) {
-                console.log('[DEBUG] DiceRollModal - Emitindo evento socket para rolagem:', {
-                    character_id: characterId,
-                    rolls: res.data
-                });
-                
                 socket.emit('dice_roll', {
                     character_id: characterId,
                     rolls: res.data
@@ -118,23 +121,28 @@ function DiceRollModal({
             }
         })
         .catch(err => {
-            console.log(err);
-            setButtonDisabled(false);
+            rollDiceLocal();
         });
     }
 
-    const getResultColor = (result) => {
-        if (result.criticalSuccess) return '#4caf50';
-        if (result.criticalFailure) return '#f44336';
-        if (result.successes > 0) return '#2196f3';
-        return '#ff9800';
+    const handleRollButtonClick = () => {
+        if (result) {
+            setResult(null);
+        } else {
+            rollDice();
+        }
     }
 
-    const getResultText = (result) => {
-        if (result.criticalSuccess) return 'Sucesso Crítico';
-        if (result.criticalFailure) return 'Falha Crítica';
-        if (result.successes > 0) return 'Sucesso';
-        return 'Falha';
+    const handleTimesChange = (value) => {
+        const numValue = Number(value);
+        setTimesToRoll(numValue);
+        savePreferences(numValue, facesNumber);
+    }
+
+    const handleFacesChange = (value) => {
+        const numValue = Number(value);
+        setFacesNumber(numValue);
+        savePreferences(timesToRoll, numValue);
     }
 
     return (
@@ -143,6 +151,18 @@ function DiceRollModal({
             onClose={handleClose}
             fullWidth
             maxWidth="sm"
+            classes={{
+                paper: classes.dialogPaper
+            }}
+            sx={{
+                zIndex: `${zIndex} !important`,
+                '& .MuiDialog-container': {
+                    zIndex: `${zIndex} !important`
+                },
+                '& .MuiBackdrop-root': {
+                    zIndex: `${zIndex - 1} !important`
+                }
+            }}
         >
             <DialogTitle>
                 {result ? 'Resultado da Rolagem' : 'Rolar Dados'}
@@ -154,7 +174,7 @@ function DiceRollModal({
                             <Grid item xs={12}>
                                 <Box sx={{
                                     p: 2,
-                                    backgroundColor: getResultColor(result),
+                                    backgroundColor: '#2196f3',
                                     color: 'white',
                                     borderRadius: 1,
                                     textAlign: 'center',
@@ -162,11 +182,11 @@ function DiceRollModal({
                                     mb: 2
                                 }}>
                                     <Typography variant="h6">
-                                        {getResultText(result)}
+                                        Resultado
                                     </Typography>
                                 </Box>
 
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, justifyContent: 'center' }}>
                                     {result.rolls.map((each, index) => (
                                         <Box
                                             key={index}
@@ -178,7 +198,8 @@ function DiceRollModal({
                                                 justifyContent: 'center',
                                                 borderRadius: 1,
                                                 backgroundColor: '#e0e0e0',
-                                                fontWeight: 'bold'
+                                                fontWeight: 'bold',
+                                                fontSize: '1rem'
                                             }}
                                         >
                                             {each.rolled_number}
@@ -187,40 +208,21 @@ function DiceRollModal({
                                 </Box>
 
                                 <Grid container spacing={2}>
-                                    <Grid item xs={6}>
-                                        <Typography variant="body1">
-                                            <strong>Total:</strong> {result.total}
+                                    <Grid item xs={12}>
+                                        <Typography variant="h6" align="center">
+                                            Total: {result.total}
                                         </Typography>
                                     </Grid>
                                     <Grid item xs={6}>
-                                        <Typography variant="body1">
-                                            <strong>Sucessos:</strong> {result.successes}
+                                        <Typography variant="body1" align="center">
+                                            <strong>Dados:</strong> {result.rolls.length}d{result.faces}
                                         </Typography>
                                     </Grid>
                                     <Grid item xs={6}>
-                                        <Typography variant="body1">
-                                            <strong>Falhas:</strong> {result.failures}
+                                        <Typography variant="body1" align="center">
+                                            <strong>Rolagens:</strong> {result.rolls.length}
                                         </Typography>
                                     </Grid>
-                                    <Grid item xs={6}>
-                                        <Typography variant="body1">
-                                            <strong>Limite:</strong> {result.threshold}+
-                                        </Typography>
-                                    </Grid>
-                                    {result.criticalSuccess && (
-                                        <Grid item xs={12}>
-                                            <Typography variant="body2" color="success.main">
-                                                <strong>Crítico:</strong> Valor máximo alcançado
-                                            </Typography>
-                                        </Grid>
-                                    )}
-                                    {result.criticalFailure && (
-                                        <Grid item xs={12}>
-                                            <Typography variant="body2" color="error.main">
-                                                <strong>Crítico:</strong> Valor mínimo alcançado
-                                            </Typography>
-                                        </Grid>
-                                    )}
                                 </Grid>
                             </Grid>
                         </Grid>
@@ -240,14 +242,11 @@ function DiceRollModal({
                                     fullWidth
                                     variant="outlined"
                                     value={timesToRoll}
-                                    onChange={
-                                        ({ target }) => {
-                                            const value = target.value;
-                                            setTimesToRoll(Number(value));
-                                            // Salva automaticamente quando muda
-                                            savePreferences(Number(value), facesNumber);
-                                        }
-                                    }
+                                    onChange={({ target }) => handleTimesChange(target.value)}
+                                    inputProps={{ 
+                                        min: 1,
+                                        max: 100
+                                    }}
                                 />
                             </Grid>
 
@@ -257,14 +256,7 @@ function DiceRollModal({
                                     <Select
                                         value={facesNumber}
                                         label="Número de faces"
-                                        onChange={
-                                            ({ target }) => {
-                                                const value = target.value;
-                                                setFacesNumber(Number(value));
-                                                // Salva automaticamente quando muda
-                                                savePreferences(timesToRoll, Number(value));
-                                            }
-                                        }
+                                        onChange={({ target }) => handleFacesChange(target.value)}
                                     >
                                         <MenuItem value={3}>D3</MenuItem>
                                         <MenuItem value={4}>D4</MenuItem>
@@ -290,14 +282,14 @@ function DiceRollModal({
                 >
                     Fechar
                 </Button>
-                    <Button
-                        onClick={() => {
-                            return result ? setResult(null) : rollDice()
-                        }}
-                        disabled={buttonDisabled}
-                    >
-                        {result ? 'Novos Dados' : 'Rolar'}
-                    </Button>
+                <Button
+                    onClick={handleRollButtonClick}
+                    disabled={buttonDisabled}
+                    variant="contained"
+                    color="primary"
+                >
+                    {result ? 'Nova Rolagem' : 'Rolar'}
+                </Button>
             </DialogActions>
         </Dialog>
     )

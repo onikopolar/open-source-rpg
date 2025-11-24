@@ -43,6 +43,7 @@ import {
 
 import SheetSelector from '../../components/sheets/SheetSelector';
 import YearZeroSheet from '../../components/sheets/YearZeroSheet';
+import FeiticeirosSheet from '../../components/sheets/FeiticeirosSheet';
 
 import useModal from '../../hooks/useModal';
 import { prisma } from '../../database';
@@ -196,15 +197,63 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
   const [loadingStates, setLoadingStates] = useState({});
   const [errors, setErrors] = useState({});
   
-  const [isSelectorExpanded, setIsSelectorExpanded] = useState(!rawCharacter?.rpg_system);
-  const [isSheetExpanded, setIsSheetExpanded] = useState(!!rawCharacter?.rpg_system);
+  const [isFirstTime, setIsFirstTime] = useState(true);
+  const [isSelectorExpanded, setIsSelectorExpanded] = useState(false);
+  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  console.log('[DEBUG] useCharacterSheet - Estados iniciais:', {
-    hasCharacter: !!character,
-    rpgSystem,
-    isSelectorExpanded,
-    isSheetExpanded
-  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    console.log('[DEBUG] useCharacterSheet - Inicializando no cliente');
+    
+    const characterId = rawCharacter?.id;
+    if (!characterId) {
+      console.log('[DEBUG] useCharacterSheet - Sem character ID, usando padrões');
+      setIsInitialized(true);
+      return;
+    }
+
+    const visitedSheets = JSON.parse(localStorage.getItem('visited_character_sheets') || '[]');
+    const hasVisited = visitedSheets.includes(characterId);
+    const firstTime = !hasVisited;
+    
+    console.log('[DEBUG] useCharacterSheet - Verificando primeira visita:', {
+      characterId,
+      visitedSheets,
+      hasVisited,
+      firstTime
+    });
+
+    setIsFirstTime(firstTime);
+    
+    const shouldExpandSelector = firstTime || !rawCharacter?.rpg_system;
+    const shouldExpandSheet = !firstTime && !!rawCharacter?.rpg_system;
+    
+    console.log('[DEBUG] useCharacterSheet - Definindo estados de expansão:', {
+      firstTime,
+      hasSystem: !!rawCharacter?.rpg_system,
+      shouldExpandSelector,
+      shouldExpandSheet
+    });
+
+    setIsSelectorExpanded(shouldExpandSelector);
+    setIsSheetExpanded(shouldExpandSheet);
+    setIsInitialized(true);
+    
+  }, [rawCharacter?.id, rawCharacter?.rpg_system]);
+
+  const markSheetAsVisited = useCallback(() => {
+    if (typeof window === 'undefined' || !character?.id) return;
+    
+    const visitedSheets = JSON.parse(localStorage.getItem('visited_character_sheets') || '[]');
+    if (!visitedSheets.includes(character.id)) {
+      visitedSheets.push(character.id);
+      localStorage.setItem('visited_character_sheets', JSON.stringify(visitedSheets));
+      setIsFirstTime(false);
+      console.log('[DEBUG] useCharacterSheet - Ficha marcada como visitada:', character.id);
+    }
+  }, [character?.id]);
 
   useEffect(() => {
     console.log('[DEBUG] useCharacterSheet useEffect - Inicializando valores de atributos e habilidades');
@@ -255,7 +304,8 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
   const handleSystemChange = useCallback(async (newSystem) => {
     console.log('[DEBUG] useCharacterSheet handleSystemChange - Nova solicitacao:', { 
       currentSystem: rpgSystem, 
-      newSystem 
+      newSystem,
+      isFirstTime
     });
     
     if (newSystem === 'expand_selector') {
@@ -268,6 +318,7 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
     if (newSystem === rpgSystem) {
       console.log('[DEBUG] useCharacterSheet handleSystemChange - Recolhendo seletor - sistema ja selecionado');
       setIsSelectorExpanded(false);
+      setIsSheetExpanded(true);
       return;
     }
 
@@ -285,6 +336,10 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
       setIsSheetExpanded(true);
       setRpgSystem(newSystem);
       
+      if (isFirstTime) {
+        markSheetAsVisited();
+      }
+      
       console.log('[DEBUG] useCharacterSheet handleSystemChange - Fazendo requisicao para API');
       await api.put(`/character/${character.id}`, {
         rpg_system: newSystem
@@ -297,10 +352,8 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
       
       console.log('[DEBUG] useCharacterSheet handleSystemChange - Mudanca de sistema concluida com sucesso');
 
-      console.log("[DEBUG] handleSystemChange - Chamando API de setup para Year Zero");
       if (newSystem === "year_zero") {
         console.log("[DEBUG] handleSystemChange - Configurando personagem para Year Zero Engine");
-        console.log("[DEBUG] handleSystemChange - Iniciando setup para character ID:", character.id);
         try {
           await api.post("/yearzero/setup", {
             character_id: character.id
@@ -310,8 +363,6 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
           if (refreshData) {
             console.log("[DEBUG] handleSystemChange - Recarregando dados apos setup");
             await refreshData();
-          } else {
-            console.warn("[WARN] handleSystemChange - refreshData nao disponivel");
           }
         } catch (error) {
           console.error("[ERROR] handleSystemChange - Erro no setup Year Zero:", error);
@@ -331,7 +382,20 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
       setIsChangingSystem(false);
       throw new Error(errorMessage);
     }
-  }, [character, rpgSystem, clearError, handleApiError, setCharacter, refreshData]);
+  }, [
+    character, 
+    rpgSystem, 
+    isFirstTime,
+    clearError, 
+    handleApiError, 
+    setCharacter, 
+    refreshData,
+    setIsSelectorExpanded,
+    setIsSheetExpanded,
+    setRpgSystem,
+    setIsChangingSystem,
+    markSheetAsVisited
+  ]);
 
   return {
     character,
@@ -358,6 +422,9 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
     setIsSelectorExpanded,
     isSheetExpanded,
     setIsSheetExpanded,
+    isFirstTime,
+    isInitialized,
+    markSheetAsVisited,
     handleSystemChange
   };
 };
@@ -402,6 +469,8 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     clearError,
     isSelectorExpanded,
     isSheetExpanded,
+    isFirstTime,
+    isInitialized,
     handleSystemChange
   } = useCharacterSheet(rawCharacter, refreshData);
 
@@ -555,18 +624,18 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       console.log(`[DEBUG] CharacterSheet saveAttributeValue - Valor a ser salvo: ${value}`);
       
       if (rpgSystem === 'year_zero') {
-  await api.put('/yearzero/attribute', {
-    character_id: character.id,
-    attribute_id: attributeId,
-    value: value
-  });
-} else {
-  await api.put('/character/attribute', {
-    characterId: character.id,
-    attributeId: attributeId,
-    value: value
-  });
-}
+        await api.put('/yearzero/attribute', {
+          character_id: character.id,
+          attribute_id: attributeId,
+          value: value
+        });
+      } else {
+        await api.put('/character/attribute', {
+          characterId: character.id,
+          attributeId: attributeId,
+          value: value
+        });
+      }
       
       setCharacter(prev => {
         const updated = {
@@ -608,19 +677,19 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       const value = skillValues[skillId] || 0;
       console.log(`[DEBUG] CharacterSheet saveSkillValue - Valor a ser salvo: ${value}`);
       
-     if (rpgSystem === 'year_zero') {
-  await api.put('/yearzero/skill', {
-    character_id: character.id,
-    skill_id: skillId,
-    value: value
-  });
-} else {
-  await api.put('/character/skill', {
-    characterId: character.id,
-    skillId: skillId,
-    value: value
-  });
-}
+      if (rpgSystem === 'year_zero') {
+        await api.put('/yearzero/skill', {
+          character_id: character.id,
+          skill_id: skillId,
+          value: value
+        });
+      } else {
+        await api.put('/character/skill', {
+          characterId: character.id,
+          skillId: skillId,
+          value: value
+        });
+      }
       
       setCharacter(prev => {
         const updated = {
@@ -1209,6 +1278,19 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     };
   }, [character, refreshData]);
 
+  if (!isInitialized) {
+    console.log('[DEBUG] CharacterSheet - Aguardando inicialização...');
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Header />
+        <CircularProgress sx={{ mt: 4 }} />
+        <Typography variant="body1" sx={{ mt: 2 }}>
+          Carregando ficha...
+        </Typography>
+      </Box>
+    );
+  }
+
   if (serverError || !character) {
     console.error('[ERROR] CharacterSheet - Erro do servidor ou character ausente:', { serverError, hasCharacter: !!character });
     return (
@@ -1257,10 +1339,16 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Alert>
         ))}
 
-        <Section title="Informacoes do Personagem">
+        <Section title="Informações do Personagem">
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
-              <Box sx={{ textAlign: 'center' }}>
+              <Box sx={{ 
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2
+              }}>
                 <Image
                   src={character.standard_character_picture_url || '/assets/user.png'}
                   alt={character.name}
@@ -1275,7 +1363,11 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 />
                 <Button 
                   variant="outlined" 
-                  sx={{ mt: 2 }}
+                  sx={{ 
+                    mt: 2,
+                    width: isMobile ? '100%' : 'auto',
+                    minWidth: 140
+                  }}
                   onClick={() => {
                     console.log('[DEBUG] CharacterSheet - Clicou em alterar imagem');
                     changePictureModal.appear({
@@ -1304,7 +1396,15 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
         </Section>
 
         <Collapse in={isSelectorExpanded} timeout="auto" unmountOnExit>
-          <Section title="Selecionar Sistema RPG">
+          <Section title={isFirstTime ? "Escolha seu Sistema RPG" : "Selecionar Sistema RPG"}>
+            {isFirstTime && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  <strong>Primeira vez aqui?</strong> Escolha o sistema RPG que melhor se adapta ao seu personagem. 
+                  Você poderá trocar a qualquer momento!
+                </Typography>
+              </Alert>
+            )}
             <SheetSelector
               currentSystem={rpgSystem}
               onSystemChange={handleSystemChange}
@@ -1314,7 +1414,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Section>
         </Collapse>
 
-        {!isSelectorExpanded && (
+        {!isSelectorExpanded && rpgSystem && (
           <Box sx={{ 
             textAlign: 'center', 
             mb: 4,
@@ -1354,7 +1454,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                   fontWeight: 700
                 }}
               >
-                {rpgSystem === 'year_zero' ? 'Year Zero Engine' : 'Sistema Classico'}
+                {rpgSystem === 'year_zero' ? 'Year Zero Engine' : rpgSystem === 'feiticeiros' ? 'Feiticeiros & Maldições' : 'Sistema Classico'}
               </Box>
             </Typography>
             
@@ -1367,7 +1467,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 mx: 'auto'
               }}
             >
-              Nao e o que voce esperava? Experimente outro estilo de sistema RPG!
+              Não é o que você esperava? Experimente outro estilo de sistema RPG!
             </Typography>
 
             <Button
@@ -1417,7 +1517,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
               gap: isMobile ? 2 : 0
             }}>
               <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.5rem' : '1.75rem' }}>
-                Ficha - {rpgSystem === 'year_zero' ? 'Year Zero Engine' : 'Sistema Classico'}
+                Ficha - {rpgSystem === 'year_zero' ? 'Year Zero Engine' : rpgSystem === 'feiticeiros' ? 'Feiticeiros & Maldições' : 'Sistema Classico'}
               </Typography>
             </Box>
 
@@ -1444,6 +1544,16 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 onUpdate={handleYearZeroUpdate}
                 onAttributeRoll={handleYearZeroAttributeRoll}
                 onSkillRoll={handleYearZeroSkillRoll}
+                onQuickHeal={(amount) => handleQuickHealthChange(amount, 'heal')}
+                onQuickDamage={(amount) => handleQuickHealthChange(amount, 'damage')}
+                loadingStates={loadingStates}
+                errors={errors}
+                isMobile={isMobile}
+              />
+            ) : rpgSystem === 'feiticeiros' ? (
+              <FeiticeirosSheet 
+                character={character}
+                onUpdate={handleYearZeroUpdate}
                 onQuickHeal={(amount) => handleQuickHealthChange(amount, 'heal')}
                 onQuickDamage={(amount) => handleQuickHealthChange(amount, 'damage')}
                 loadingStates={loadingStates}
