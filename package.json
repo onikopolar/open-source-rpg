@@ -4,14 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "node src/server.js",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "prisma generate && prisma db push --accept-data-loss && next build",
     "start": "node .next/standalone/server.js",
     "lint": "next lint",
-    "railway-setup": "prisma generate && prisma migrate deploy",
+    "railway-setup": "prisma db push --accept-data-loss && prisma generate",
     "db-seed": "node src/prisma/seed.js",
     "db-seed-feiticeiros": "node src/prisma/seed_feiticeiros.js",
     "db-studio": "prisma studio",
-    "db-reset": "prisma migrate reset --force"
+    "db-reset": "prisma migrate reset --force",
+    "db-push": "prisma db push --accept-data-loss"
   },
   "prisma": {
     "schema": "src/prisma/schema.prisma",
