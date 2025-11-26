@@ -3,7 +3,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 
 import theme from '../theme'
-import { ModalProvider } from '../contexts/ModalContext.jsx';
+import { ModalProvider } from '../contexts/ModalContext';
 
 function MyApp({ Component, pageProps }) {
 

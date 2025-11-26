@@ -8,7 +8,7 @@ datasource db {
 }
 
 model Character {
-   id                             Int                   @id @default(autoincrement())
+  id                             Int                   @id @default(autoincrement())
   name                           String
   age                            Int?
   gender                         String?
@@ -26,8 +26,36 @@ model Character {
   experience                     Int?                  @default(0)
   
   // NOVOS CAMPOS PARA SISTEMA YEAR ZERO
-  health_squares                 String?               @default("[]") // Array de booleanos como JSON
-  stress_squares                 String?               @default("[]") // Array de booleanos como JSON
+  health_squares                 String?               @default("[]")
+  stress_squares                 String?               @default("[]")
+  
+  // NOVOS CAMPOS PARA SISTEMA FEITICEIROS - COMPLETO
+  level                          Int?                  @default(1)
+  origem                         String?
+  treino                         String?
+  especializacao                 String?
+  tecnica                        String?
+  experiencia                    Int?                  @default(0)
+  multiclasse                    String?
+  grau                           String?
+  
+  // SISTEMA DE SAÚDE COMPLETO DO FEITICEIROS
+  current_soul_integrity         Int?                  @default(0)
+  current_energy_points          Int?                  @default(0)
+  max_energy_points              Int?                  @default(0)
+  
+  // VALORES DERIVADOS COM BÔNUS
+  derived_values_bonuses         String?               @default("{}")
+  atencao_bonus                  Int?                  @default(0)
+  defesa_bonus                   Int?                  @default(0)
+  iniciativa_bonus               Int?                  @default(0)
+  deslocamento_bonus             Int?                  @default(0)
+  
+  // VALORES CALCULADOS (para otimização)
+  atencao_calculado              Int?                  @default(10)
+  defesa_calculada               Int?                  @default(10)
+  iniciativa_calculada           Int?                  @default(0)
+  deslocamento_calculado         Int?                  @default(9)
   
   created_at                     DateTime              @default(now())
   
@@ -38,6 +66,13 @@ model Character {
   // Dados para sistema Year Zero
   yearzero_attributes            YearZeroAttributes[]
   yearzero_skills                YearZeroSkills[]
+  
+  // Dados para sistema Feiticeiros (COMPLETAMENTE SEPARADOS)
+  feiticeiros_attributes         FeiticeirosCharacterAttribute[]
+  feiticeiros_pericias           FeiticeirosPericia[]
+  feiticeiros_oficios            FeiticeirosOficio[]
+  feiticeiros_resistencias       FeiticeirosResistencia[]
+  feiticeiros_ataques            FeiticeirosAtaque[]
   
   rolls                          Roll[]
 
@@ -132,6 +167,89 @@ model YearZeroSkill {
 
   @@index([name])
   @@map("yearzero_skill")
+}
+
+// TABELAS COMPLETAMENTE SEPARADAS PARA SISTEMA FEITICEIROS
+model FeiticeirosAttribute {
+  id            Int       @id @default(autoincrement())
+  name          String    @unique
+  description   String?
+  base_value    Int       @default(10)
+  characters    FeiticeirosCharacterAttribute[]
+
+  @@index([name])
+  @@map("feiticeiros_attribute")
+}
+
+model FeiticeirosCharacterAttribute {
+  character_id Int
+  attribute_id Int
+  value        Int                   @default(10)
+  attribute    FeiticeirosAttribute  @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
+  character    Character             @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@id([character_id, attribute_id])
+  @@map("feiticeiros_character_attributes")
+}
+
+model FeiticeirosPericia {
+  id            Int       @id @default(autoincrement())
+  character_id  Int
+  nome          String
+  atributo      String
+  descricao     String?
+  treinada      Boolean   @default(false)
+  mestre        Boolean   @default(false)
+  outros        Int       @default(0)
+  character     Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@index([character_id])
+  @@map("feiticeiros_pericias")
+}
+
+model FeiticeirosOficio {
+  id            Int       @id @default(autoincrement())
+  character_id  Int
+  nome          String
+  atributo      String
+  descricao     String?
+  treinada      Boolean   @default(false)
+  mestre        Boolean   @default(false)
+  outros        Int       @default(0)
+  character     Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@index([character_id])
+  @@map("feiticeiros_oficios")
+}
+
+model FeiticeirosResistencia {
+  id            Int       @id @default(autoincrement())
+  character_id  Int
+  nome          String
+  atributo      String
+  descricao     String?
+  treinada      Boolean   @default(false)
+  mestre        Boolean   @default(false)
+  outros        Int       @default(0)
+  character     Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@index([character_id])
+  @@map("feiticeiros_resistencias")
+}
+
+model FeiticeirosAtaque {
+  id            Int       @id @default(autoincrement())
+  character_id  Int
+  nome          String
+  atributo      String
+  descricao     String?
+  treinada      Boolean   @default(false)
+  mestre        Boolean   @default(false)
+  outros        Int       @default(0)
+  character     Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@index([character_id])
+  @@map("feiticeiros_ataques")
 }
 
 model Roll {
