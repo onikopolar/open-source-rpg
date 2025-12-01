@@ -1,3 +1,4 @@
+// src/pages/sheet/[id].jsx - VERSÃO CORRIGIDA E OTIMIZADA
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import Image from 'next/image';
@@ -48,32 +49,50 @@ import FeiticeirosSheet from '../../components/sheets/FeiticeirosSheet';
 import useModal from '../../hooks/useModal';
 import { prisma } from '../../database';
 
+// Hook para verificar se estamos no cliente
+const useIsClient = () => {
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  return isClient;
+};
+
+// Validação robusta de ID do personagem
 const validateCharacterId = (id) => {
-  console.log('[DEBUG] validateCharacterId - Validando ID:', id);
+  if (!id) return null;
+  
   const characterId = Number(id);
-  const isValid = !isNaN(characterId);
-  console.log('[DEBUG] validateCharacterId - Resultado:', { id, characterId, isValid });
+  const isValid = !isNaN(characterId) && characterId > 0;
   return isValid ? characterId : null;
 };
 
-export const getServerSideProps = async ({ params }) => {
-  console.log('[DEBUG] getServerSideProps - Iniciando SSR com params:', params);
+// Função para serializar dados do personagem de forma segura
+const safeSerializeCharacter = (character) => {
+  if (!character) return null;
   
   try {
-    const characterId = validateCharacterId(params.id);
-    console.log('[DEBUG] getServerSideProps - ID validado:', characterId);
+    return JSON.parse(JSON.stringify(character));
+  } catch (error) {
+    console.error('Erro ao serializar personagem:', error);
+    return null;
+  }
+};
+
+export const getServerSideProps = async ({ params }) => {
+  try {
+    const characterId = validateCharacterId(params?.id);
 
     if (!characterId) {
-      console.error('[ERROR] getServerSideProps - ID do personagem invalido');
       return {
         props: {
           character: null,
-          error: 'ID do personagem invalido'
+          error: 'ID do personagem inválido'
         }
       };
     }
 
-    console.log('[DEBUG] getServerSideProps - Buscando character no banco:', characterId);
+    // Buscar personagem com todas as relações necessárias
     const character = await prisma.character.findUnique({
       where: {
         id: characterId
@@ -98,26 +117,25 @@ export const getServerSideProps = async ({ params }) => {
           include: {
             skill: true
           }
-        }
+        },
+        feiticeiros_attributes: {
+          include: {
+            attribute: true
+          }
+        },
+        feiticeiros_pericias: true,
+        feiticeiros_oficios: true,
+        feiticeiros_resistencias: true,
+        feiticeiros_ataques: true
       }
     });
 
-    console.log('[DEBUG] getServerSideProps - Character encontrado:', !!character);
-    console.log('[DEBUG] getServerSideProps - Detalhes do character:', {
-      id: character?.id,
-      name: character?.name,
-      rpgSystem: character?.rpg_system,
-      attributesCount: character?.attributes?.length,
-      skillsCount: character?.skills?.length,
-      yearZeroAttributesCount: character?.yearzero_attributes?.length,
-      yearZeroSkillsCount: character?.yearzero_skills?.length
-    });
-
+    // Auto-setup para Year Zero se necessário
     if (character?.rpg_system === 'year_zero' && 
         (!character.yearzero_attributes || character.yearzero_attributes.length === 0)) {
-      console.log('[DEBUG] getServerSideProps - Executando auto-setup para Year Zero');
       try {
-        const setupResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/yearzero/setup`, {
+        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+        const setupResponse = await fetch(`${baseUrl}/api/yearzero/setup`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -128,43 +146,42 @@ export const getServerSideProps = async ({ params }) => {
         });
         
         if (setupResponse.ok) {
-          console.log('[DEBUG] getServerSideProps - Auto-setup concluido com sucesso');
-          
           const updatedCharacter = await prisma.character.findUnique({
             where: { id: characterId },
             include: {
               attributes: { include: { attribute: true } },
               skills: { include: { skill: true } },
               yearzero_attributes: { include: { attribute: true } },
-              yearzero_skills: { include: { skill: true } }
+              yearzero_skills: { include: { skill: true } },
+              feiticeiros_attributes: { include: { attribute: true } },
+              feiticeiros_pericias: true,
+              feiticeiros_oficios: true,
+              feiticeiros_resistencias: true,
+              feiticeiros_ataques: true
             }
           });
           
           if (updatedCharacter) {
             character.yearzero_attributes = updatedCharacter.yearzero_attributes;
             character.yearzero_skills = updatedCharacter.yearzero_skills;
-            console.log('[DEBUG] getServerSideProps - Dados Year Zero recarregados apos setup');
           }
-        } else {
-          console.error('[ERROR] getServerSideProps - Erro no auto-setup:', await setupResponse.text());
         }
       } catch (error) {
-        console.error('[ERROR] getServerSideProps - Erro no auto-setup:', error);
+        console.error('Erro no auto-setup Year Zero:', error);
+        // Não falhar o SSR por causa do auto-setup
       }
     }
 
     if (!character) {
-      console.error('[ERROR] getServerSideProps - Personagem nao encontrado');
       return {
         props: {
           character: null,
-          error: 'Personagem nao encontrado'
+          error: 'Personagem não encontrado'
         }
       };
     }
 
-    const serializedCharacter = JSON.parse(JSON.stringify(character));
-    console.log('[DEBUG] getServerSideProps - Character serializado com sucesso');
+    const serializedCharacter = safeSerializeCharacter(character);
 
     return {
       props: {
@@ -173,7 +190,7 @@ export const getServerSideProps = async ({ params }) => {
       }
     };
   } catch (error) {
-    console.error('[ERROR] getServerSideProps - Erro critico:', error);
+    console.error('Erro crítico no SSR:', error);
     return {
       props: {
         character: null,
@@ -183,9 +200,8 @@ export const getServerSideProps = async ({ params }) => {
   }
 };
 
+// Hook personalizado para gerenciar o estado da ficha do personagem
 const useCharacterSheet = (rawCharacter, refreshData) => {
-  console.log('[DEBUG] useCharacterSheet - Inicializando hook com rawCharacter:', rawCharacter?.id);
-  
   const [character, setCharacter] = useState(rawCharacter);
   const [attributeValues, setAttributeValues] = useState({});
   const [skillValues, setSkillValues] = useState({});
@@ -202,67 +218,68 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+  const isClient = useIsClient();
 
-    console.log('[DEBUG] useCharacterSheet - Inicializando no cliente');
-    
-    const characterId = rawCharacter?.id;
-    if (!characterId) {
-      console.log('[DEBUG] useCharacterSheet - Sem character ID, usando padrões');
+  // Inicialização do componente
+  useEffect(() => {
+    if (!isClient) {
       setIsInitialized(true);
       return;
     }
 
-    const visitedSheets = JSON.parse(localStorage.getItem('visited_character_sheets') || '[]');
-    const hasVisited = visitedSheets.includes(characterId);
-    const firstTime = !hasVisited;
-    
-    console.log('[DEBUG] useCharacterSheet - Verificando primeira visita:', {
-      characterId,
-      visitedSheets,
-      hasVisited,
-      firstTime
-    });
+    const characterId = rawCharacter?.id;
 
-    setIsFirstTime(firstTime);
-    
-    const shouldExpandSelector = firstTime || !rawCharacter?.rpg_system;
-    const shouldExpandSheet = !firstTime && !!rawCharacter?.rpg_system;
-    
-    console.log('[DEBUG] useCharacterSheet - Definindo estados de expansão:', {
-      firstTime,
-      hasSystem: !!rawCharacter?.rpg_system,
-      shouldExpandSelector,
-      shouldExpandSheet
-    });
+    if (!characterId) {
+      setIsInitialized(true);
+      return;
+    }
 
-    setIsSelectorExpanded(shouldExpandSelector);
-    setIsSheetExpanded(shouldExpandSheet);
-    setIsInitialized(true);
-    
-  }, [rawCharacter?.id, rawCharacter?.rpg_system]);
+    try {
+      const visitedSheets = JSON.parse(localStorage.getItem('visited_character_sheets') || '[]');
+      const hasVisited = visitedSheets.includes(characterId);
+      const firstTime = !hasVisited;
 
+      setIsFirstTime(firstTime);
+      
+      const hasRpgSystem = !!rawCharacter?.rpg_system;
+      const shouldExpandSelector = !hasRpgSystem;
+      const shouldExpandSheet = hasRpgSystem;
+      
+      setIsSelectorExpanded(shouldExpandSelector);
+      setIsSheetExpanded(shouldExpandSheet);
+      setIsInitialized(true);
+    } catch (error) {
+      console.error('Erro na inicialização:', error);
+      setIsInitialized(true);
+    }
+  }, [rawCharacter?.id, rawCharacter?.rpg_system, isClient]);
+
+  // Marcar ficha como visitada
   const markSheetAsVisited = useCallback(() => {
-    if (typeof window === 'undefined' || !character?.id) return;
+    if (typeof window === 'undefined' || !character?.id) {
+      return;
+    }
     
-    const visitedSheets = JSON.parse(localStorage.getItem('visited_character_sheets') || '[]');
-    if (!visitedSheets.includes(character.id)) {
-      visitedSheets.push(character.id);
-      localStorage.setItem('visited_character_sheets', JSON.stringify(visitedSheets));
-      setIsFirstTime(false);
-      console.log('[DEBUG] useCharacterSheet - Ficha marcada como visitada:', character.id);
+    try {
+      const visitedSheets = JSON.parse(localStorage.getItem('visited_character_sheets') || '[]');
+      if (!visitedSheets.includes(character.id)) {
+        visitedSheets.push(character.id);
+        localStorage.setItem('visited_character_sheets', JSON.stringify(visitedSheets));
+        setIsFirstTime(false);
+      }
+    } catch (error) {
+      console.error('Erro ao marcar ficha como visitada:', error);
     }
   }, [character?.id]);
 
+  // Inicializar valores de atributos e habilidades
   useEffect(() => {
-    console.log('[DEBUG] useCharacterSheet useEffect - Inicializando valores de atributos e habilidades');
-    
     if (character?.attributes) {
       const initialAttributeValues = {};
       character.attributes.forEach(charAttr => {
-        initialAttributeValues[charAttr.attribute_id] = charAttr.value;
-        console.log(`[DEBUG] useCharacterSheet - Atributo ${charAttr.attribute_id}: ${charAttr.attribute.name} = ${charAttr.value}`);
+        if (charAttr.attribute_id) {
+          initialAttributeValues[charAttr.attribute_id] = charAttr.value;
+        }
       });
       setAttributeValues(initialAttributeValues);
     }
@@ -270,30 +287,31 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
     if (character?.skills) {
       const initialSkillValues = {};
       character.skills.forEach(charSkill => {
-        initialSkillValues[charSkill.skill_id] = charSkill.value;
-        console.log(`[DEBUG] useCharacterSheet - Habilidade ${charSkill.skill_id}: ${charSkill.skill.name} = ${charSkill.value}`);
+        if (charSkill.skill_id) {
+          initialSkillValues[charSkill.skill_id] = charSkill.value;
+        }
       });
       setSkillValues(initialSkillValues);
     }
   }, [character]);
 
+  // Gerenciamento de estados de loading
   const setLoading = useCallback((key, isLoading) => {
-    console.log(`[DEBUG] useCharacterSheet setLoading - ${key}: ${isLoading}`);
     setLoadingStates(prev => ({
       ...prev,
       [key]: isLoading
     }));
   }, []);
 
+  // Tratamento de erros de API
   const handleApiError = useCallback((error, context) => {
-    console.error(`[ERROR] useCharacterSheet handleApiError - Contexto: ${context}`, error);
     const errorMessage = error.response?.data?.error || error.message || `Erro ao ${context}`;
     setErrors(prev => ({ ...prev, [context]: errorMessage }));
     return errorMessage;
   }, []);
 
+  // Limpar erros
   const clearError = useCallback((context) => {
-    console.log(`[DEBUG] useCharacterSheet clearError - Limpando erro: ${context}`);
     setErrors(prev => {
       const newErrors = { ...prev };
       delete newErrors[context];
@@ -301,33 +319,24 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
     });
   }, []);
 
+  // Mudança de sistema RPG
   const handleSystemChange = useCallback(async (newSystem) => {
-    console.log('[DEBUG] useCharacterSheet handleSystemChange - Nova solicitacao:', { 
-      currentSystem: rpgSystem, 
-      newSystem,
-      isFirstTime
-    });
-    
     if (newSystem === 'expand_selector') {
-      console.log('[DEBUG] useCharacterSheet handleSystemChange - Expandindo seletor');
       setIsSelectorExpanded(true);
       setIsSheetExpanded(false);
       return;
     }
 
     if (newSystem === rpgSystem) {
-      console.log('[DEBUG] useCharacterSheet handleSystemChange - Recolhendo seletor - sistema ja selecionado');
       setIsSelectorExpanded(false);
       setIsSheetExpanded(true);
       return;
     }
 
     if (!newSystem || !character?.id) {
-      console.error('[ERROR] useCharacterSheet handleSystemChange - Dados invalidos para mudanca de sistema');
       return;
     }
 
-    console.log('[DEBUG] useCharacterSheet handleSystemChange - Iniciando mudanca de sistema');
     setIsChangingSystem(true);
     clearError('systemChange');
     
@@ -340,7 +349,6 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
         markSheetAsVisited();
       }
       
-      console.log('[DEBUG] useCharacterSheet handleSystemChange - Fazendo requisicao para API');
       await api.put(`/character/${character.id}`, {
         rpg_system: newSystem
       });
@@ -349,38 +357,31 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
         ...prev,
         rpg_system: newSystem
       }));
-      
-      console.log('[DEBUG] useCharacterSheet handleSystemChange - Mudanca de sistema concluida com sucesso');
 
+      // Setup automático para Year Zero
       if (newSystem === "year_zero") {
-        console.log("[DEBUG] handleSystemChange - Configurando personagem para Year Zero Engine");
         try {
           await api.post("/yearzero/setup", {
             character_id: character.id
           });
-          console.log("[DEBUG] handleSystemChange - Personagem configurado para Year Zero");
           
           if (refreshData) {
-            console.log("[DEBUG] handleSystemChange - Recarregando dados apos setup");
             await refreshData();
           }
         } catch (error) {
-          console.error("[ERROR] handleSystemChange - Erro no setup Year Zero:", error);
+          console.error("Erro no setup Year Zero:", error);
         }
       }
 
       setIsChangingSystem(false);
       
     } catch (error) {
-      console.error('[ERROR] useCharacterSheet handleSystemChange - Erro na mudanca de sistema:', error);
-      
       setIsSelectorExpanded(true);
       setIsSheetExpanded(false);
       setRpgSystem('');
       
-      const errorMessage = handleApiError(error, 'systemChange');
+      handleApiError(error, 'systemChange');
       setIsChangingSystem(false);
-      throw new Error(errorMessage);
     }
   }, [
     character, 
@@ -388,12 +389,7 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
     isFirstTime,
     clearError, 
     handleApiError, 
-    setCharacter, 
     refreshData,
-    setIsSelectorExpanded,
-    setIsSheetExpanded,
-    setRpgSystem,
-    setIsChangingSystem,
     markSheetAsVisited
   ]);
 
@@ -429,23 +425,13 @@ const useCharacterSheet = (rawCharacter, refreshData) => {
   };
 };
 
+// Componente principal da ficha do personagem
 function CharacterSheet({ rawCharacter, error: serverError }) {
-  console.log('[DEBUG] CharacterSheet - Componente renderizado com props:', {
-    rawCharacterId: rawCharacter?.id,
-    serverError
-  });
-  
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  console.log('[DEBUG] CharacterSheet - Configuracoes de dispositivo:', {
-    isMobile,
-    theme: theme.palette.mode
-  });
-
   const refreshData = useCallback(() => {
-    console.log('[DEBUG] CharacterSheet refreshData - Atualizando dados da pagina');
     return router.replace(router.asPath);
   }, [router]);
 
@@ -474,24 +460,15 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     handleSystemChange
   } = useCharacterSheet(rawCharacter, refreshData);
 
-  console.log('[DEBUG] CharacterSheet - Estados do hook:', {
-    characterId: character?.id,
-    rpgSystem,
-    isSelectorExpanded,
-    isSheetExpanded,
-    isChangingSystem,
-    loadingStatesCount: Object.keys(loadingStates).length,
-    errorsCount: Object.keys(errors).length
-  });
-
+  // Handler para informações do personagem
   const handleCharacterInfoSubmit = useCallback(async (values) => {
-    console.log('[DEBUG] CharacterSheet handleCharacterInfoSubmit - Iniciando atualizacao:', values);
+    if (!character?.id) return Promise.reject('Personagem não encontrado');
+    
     setLoading('characterInfo', true);
     clearError('characterInfo');
     
     try {
       await api.put(`/character/${character.id}`, values);
-      console.log('[SUCCESS] CharacterSheet handleCharacterInfoSubmit - Atualizacao bem-sucedida');
       setLoading('characterInfo', false);
       return Promise.resolve();
     } catch (error) {
@@ -501,8 +478,10 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }
   }, [character, setLoading, clearError, handleApiError]);
 
+  // Handler para pontos de vida
   const handleHitPointsUpdate = useCallback(async (newData) => {
-    console.log('[DEBUG] CharacterSheet handleHitPointsUpdate - Atualizando pontos de vida:', newData);
+    if (!character?.id) return Promise.reject('Personagem não encontrado');
+    
     setLoading('hitPoints', true);
     clearError('hitPoints');
     
@@ -512,18 +491,17 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
         max_hit_points: Number(newData.max)
       };
 
-      console.log('[DEBUG] CharacterSheet handleHitPointsUpdate - Dados validados:', data);
-
+      // Validações robustas
       if (isNaN(data.current_hit_points) || isNaN(data.max_hit_points)) {
-        throw new Error('Valores de pontos de vida invalidos');
+        throw new Error('Valores de pontos de vida inválidos');
       }
 
       if (data.current_hit_points < 0 || data.max_hit_points < 0) {
-        throw new Error('Pontos de vida nao podem ser negativos');
+        throw new Error('Pontos de vida não podem ser negativos');
       }
 
       if (data.current_hit_points > data.max_hit_points) {
-        throw new Error('Pontos de vida atuais nao podem ser maiores que os maximos');
+        throw new Error('Pontos de vida atuais não podem ser maiores que os máximos');
       }
 
       await api.put(`/character/${character.id}`, data);
@@ -534,7 +512,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
         max_hit_points: data.max_hit_points
       }));
       
-      console.log('[SUCCESS] CharacterSheet handleHitPointsUpdate - Pontos de vida atualizados com sucesso');
       setLoading('hitPoints', false);
       return Promise.resolve();
     } catch (error) {
@@ -544,8 +521,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }
   }, [character, setLoading, clearError, handleApiError, setCharacter]);
 
+  // Handler para ações rápidas de saúde
   const handleQuickHealthChange = useCallback(async (amount, type = 'heal') => {
-    console.log(`[DEBUG] CharacterSheet handleQuickHealthChange - ${type} ${amount} pontos`);
+    if (!character?.id) return;
     
     const currentHP = character?.current_hit_points || 0;
     const maxHP = character?.max_hit_points || 0;
@@ -557,10 +535,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       newCurrentHP = Math.max(0, currentHP - amount);
     }
 
-    console.log(`[DEBUG] CharacterSheet handleQuickHealthChange - HP atual: ${currentHP} -> ${newCurrentHP}`);
-
     if (newCurrentHP === currentHP) {
-      console.log('[DEBUG] CharacterSheet handleQuickHealthChange - Sem mudanca necessaria');
       return;
     }
 
@@ -580,22 +555,177 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
         current_hit_points: newCurrentHP
       }));
       
-      console.log('[SUCCESS] CharacterSheet handleQuickHealthChange - Saude atualizada com sucesso');
       setLoading('quickHealth', false);
       
+      // Alerta para personagem inconsciente
       if (newCurrentHP === 0 && type === 'damage') {
-        console.log('[WARN] CharacterSheet handleQuickHealthChange - Personagem inconsciente');
-        setTimeout(() => alert('Personagem inconsciente!'), 100);
+        setTimeout(() => {
+          if (typeof window !== 'undefined') {
+            alert('Personagem inconsciente!');
+          }
+        }, 100);
       }
     } catch (error) {
       const errorMessage = handleApiError(error, 'quickHealth');
       setLoading('quickHealth', false);
-      throw new Error(errorMessage);
+      console.error('Erro na ação rápida de saúde:', errorMessage);
     }
   }, [character, setLoading, clearError, handleApiError, setCharacter]);
 
+  // Handler específico para Feiticeiros - CORRIGIDO
+  const handleFeiticeirosUpdate = useCallback(async (type, identifier, data) => {
+    if (!character?.id) {
+      console.error('Personagem não encontrado para atualização Feiticeiros');
+      return;
+    }
+
+    console.log("🔥 FEITICEIROS UPDATE:", { type, identifier, data });
+    
+    try {
+      if (type === 'character') {
+        // CORREÇÃO CRÍTICA: Para derived_values_bonuses, converter para string JSON
+        const valueToSend = identifier === 'derived_values_bonuses' 
+          ? JSON.stringify(data)
+          : data;
+
+        await api.put(`/character/${character.id}`, {
+          [identifier]: valueToSend
+        });
+        
+        setCharacter(prev => ({
+          ...prev,
+          [identifier]: data
+        }));
+        
+      } else if (type === 'attribute') {
+        await api.put('/feiticeiros/attribute', {
+          characterId: character.id,
+          attributeName: identifier,
+          value: parseInt(data.value) || 10
+        });
+
+        setCharacter(prev => ({
+          ...prev,
+          feiticeiros_attributes: prev.feiticeiros_attributes?.map(attr =>
+            attr.attribute?.name === identifier
+              ? { ...attr, value: parseInt(data.value) || 10 }
+              : attr
+          ) || []
+        }));
+        
+      } else if (type === 'pericia') {
+        await api.put('/feiticeiros/pericia', {
+          characterId: character.id,
+          periciaNome: identifier,
+          data: {
+            treinada: Boolean(data.treinada),
+            mestre: Boolean(data.mestre),
+            outros: parseInt(data.outros) || 0
+          }
+        });
+
+        setCharacter(prev => ({
+          ...prev,
+          feiticeiros_pericias: prev.feiticeiros_pericias?.map(pericia =>
+            pericia.nome === identifier
+              ? { 
+                  ...pericia, 
+                  treinada: Boolean(data.treinada),
+                  mestre: Boolean(data.mestre),
+                  outros: parseInt(data.outros) || 0
+                }
+              : pericia
+          ) || []
+        }));
+        
+      } else if (type === 'oficio') {
+        await api.put('/feiticeiros/oficio', {
+          characterId: character.id,
+          oficioNome: identifier,
+          data: {
+            treinada: Boolean(data.treinada),
+            mestre: Boolean(data.mestre),
+            outros: parseInt(data.outros) || 0
+          }
+        });
+
+        setCharacter(prev => ({
+          ...prev,
+          feiticeiros_oficios: prev.feiticeiros_oficios?.map(oficio =>
+            oficio.nome === identifier
+              ? { 
+                  ...oficio, 
+                  treinada: Boolean(data.treinada),
+                  mestre: Boolean(data.mestre),
+                  outros: parseInt(data.outros) || 0
+                }
+              : oficio
+          ) || []
+        }));
+        
+      } else if (type === 'resistencia') {
+        await api.put('/feiticeiros/resistencia', {
+          characterId: character.id,
+          resistenciaNome: identifier,
+          data: {
+            treinada: Boolean(data.treinada),
+            mestre: Boolean(data.mestre),
+            outros: parseInt(data.outros) || 0
+          }
+        });
+
+        setCharacter(prev => ({
+          ...prev,
+          feiticeiros_resistencias: prev.feiticeiros_resistencias?.map(resistencia =>
+            resistencia.nome === identifier
+              ? { 
+                  ...resistencia, 
+                  treinada: Boolean(data.treinada),
+                  mestre: Boolean(data.mestre),
+                  outros: parseInt(data.outros) || 0
+                }
+              : resistencia
+          ) || []
+        }));
+        
+      } else if (type === 'ataque') {
+        await api.put('/feiticeiros/ataque', {
+          characterId: character.id,
+          ataqueNome: identifier,
+          data: {
+            treinada: Boolean(data.treinada),
+            mestre: Boolean(data.mestre),
+            outros: parseInt(data.outros) || 0
+          }
+        });
+
+        setCharacter(prev => ({
+          ...prev,
+          feiticeiros_ataques: prev.feiticeiros_ataques?.map(ataque =>
+            ataque.nome === identifier
+              ? { 
+                  ...ataque, 
+                  treinada: Boolean(data.treinada),
+                  mestre: Boolean(data.mestre),
+                  outros: parseInt(data.outros) || 0
+                }
+              : ataque
+          ) || []
+        }));
+        
+      } else {
+        console.warn(`Tipo desconhecido: ${type}`);
+      }
+      
+    } catch (error) {
+      console.error(`Erro ao salvar ${type} ${identifier}:`, error);
+      const errorMessage = error.response?.data?.error || error.message || `Erro ao salvar ${type}`;
+      throw new Error(errorMessage);
+    }
+  }, [character, setCharacter]);
+
+  // Handlers para atributos e habilidades clássicos
   const handleAttributeChange = useCallback((attributeId, newValue) => {
-    console.log(`[DEBUG] CharacterSheet handleAttributeChange - Atributo ${attributeId}: ${newValue}`);
     const numericValue = newValue === '' ? '' : parseInt(newValue) || 0;
     
     setAttributeValues(prev => ({
@@ -605,7 +735,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
   }, []);
 
   const handleSkillChange = useCallback((skillId, newValue) => {
-    console.log(`[DEBUG] CharacterSheet handleSkillChange - Habilidade ${skillId}: ${newValue}`);
     const numericValue = newValue === '' ? '' : parseInt(newValue) || 0;
     
     setSkillValues(prev => ({
@@ -615,13 +744,13 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
   }, []);
 
   const saveAttributeValue = useCallback(async (attributeId) => {
-    console.log(`[DEBUG] CharacterSheet saveAttributeValue - Salvando atributo ${attributeId}`);
+    if (!character?.id) return;
+    
     setLoading(`attribute-${attributeId}`, true);
     clearError(`attribute-${attributeId}`);
     
     try {
       const value = attributeValues[attributeId] || 0;
-      console.log(`[DEBUG] CharacterSheet saveAttributeValue - Valor a ser salvo: ${value}`);
       
       if (rpgSystem === 'year_zero') {
         await api.put('/yearzero/attribute', {
@@ -638,44 +767,41 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       }
       
       setCharacter(prev => {
-        const updated = {
-          ...prev
-        };
+        const updated = { ...prev };
         
         if (rpgSystem === 'year_zero') {
-          updated.yearzero_attributes = prev.yearzero_attributes.map(attr =>
+          updated.yearzero_attributes = prev.yearzero_attributes?.map(attr =>
             attr.attribute_id === attributeId
               ? { ...attr, value: value }
               : attr
-          );
+          ) || [];
         } else {
-          updated.attributes = prev.attributes.map(attr =>
+          updated.attributes = prev.attributes?.map(attr =>
             attr.attribute_id === attributeId
               ? { ...attr, value: value }
               : attr
-          );
+          ) || [];
         }
         
         return updated;
       });
       
-      console.log(`[SUCCESS] CharacterSheet saveAttributeValue - Atributo ${attributeId} salvo com sucesso`);
       setLoading(`attribute-${attributeId}`, false);
     } catch (error) {
       const errorMessage = handleApiError(error, `attribute-${attributeId}`);
       setLoading(`attribute-${attributeId}`, false);
-      throw new Error(errorMessage);
+      console.error('Erro ao salvar atributo:', errorMessage);
     }
   }, [character, attributeValues, setLoading, clearError, handleApiError, setCharacter, rpgSystem]);
 
   const saveSkillValue = useCallback(async (skillId) => {
-    console.log(`[DEBUG] CharacterSheet saveSkillValue - Salvando habilidade ${skillId}`);
+    if (!character?.id) return;
+    
     setLoading(`skill-${skillId}`, true);
     clearError(`skill-${skillId}`);
     
     try {
       const value = skillValues[skillId] || 0;
-      console.log(`[DEBUG] CharacterSheet saveSkillValue - Valor a ser salvo: ${value}`);
       
       if (rpgSystem === 'year_zero') {
         await api.put('/yearzero/skill', {
@@ -692,39 +818,36 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       }
       
       setCharacter(prev => {
-        const updated = {
-          ...prev
-        };
+        const updated = { ...prev };
         
         if (rpgSystem === 'year_zero') {
-          updated.yearzero_skills = prev.yearzero_skills.map(skill =>
+          updated.yearzero_skills = prev.yearzero_skills?.map(skill =>
             skill.skill_id === skillId
               ? { ...skill, value: value }
               : skill
-          );
+          ) || [];
         } else {
-          updated.skills = prev.skills.map(skill =>
+          updated.skills = prev.skills?.map(skill =>
             skill.skill_id === skillId
               ? { ...skill, value: value }
               : skill
-          );
+          ) || [];
         }
         
         return updated;
       });
       
-      console.log(`[SUCCESS] CharacterSheet saveSkillValue - Habilidade ${skillId} salva com sucesso`);
       setLoading(`skill-${skillId}`, false);
     } catch (error) {
       const errorMessage = handleApiError(error, `skill-${skillId}`);
       setLoading(`skill-${skillId}`, false);
-      throw new Error(errorMessage);
+      console.error('Erro ao salvar habilidade:', errorMessage);
     }
   }, [character, skillValues, setLoading, clearError, handleApiError, setCharacter, rpgSystem]);
 
+  // Funções auxiliares para valores
   const getAttributeValue = useCallback((charAttr) => {
     if (!charAttr?.attribute) {
-      console.warn(`[WARN] CharacterSheet getAttributeValue - Atributo invalido:`, charAttr);
       return '';
     }
     
@@ -733,15 +856,11 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       ? attributeValues[attributeId] 
       : charAttr.value;
     
-    const result = value === 0 || value === '0' || value === '' ? '' : String(value);
-    console.log(`[DEBUG] CharacterSheet getAttributeValue - ${charAttr.attribute.name}: ${result}`);
-    
-    return result;
+    return value === 0 || value === '0' || value === '' ? '' : String(value);
   }, [attributeValues]);
 
   const getSkillValue = useCallback((charSkill) => {
     if (!charSkill?.skill) {
-      console.warn(`[WARN] CharacterSheet getSkillValue - Habilidade invalida:`, charSkill);
       return '';
     }
     
@@ -750,90 +869,70 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       ? skillValues[skillId] 
       : charSkill.value;
     
-    const result = value === 0 || value === '0' || value === '' ? '' : String(value);
-    console.log(`[DEBUG] CharacterSheet getSkillValue - ${charSkill.skill.name}: ${result}`);
-    
-    return result;
+    return value === 0 || value === '0' || value === '' ? '' : String(value);
   }, [skillValues]);
 
+  // Validação de entrada numérica
   const validateNumericInput = useCallback((event) => {
     const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
     if (allowedKeys.includes(event.key)) return;
     if (!/[0-9]/.test(event.key)) {
-      console.log(`[DEBUG] CharacterSheet validateNumericInput - Tecla bloqueada: ${event.key}`);
       event.preventDefault();
     }
   }, []);
 
+  // Modais
   const attributeDiceModal = useModal(({ close, custom }) => {
-    console.log('[DEBUG] CharacterSheet attributeDiceModal - Criando modal com props:', custom);
-    return (
-      <DiceRollModal
-        handleClose={close}
-        characterId={custom.characterId}
-        characterName={custom.characterName}
-        skillName={custom.attributeName}
-        skillValue={custom.attributeValue}
-      />
-    );
+    return React.createElement(DiceRollModal, {
+      handleClose: close,
+      characterId: custom.characterId,
+      characterName: custom.characterName,
+      skillName: custom.attributeName,
+      skillValue: custom.attributeValue
+    });
   });
 
   const diceRollModal = useModal(({ close, custom }) => {
-    console.log('[DEBUG] CharacterSheet diceRollModal - Criando modal com props:', custom);
-    return (
-      <DiceRollModal
-        handleClose={close}
-        characterId={custom.characterId}
-        characterName={custom.characterName}
-        skillName={custom.skillName}
-        skillValue={custom.skillValue}
-      />
-    );
+    return React.createElement(DiceRollModal, {
+      handleClose: close,
+      characterId: custom.characterId,
+      characterName: custom.characterName,
+      skillName: custom.skillName,
+      skillValue: custom.skillValue
+    });
   });
 
   const statusBarModal = useModal(({ close, custom }) => {
-    console.log('[DEBUG] CharacterSheet statusBarModal - Criando modal com props:', custom);
-    return (
-      <StatusBarModal
-        handleClose={close}
-        characterId={custom.characterId}
-        characterName={custom.characterName}
-        currentHitPoints={custom.currentHitPoints}
-        maxHitPoints={custom.maxHitPoints}
-        onSubmit={handleHitPointsUpdate}
-        isLoading={loadingStates.hitPoints}
-      />
-    );
+    return React.createElement(StatusBarModal, {
+      handleClose: close,
+      characterId: custom.characterId,
+      characterName: custom.characterName,
+      currentHitPoints: custom.currentHitPoints,
+      maxHitPoints: custom.maxHitPoints,
+      onSubmit: handleHitPointsUpdate,
+      isLoading: loadingStates.hitPoints
+    });
   });
 
   const changePictureModal = useModal(({ close, custom }) => {
-    console.log('[DEBUG] CharacterSheet changePictureModal - Criando modal com props:', custom);
-    return (
-      <ChangePictureModal
-        handleClose={close}
-        characterId={custom.characterId}
-        characterName={custom.characterName}
-      />
-    );
+    return React.createElement(ChangePictureModal, {
+      handleClose: close,
+      characterId: custom.characterId,
+      characterName: custom.characterName
+    });
   });
 
+  // Handlers para Year Zero
   const handleYearZeroUpdate = useCallback(async (type, name, value) => {
-    console.log("[DEBUG] onUpdate INICIADO - Sistema:", rpgSystem, "Type:", type, "Name:", name, "Value:", value);
-    
+    if (!character?.id) return;
+
     const getAttributeIdByName = (attrName) => {
       const attributesList = rpgSystem === 'year_zero'
         ? character.yearzero_attributes
         : character.attributes;
       
-      console.log("[SERVER DEBUG] getAttributeIdByName - Sistema:", rpgSystem, 
-        "YearZero Attributes:", character.yearzero_attributes?.map(a => a.attribute?.name),
-        "Classic Attributes:", character.attributes?.map(a => a.attribute?.name),
-        "Procurando por:", attrName);
-      
       const attr = attributesList?.find(a => a.attribute?.name === attrName);
-      const foundId = attr?.attribute?.id;
-      console.log("[SERVER DEBUG] Resultado:", foundId);
-      return foundId;
+      return attr?.attribute?.id;
     };
     
     const getSkillIdByName = (skillName) => {
@@ -844,21 +943,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       return skill?.skill?.id;
     };
     
-    console.log('[DEBUG] CharacterSheet onUpdate YearZero - Chamado:', { type, name, value });
-    console.log("[DEBUG] CharacterSheet onUpdate - Nomes disponíveis:", { 
-      attributes: rpgSystem === 'year_zero' ? character.yearzero_attributes?.map(a => a.attribute?.name) : character.attributes?.map(a => a.attribute?.name), 
-      skills: rpgSystem === 'year_zero' ? character.yearzero_skills?.map(s => s.skill?.name) : character.skills?.map(s => s.skill?.name) 
-    });
-    console.log("[DEBUG] - Sistema atual:", rpgSystem, "Year Zero Attributes:", character.yearzero_attributes?.map(a => a.attribute?.name));
-    
     try {
       if (type === 'attribute') {
-        console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Salvando atributo Year Zero: ${name} = ${value}`);
-        const availableAttributes = rpgSystem === 'year_zero' ? character.yearzero_attributes?.map(a => a.attribute?.name) : character.attributes?.map(a => a.attribute?.name);
-        console.log("[DEBUG] - Nome recebido:", name, "Nomes disponíveis:", availableAttributes);
-        
         const attributeId = getAttributeIdByName(name);
-        console.log(`[DEBUG] CharacterSheet onUpdate - Mapeando atributo "${name}" para ID:`, attributeId);
         
         if (!attributeId) {
           throw new Error(`Atributo "${name}" não encontrado`);
@@ -872,11 +959,11 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
 
         setCharacter(prev => ({
           ...prev,
-          yearzero_attributes: prev.yearzero_attributes.map(attr =>
+          yearzero_attributes: prev.yearzero_attributes?.map(attr =>
             attr.attribute_id === attributeId
               ? { ...attr, value: parseInt(value) || 1 }
               : attr
-          )
+          ) || []
         }));
 
         setYearZeroAttributeValues(prev => ({
@@ -884,17 +971,12 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           [attributeId]: parseInt(value) || 1
         }));
         
-        console.log(`[SUCCESS] CharacterSheet onUpdate YearZero - Atributo ${name} salvo com sucesso`);
-        
       } else if (type === 'skill') {
         const skillId = getSkillIdByName(name);
-        console.log(`[DEBUG] CharacterSheet onUpdate - Mapeando skill "${name}" para ID:`, skillId);
         
         if (!skillId) {
           throw new Error(`Skill "${name}" não encontrada`);
         }
-        
-        console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Salvando skill Year Zero: ${name} = ${value}`);
         
         await api.put('/yearzero/skill', {
           character_id: character.id,
@@ -904,11 +986,11 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
 
         setCharacter(prev => ({
           ...prev,
-          yearzero_skills: prev.yearzero_skills.map(skill =>
+          yearzero_skills: prev.yearzero_skills?.map(skill =>
             skill.skill_id === skillId
               ? { ...skill, value: parseInt(value) || 1 }
               : skill
-          )
+          ) || []
         }));
 
         setYearZeroSkillValues(prev => ({
@@ -916,11 +998,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           [skillId]: parseInt(value) || 1
         }));
         
-        console.log(`[SUCCESS] CharacterSheet onUpdate YearZero - Skill ${name} salva com sucesso`);
-        
       } else if (type === 'stress_squares') {
-        console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Salvando stress_squares:`, value);
-        
         const squaresJson = JSON.stringify(value);
         await api.put(`/character/${character.id}`, {
           stress_squares: squaresJson
@@ -930,12 +1008,8 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           ...prev,
           stress_squares: squaresJson
         }));
-        
-        console.log(`[SUCCESS] CharacterSheet onUpdate YearZero - Stress squares salvos com sucesso`);
         
       } else if (type === 'health_squares') {
-        console.log(`[DEBUG] CharacterSheet onUpdate YearZero - Salvando health_squares:`, value);
-        
         const squaresJson = JSON.stringify(value);
         await api.put(`/character/${character.id}`, {
           health_squares: squaresJson
@@ -946,21 +1020,17 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           health_squares: squaresJson
         }));
         
-        console.log(`[SUCCESS] CharacterSheet onUpdate YearZero - Health squares salvos com sucesso`);
-        
       } else {
-        console.warn(`[WARN] CharacterSheet onUpdate YearZero - Tipo desconhecido: ${type}`);
+        console.warn(`Tipo desconhecido: ${type}`);
       }
       
     } catch (error) {
-      console.error(`[ERROR] CharacterSheet onUpdate YearZero - Erro ao salvar ${type} ${name}:`, error);
-      const errorMessage = error.response?.data?.error || error.message || `Erro ao salvar ${type}`;
-      console.error(`[ERROR] CharacterSheet onUpdate YearZero - Erro: ${errorMessage}`);
+      console.error(`Erro ao salvar ${type} ${name}:`, error);
     }
   }, [character, rpgSystem, setCharacter, setYearZeroAttributeValues, setYearZeroSkillValues]);
 
   const handleYearZeroPushRoll = useCallback(() => {
-    console.log('[DEBUG] handleYearZeroPushRoll - Iniciando atualizacao de stress por rolagem forçada');
+    if (!character) return;
     
     let currentStressSquares = character?.stress_squares;
     
@@ -977,7 +1047,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       const currentStressCount = currentStressSquares.filter(Boolean).length;
       
       if (currentStressCount >= 10) {
-        console.log('[DEBUG] handleYearZeroPushRoll - Stress já está no máximo (10)');
         return;
       }
       
@@ -987,41 +1056,30 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
         newStressSquares[i] = true;
       }
       
-      console.log('[DEBUG] handleYearZeroPushRoll - Adicionando stress:', 
-                  `De ${currentStressCount} para ${newStressCount} quadrados`);
-      
       handleYearZeroUpdate('stress_squares', 'stress_squares', newStressSquares);
       
     } catch (error) {
-      console.error('[ERROR] handleYearZeroPushRoll - Erro ao processar stress squares:', error);
+      console.error('Erro ao processar stress squares:', error);
     }
   }, [character, handleYearZeroUpdate]);
 
   const yearZeroDiceModal = useModal(({ close, custom }) => {
-    console.log('[DEBUG] CharacterSheet yearZeroDiceModal - Criando modal com props:', custom);
-    return (
-      <YearZeroDiceModal
-        handleClose={close}
-        characterId={custom.characterId}
-        baseDice={custom.baseDice}
-        skillDice={custom.skillDice}
-        gearDice={custom.gearDice}
-        attributeName={custom.attributeName}
-        skillName={custom.skillName}
-        character={character}
-        stressSquares={custom.stressSquares}
-        onPushRoll={handleYearZeroPushRoll}
-      />
-    );
+    return React.createElement(YearZeroDiceModal, {
+      handleClose: close,
+      characterId: custom.characterId,
+      baseDice: custom.baseDice,
+      skillDice: custom.skillDice,
+      gearDice: custom.gearDice,
+      attributeName: custom.attributeName,
+      skillName: custom.skillName,
+      character: character,
+      stressSquares: custom.stressSquares,
+      onPushRoll: handleYearZeroPushRoll
+    });
   });
 
   const handleYearZeroAttributeRoll = useCallback((attributeName, attributeValue, stressCount, stressSquares) => {
-    console.log('[DEBUG] CharacterSheet - Rolagem de atributo Year Zero:', { 
-      attributeName, 
-      attributeValue, 
-      stressCount,
-      stressSquares 
-    });
+    if (!character?.id) return;
     
     yearZeroDiceModal.appear({
       characterId: character.id,
@@ -1035,12 +1093,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
   }, [character, yearZeroDiceModal]);
 
   const handleYearZeroSkillRoll = useCallback((skillName, skillValue, stressCount, stressSquares) => {
-    console.log('[DEBUG] CharacterSheet - Rolagem de skill Year Zero:', { 
-      skillName, 
-      skillValue, 
-      stressCount,
-      stressSquares 
-    });
+    if (!character?.id) return;
     
     const skillToAttributeMap = {
       "COMBATE CORPO A CORPO": "Força",
@@ -1058,20 +1111,11 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     };
     
     const relatedAttribute = skillToAttributeMap[skillName] || 'Força';
-    console.log('[DEBUG] CharacterSheet - Skill mapeada para atributo:', { skillName, relatedAttribute });
     
     const attribute = character.yearzero_attributes?.find(attr => 
       attr.attribute?.name === relatedAttribute
     );
     const attributeValue = attribute ? parseInt(attribute.value) || 0 : 0;
-    
-    console.log('[DEBUG] CharacterSheet - Calculando dados Year Zero:', {
-      skillName,
-      relatedAttribute,
-      attributeValue,
-      skillValue,
-      stressCount
-    });
     
     yearZeroDiceModal.appear({
       characterId: character.id,
@@ -1084,9 +1128,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     });
   }, [character, yearZeroDiceModal]);
 
+  // Renderização de atributos e habilidades
   const renderAttribute = useCallback((charAttr) => {
     if (!charAttr?.attribute?.id) {
-      console.error('[ERROR] CharacterSheet renderAttribute - Atributo invalido:', charAttr);
       return null;
     }
 
@@ -1094,13 +1138,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     const isLoading = loadingStates[`attribute-${attributeId}`];
     const error = errors[`attribute-${attributeId}`];
     const attributeValue = getAttributeValue(charAttr);
-
-    console.log(`[DEBUG] CharacterSheet renderAttribute - Renderizando ${charAttr.attribute.name}:`, {
-      attributeId,
-      isLoading,
-      hasError: !!error,
-      value: attributeValue
-    });
 
     return (
       <Grid item xs={12} sm={6} md={4} key={attributeId}>
@@ -1127,7 +1164,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
             variant="outlined" 
             size="small"
             onClick={() => {
-              console.log(`[DEBUG] CharacterSheet renderAttribute - Clicou em rolar atributo ${charAttr.attribute.name}`);
               attributeDiceModal.appear({
                 characterId: character.id,
                 characterName: character.name,
@@ -1154,7 +1190,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
               inputMode: 'numeric'
             }}
             onBlur={() => {
-              console.log(`[DEBUG] CharacterSheet renderAttribute - Salvando atributo ${charAttr.attribute.name}`);
               saveAttributeValue(attributeId);
             }}
             onChange={(event) => handleAttributeChange(attributeId, event.target.value)}
@@ -1172,17 +1207,12 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
   }, [character, attributeDiceModal, getAttributeValue, handleAttributeChange, saveAttributeValue, validateNumericInput, loadingStates, errors, isMobile]);
 
   const renderSkill = useCallback((charSkill) => {
+    if (!charSkill?.skill?.id) return null;
+    
     const skillId = charSkill.skill.id;
     const isLoading = loadingStates[`skill-${skillId}`];
     const error = errors[`skill-${skillId}`];
     const skillValue = getSkillValue(charSkill);
-
-    console.log(`[DEBUG] CharacterSheet renderSkill - Renderizando ${charSkill.skill.name}:`, {
-      skillId,
-      isLoading,
-      hasError: !!error,
-      value: skillValue
-    });
 
     return (
       <Grid item xs={12} sm={6} md={4} key={skillId}>
@@ -1209,7 +1239,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
             variant="outlined" 
             size="small"
             onClick={() => {
-              console.log(`[DEBUG] CharacterSheet renderSkill - Clicou em rolar habilidade ${charSkill.skill.name}`);
               diceRollModal.appear({
                 characterId: character.id,
                 characterName: character.name,
@@ -1236,7 +1265,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
               inputMode: 'numeric'
             }}
             onBlur={() => {
-              console.log(`[DEBUG] CharacterSheet renderSkill - Salvando habilidade ${charSkill.skill.name}`);
               saveSkillValue(skillId);
             }}
             onChange={(event) => handleSkillChange(skillId, event.target.value)}
@@ -1253,33 +1281,26 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     );
   }, [character, diceRollModal, getSkillValue, handleSkillChange, saveSkillValue, validateNumericInput, loadingStates, errors, isMobile]);
 
+  // Socket para atualizações em tempo real
   useEffect(() => {
-    console.log('[DEBUG] CharacterSheet useEffect - Configurando listeners do socket');
-    
+    if (!socket || !character?.id) return;
+
     const handleCharacterUpdated = (data) => {
-      console.log('[DEBUG] CharacterSheet socket - Character atualizado:', data);
-      if (data.id === character?.id) {
-        console.log('[DEBUG] CharacterSheet socket - Atualizando dados locais');
+      if (data.id === character.id) {
+        console.log('Character atualizado via socket');
+        refreshData();
       }
     };
 
-    if (socket) {
-      socket.on('characterUpdated', handleCharacterUpdated);
-      console.log('[DEBUG] CharacterSheet socket - Listener configurado');
-    } else {
-      console.warn('[WARN] CharacterSheet socket - Socket nao disponivel');
-    }
+    socket.on('characterUpdated', handleCharacterUpdated);
 
     return () => {
-      if (socket) {
-        socket.off('characterUpdated', handleCharacterUpdated);
-        console.log('[DEBUG] CharacterSheet socket - Listener removido');
-      }
+      socket.off('characterUpdated', handleCharacterUpdated);
     };
   }, [character, refreshData]);
 
+  // Estados de carregamento
   if (!isInitialized) {
-    console.log('[DEBUG] CharacterSheet - Aguardando inicialização...');
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Header />
@@ -1291,19 +1312,18 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     );
   }
 
+  // Tratamento de erros
   if (serverError || !character) {
-    console.error('[ERROR] CharacterSheet - Erro do servidor ou character ausente:', { serverError, hasCharacter: !!character });
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Header />
         <Alert severity="error" sx={{ mt: 2 }}>
-          {serverError || 'Personagem nao encontrado'}
+          {serverError || 'Personagem não encontrado'}
         </Alert>
         <Button 
           variant="contained" 
           sx={{ mt: 2 }}
           onClick={() => {
-            console.log('[DEBUG] CharacterSheet - Voltando para dashboard');
             router.push('/dashboard');
           }}
         >
@@ -1312,9 +1332,8 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       </Box>
     );
   }
-
-  console.log('[DEBUG] CharacterSheet - Renderizando componente principal');
   
+  // Renderização principal
   return (
     <>
       <Head>
@@ -1325,13 +1344,13 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       <Header />
 
       <Container maxWidth="lg" sx={{ py: 2, px: { xs: 1, sm: 2, md: 3 } }}>
+        {/* Alertas de erro */}
         {Object.keys(errors).map(errorKey => (
           <Alert 
             key={errorKey} 
             severity="error" 
             sx={{ mb: 2 }}
             onClose={() => {
-              console.log(`[DEBUG] CharacterSheet - Fechando alerta de erro: ${errorKey}`);
               clearError(errorKey);
             }}
           >
@@ -1339,6 +1358,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Alert>
         ))}
 
+        {/* Seção de informações do personagem */}
         <Section title="Informações do Personagem">
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
@@ -1369,7 +1389,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                     minWidth: 140
                   }}
                   onClick={() => {
-                    console.log('[DEBUG] CharacterSheet - Clicou em alterar imagem');
                     changePictureModal.appear({
                       characterId: character.id,
                       characterName: character.name
@@ -1395,6 +1414,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Grid>
         </Section>
 
+        {/* Seletor de sistema RPG */}
         <Collapse in={isSelectorExpanded} timeout="auto" unmountOnExit>
           <Section title={isFirstTime ? "Escolha seu Sistema RPG" : "Selecionar Sistema RPG"}>
             {isFirstTime && (
@@ -1414,6 +1434,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Section>
         </Collapse>
 
+        {/* Sistema atual e botão para trocar */}
         {!isSelectorExpanded && rpgSystem && (
           <Box sx={{ 
             textAlign: 'center', 
@@ -1454,7 +1475,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                   fontWeight: 700
                 }}
               >
-                {rpgSystem === 'year_zero' ? 'Year Zero Engine' : rpgSystem === 'feiticeiros' ? 'Feiticeiros & Maldições' : 'Sistema Classico'}
+                {rpgSystem === 'year_zero' ? 'Year Zero Engine' : rpgSystem === 'feiticeiros' ? 'Feiticeiros & Maldições' : 'Sistema Clássico'}
               </Box>
             </Typography>
             
@@ -1474,7 +1495,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
               variant="contained"
               size={isMobile ? "medium" : "large"}
               onClick={() => {
-                console.log('[DEBUG] CharacterSheet - Clicou em trocar sistema');
                 handleSystemChange('expand_selector');
               }}
               startIcon={<ExpandMore />}
@@ -1501,6 +1521,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Box>
         )}
 
+        {/* Ficha do sistema selecionado */}
         <Collapse in={isSheetExpanded} timeout="auto" unmountOnExit>
           <Box sx={{ mt: 3 }}>
             <Box sx={{ 
@@ -1517,30 +1538,21 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
               gap: isMobile ? 2 : 0
             }}>
               <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.5rem' : '1.75rem' }}>
-                Ficha - {rpgSystem === 'year_zero' ? 'Year Zero Engine' : rpgSystem === 'feiticeiros' ? 'Feiticeiros & Maldições' : 'Sistema Classico'}
+                Ficha - {rpgSystem === 'year_zero' ? 'Year Zero Engine' : rpgSystem === 'feiticeiros' ? 'Feiticeiros & Maldições' : 'Sistema Clássico'}
               </Typography>
             </Box>
 
             {rpgSystem === 'year_zero' ? (
               <YearZeroSheet 
                 character={character}
-                attributes={(() => {
-                  const attributesArray = character.yearzero_attributes?.map(attr => ({
-                    name: attr.attribute?.name,
-                    year_zero_value: yearZeroAttributeValues[attr.attribute_id] || attr.value || 1
-                  })) || [];
-                  console.log("[DEBUG] CharacterSheet - Estrutura completa dos atributos:", character.attributes);
-                  console.log('[DEBUG] CharacterSheet - Atributos sendo passados para YearZeroSheet:', attributesArray);
-                  return attributesArray;
-                })()}
-                skills={(() => {
-                  const skillsArray = character.yearzero_skills?.map(skill => ({
-                    name: skill.skill?.name,
-                    year_zero_value: yearZeroSkillValues[skill.skill_id] || skill.value || 1
-                  })) || [];
-                  console.log('[DEBUG] CharacterSheet - Habilidades sendo passadas para YearZeroSheet:', skillsArray);
-                  return skillsArray;
-                })()}
+                attributes={character.yearzero_attributes?.map(attr => ({
+                  name: attr.attribute?.name,
+                  year_zero_value: yearZeroAttributeValues[attr.attribute_id] || attr.value || 1
+                })) || []}
+                skills={character.yearzero_skills?.map(skill => ({
+                  name: skill.skill?.name,
+                  year_zero_value: yearZeroSkillValues[skill.skill_id] || skill.value || 1
+                })) || []}
                 onUpdate={handleYearZeroUpdate}
                 onAttributeRoll={handleYearZeroAttributeRoll}
                 onSkillRoll={handleYearZeroSkillRoll}
@@ -1553,7 +1565,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
             ) : rpgSystem === 'feiticeiros' ? (
               <FeiticeirosSheet 
                 character={character}
-                onUpdate={handleYearZeroUpdate}
+                onUpdate={handleFeiticeirosUpdate}
                 onQuickHeal={(amount) => handleQuickHealthChange(amount, 'heal')}
                 onQuickDamage={(amount) => handleQuickHealthChange(amount, 'damage')}
                 loadingStates={loadingStates}
@@ -1561,12 +1573,12 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 isMobile={isMobile}
               />
             ) : (
+              // Sistema clássico
               <Box>
                 <Section title="Status">
                   <StatusBar
                     character={character}
                     onStatusBarClick={() => {
-                      console.log('[DEBUG] CharacterSheet - Clicou na status bar');
                       statusBarModal.appear({
                         characterId: character.id,
                         characterName: character.name,
@@ -1597,12 +1609,12 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Box>
         </Collapse>
 
+        {/* Botão de rolagem de dados */}
         <Box sx={{ textAlign: 'center', mt: 4, mb: 2 }}>
           <Button
             variant="contained"
             size={isMobile ? "medium" : "large"}
             onClick={() => {
-              console.log('[DEBUG] CharacterSheet - Clicou em rolar dados gerais');
               diceRollModal.appear({
                 characterId: character.id,
                 characterName: character.name
@@ -1618,6 +1630,13 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           </Button>
         </Box>
       </Container>
+
+      {/* Renderização dos modais */}
+      {attributeDiceModal.isOpen && attributeDiceModal.content}
+      {diceRollModal.isOpen && diceRollModal.content}
+      {statusBarModal.isOpen && statusBarModal.content}
+      {changePictureModal.isOpen && changePictureModal.content}
+      {yearZeroDiceModal.isOpen && yearZeroDiceModal.content}
     </>
   );
 }

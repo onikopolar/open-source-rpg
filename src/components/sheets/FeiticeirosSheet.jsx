@@ -14,31 +14,40 @@ import {
 import { DiceRollModal } from '../../components';
 import useModal from '../../hooks/useModal';
 
-// Import dos módulos organizados
 import { useFeiticeirosSheet } from './Feiticos-modos/hooks/useFeiticeirosSheet';
 
-// Import das seções organizadas
 import CharacterInfoSection from './Feiticos-modos/sections/CharacterInfoSection';
 import HealthSection from './Feiticos-modos/sections/HealthSection';
 import AttributesSection from './Feiticos-modos/sections/AttributesSection';
 
-// ✅ NOVO: Import dos componentes separados
 import PericiasSection from './Feiticos-modos/sections/PericiasSection';
 import OficiosSection from './Feiticos-modos/sections/OficiosSection';
 
-// ✅ NOVO: Import dos componentes Derived Values
 import DerivedValuesDisplay from './Feiticos-modos/components/DerivedValuesDisplay';
 import DerivedValuesModal from './Feiticos-modos/modals/DerivedValuesModal';
 
-// Import dos modals organizados
 import EditDialogModal from './Feiticos-modos/modals/EditDialogModal';
 import MethodSelectionModal from './Feiticos-modos/modals/MethodSelectionModal';
 import DistributionModal from './Feiticos-modos/modals/DistributionModal';
 
-// Import dos estilos organizados
 import { styles } from './Feiticos-modos/styles/characterSheetStyles';
 
-// Main Component
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  if (typeof args[0] === 'string' && args[0].includes('MUI: The key') && args[0].includes('provided to the classes prop is not implemented')) {
+    return;
+  }
+  originalWarn.apply(console, args);
+};
+
+const originalError = console.error;
+console.error = (...args) => {
+  if (typeof args[0] === 'string' && args[0].includes('MUI: The key') && args[0].includes('provided to the classes prop is not implemented')) {
+    return;
+  }
+  originalError.apply(console, args);
+};
+
 function FeiticeirosSheet({
   classes,
   character,
@@ -56,7 +65,6 @@ function FeiticeirosSheet({
       onDiceRoll: (rollResult) => {
         if (custom.skillName && rollResult) {
           const rollValue = rollResult.total;
-          // Esta função será passada via hook se necessário
         }
       },
       zIndex: 10000
@@ -90,16 +98,12 @@ function FeiticeirosSheet({
     canvasRef,
     wheelPositions,
     additionalValues,
-    
-    // ✅ NOVO: Estados e handlers para Derived Values
     showDerivedValuesModal,
     derivedValuesWithBonuses,
     derivedValuesBonuses,
     handleOpenDerivedValuesModal,
     handleCloseDerivedValuesModal,
     handleSaveDerivedValuesBonuses,
-    
-    // Handlers existentes
     handleHealthClick,
     handleSoulClick,
     handleEnergyClick,
@@ -125,7 +129,6 @@ function FeiticeirosSheet({
   return React.createElement(Box, { className: classes.container },
     diceRollModal.isOpen && diceRollModal.content,
     
-    // ✅ NOVO: Modal de Derived Values
     React.createElement(DerivedValuesModal, {
       open: showDerivedValuesModal,
       onClose: handleCloseDerivedValuesModal,
@@ -153,6 +156,7 @@ function FeiticeirosSheet({
     React.createElement(DistributionModal, {
       showDistribution,
       setShowDistribution,
+      setShowMethodSelection,
       selectedMethod,
       availableValues,
       distributionAttributes,
@@ -203,7 +207,6 @@ function FeiticeirosSheet({
       classes
     }),
 
-    // ✅ NOVO: Seção de Derived Values Display
     React.createElement(Box, { 
       sx: { 
         mb: 3, 
@@ -217,7 +220,6 @@ function FeiticeirosSheet({
       })
     ),
 
-    // ✅ ORDEM CORRETA: Perícias | Atributos | Ofícios
     React.createElement(Box, { 
       className: classes.hierarchicalLayout,
       sx: {
@@ -227,7 +229,6 @@ function FeiticeirosSheet({
         alignItems: 'start'
       }
     },
-      // ⬅️ PERÍCIAS - ESQUERDA (APENAS PERÍCIAS)
       React.createElement(PericiasSection, {
         pericias,
         localAttributes,
@@ -238,7 +239,6 @@ function FeiticeirosSheet({
         classes
       }),
 
-      // 🎯 ATRIBUTOS - CENTRO
       React.createElement(AttributesSection, {
         localAttributes,
         canvasRef,
@@ -251,7 +251,6 @@ function FeiticeirosSheet({
         classes
       }),
 
-      // ➡️ OFÍCIOS - DIREITA (OFÍCIOS, RESISTÊNCIAS, ATAQUES)
       React.createElement(OficiosSection, {
         oficios,
         resistencias,

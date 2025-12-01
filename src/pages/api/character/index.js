@@ -106,6 +106,114 @@ export default async function handler(req, res) {
         }
       }
 
+      const isFeiticeirosSystem = req.body.rpg_system === 'feiticeiros'
+      if (isFeiticeirosSystem) {
+        console.log('POST - Sistema Feiticeiros detectado, criando dados do Feiticeiros')
+
+        try {
+          const feiticeirosAttributes = await prisma.feiticeirosAttribute.findMany()
+          console.log(`POST - Encontrados ${feiticeirosAttributes.length} atributos Feiticeiros`)
+
+          if (feiticeirosAttributes.length > 0) {
+            for (const attr of feiticeirosAttributes) {
+              await prisma.feiticeirosCharacterAttribute.create({
+                data: {
+                  character_id: character.id,
+                  attribute_id: attr.id,
+                  value: attr.base_value
+                }
+              })
+            }
+            console.log(`POST - ${feiticeirosAttributes.length} atributos Feiticeiros vinculados`)
+          }
+
+          const periciasData = [
+            { nome: 'ATLETISMO', atributo: 'FORÇA', descricao: 'Testes de força física, saltos, escaladas, natação' },
+            { nome: 'ACROBACIA', atributo: 'DESTREZA', descricao: 'Equilíbrio, cambalhotas, esquivar, movimentos ágeis' },
+            { nome: 'FURTIVIDADE', atributo: 'DESTREZA', descricao: 'Movimento silencioso, esconder-se, passar despercebido' },
+            { nome: 'PRESTIDIGITAÇÃO', atributo: 'DESTREZA', descricao: 'Truques manuais, pickpocket, atos de destreza manual' },
+            { nome: 'DIREÇÃO', atributo: 'SABEDORIA', descricao: 'Navegação, orientação, leitura de mapas' },
+            { nome: 'INTUIÇÃO', atributo: 'SABEDORIA', descricao: 'Percepção de intenções, leitura de pessoas' },
+            { nome: 'MEDICINA', atributo: 'SABEDORIA', descricao: 'Primeiros socorros, diagnóstico, tratamento de ferimentos' },
+            { nome: 'OCULTISMO', atributo: 'SABEDORIA', descricao: 'Conhecimento sobre magia, criaturas sobrenaturais, símbolos' },
+            { nome: 'PERCEPÇÃO', atributo: 'SABEDORIA', descricao: 'Percepção sensorial, notar detalhes, escutar sons' },
+            { nome: 'SOBREVIVÊNCIA', atributo: 'SABEDORIA', descricao: 'Rastreamento, caça, acampamento, orientação na natureza' },
+            { nome: 'FEITIÇARIA', atributo: 'INTELIGÊNCIA', descricao: 'Conhecimento específico sobre feitiços e magias' },
+            { nome: 'HISTÓRIA', atributo: 'INTELIGÊNCIA', descricao: 'Conhecimento histórico, lendas, eventos passados' },
+            { nome: 'INVESTIGAÇÃO', atributo: 'INTELIGÊNCIA', descricao: 'Análise de cenas, resolução de enigmas, dedução' },
+            { nome: 'TECNOLOGIA', atributo: 'INTELIGÊNCIA', descricao: 'Uso de dispositivos tecnológicos, eletrônicos, computadores' },
+            { nome: 'TEOLOGIA', atributo: 'INTELIGÊNCIA', descricao: 'Conhecimento sobre religiões, deuses, práticas espirituais' },
+            { nome: 'ENGANAÇÃO', atributo: 'PRESENÇA', descricao: 'Mentir, disfarces, blefes, criar histórias convincentes' },
+            { nome: 'INTIMIDAÇÃO', atributo: 'PRESENÇA', descricao: 'Amedrontar, coagir, impor respeito através da presença' },
+            { nome: 'PERFORMANCE', atributo: 'PRESENÇA', descricao: 'Atuação, canto, dança, apresentações artísticas' },
+            { nome: 'PERSUASÃO', atributo: 'PRESENÇA', descricao: 'Convencer, negociar, diplomacia, discursos persuasivos' }
+          ]
+
+          for (const pericia of periciasData) {
+            await prisma.feiticeirosPericia.create({
+              data: {
+                character_id: character.id,
+                ...pericia
+              }
+            })
+          }
+          console.log(`POST - ${periciasData.length} perícias Feiticeiros criadas`)
+
+          const oficiosData = [
+            { nome: 'CANALIZADOR', atributo: 'INTELIGÊNCIA', descricao: 'Criação e manutenção de canais de energia amaldiçoada' },
+            { nome: 'ENTALHADOR', atributo: 'INTELIGÊNCIA', descricao: 'Criação de selos, símbolos e artefatos mágicos' },
+            { nome: 'ASTÚCIA', atributo: 'INTELIGÊNCIA', descricao: 'Estratégia, tática, planejamento em combate' }
+          ]
+
+          for (const oficio of oficiosData) {
+            await prisma.feiticeirosOficio.create({
+              data: {
+                character_id: character.id,
+                ...oficio
+              }
+            })
+          }
+          console.log(`POST - ${oficiosData.length} ofícios Feiticeiros criados`)
+
+          const resistenciasData = [
+            { nome: 'FORTITUDE', atributo: 'CONSTITUIÇÃO', descricao: 'Resistência a efeitos físicos, venenos, doenças' },
+            { nome: 'INTEGRIDADE', atributo: 'CONSTITUIÇÃO', descricao: 'Resistência a corrupção, degeneração, decomposição' },
+            { nome: 'REFLEXOS', atributo: 'DESTREZA', descricao: 'Esquiva de ataques, explosões, armadilhas' },
+            { nome: 'VONTADE', atributo: 'SABEDORIA', descricao: 'Resistência a efeitos mentais, ilusões, controle mental' }
+          ]
+
+          for (const resistencia of resistenciasData) {
+            await prisma.feiticeirosResistencia.create({
+              data: {
+                character_id: character.id,
+                ...resistencia
+              }
+            })
+          }
+          console.log(`POST - ${resistenciasData.length} resistências Feiticeiros criadas`)
+
+          const ataquesData = [
+            { nome: 'CORPO-A-CORPO', atributo: 'FORÇA', descricao: 'Ataques com armas brancas e combate físico' },
+            { nome: 'A DISTÂNCIA', atributo: 'DESTREZA', descricao: 'Ataques com armas de arremesso, arcos, bestas' },
+            { nome: 'AMALDIÇOADO', atributo: 'INTELIGÊNCIA', descricao: 'Ataques usando energia amaldiçoada e feitiços' }
+          ]
+
+          for (const ataque of ataquesData) {
+            await prisma.feiticeirosAtaque.create({
+              data: {
+                character_id: character.id,
+                ...ataque
+              }
+            })
+          }
+          console.log(`POST - ${ataquesData.length} ataques Feiticeiros criados`)
+
+          console.log('POST - Configuracao Feiticeiros concluida com sucesso')
+        } catch (feiticeirosError) {
+          console.error('POST - Erro ao configurar Feiticeiros:', feiticeirosError)
+        }
+      }
+
       const completeCharacter = await prisma.character.findUnique({
         where: { id: character.id },
         include: {
@@ -128,7 +236,16 @@ export default async function handler(req, res) {
             include: {
               skill: true
             }
-          }
+          },
+          feiticeiros_attributes: {
+            include: {
+              attribute: true
+            }
+          },
+          feiticeiros_pericias: true,
+          feiticeiros_oficios: true,
+          feiticeiros_resistencias: true,
+          feiticeiros_ataques: true
         }
       })
 
@@ -174,7 +291,16 @@ export default async function handler(req, res) {
             include: {
               skill: true
             }
-          }
+          },
+          feiticeiros_attributes: {
+            include: {
+              attribute: true
+            }
+          },
+          feiticeiros_pericias: true,
+          feiticeiros_oficios: true,
+          feiticeiros_resistencias: true,
+          feiticeiros_ataques: true
         }
       })
       console.log('GET - Personagens encontrados:', characters.length)

@@ -1,19 +1,20 @@
-// hooks/useFeiticeirosSheet.js - VERSÃO CORRIGIDA E OTIMIZADA
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+// hooks/useFeiticeirosSheet.js - VERSÃO 100% COMPATÍVEL COM NOVAS ENDPOINTS
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { calculateModifier, calculateAdditionalValues, validateNumberInput, calcularTotalPericia } from '../utils/characterCalculations';
-import {
-  DEFAULT_ATTRIBUTES,
-  FIXED_VALUES,
-  TABELA_CUSTOS,
-  PERICIAS,
-  OFICIOS,
-  RESISTENCIAS,
+import { 
+  DEFAULT_ATTRIBUTES, 
+  FIXED_VALUES, 
+  TABELA_CUSTOS, 
+  PERICIAS, 
+  OFICIOS, 
+  RESISTENCIAS, 
   ATAQUES,
   ESPECIALIZACOES_PV,
   ESPECIALIZACOES_PE,
   METODOS_CRIACAO
 } from '../constants/characterSheet';
 
+// Constantes imutáveis
 const FIELD_CONFIG = {
   nivel: { display: 'Nível', desc: 'Nível atual do personagem' },
   origem: { display: 'Origem', desc: 'Origem ou background do personagem' },
@@ -36,6 +37,7 @@ const WHEEL_CONFIG = [
   { angle: 180, type: 'empty' }
 ];
 
+// Debounce factory
 const createDebounce = (wait) => {
   let timeout;
   return (func) => {
@@ -46,50 +48,36 @@ const createDebounce = (wait) => {
   };
 };
 
-const parseDerivedBonuses = (bonuses) => {
-  if (!bonuses) return { atencao: 0, defesa: 0, iniciativa: 0, deslocamento: 0 };
-  
-  if (typeof bonuses === 'string') {
-    try {
-      const parsed = JSON.parse(bonuses);
-      return {
-        atencao: parseInt(parsed.atencao) || 0,
-        defesa: parseInt(parsed.defesa) || 0,
-        iniciativa: parseInt(parsed.iniciativa) || 0,
-        deslocamento: parseInt(parsed.deslocamento) || 0
-      };
-    } catch (e) {
-      return { atencao: 0, defesa: 0, iniciativa: 0, deslocamento: 0 };
-    }
-  }
-  
-  return {
-    atencao: parseInt(bonuses.atencao) || 0,
-    defesa: parseInt(bonuses.defesa) || 0,
-    iniciativa: parseInt(bonuses.iniciativa) || 0,
-    deslocamento: parseInt(bonuses.deslocamento) || 0
-  };
-};
-
 export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
+  console.log('🔥 useFeiticeirosSheet RENDER - characterId:', character?.id);
+  
+  // Estado consolidado - INICIALIZADO COM DADOS DO CHARACTER
   const [state, setState] = useState(() => {
+    // CARREGAR DADOS DO CHARACTER NA INICIALIZAÇÃO
     const hasFeiticeirosAttributes = character?.feiticeiros_attributes && character.feiticeiros_attributes.length > 0;
-    const hasMetodoCriacao = character?.feiticeiros_metodo_criacao;
-
+    
     return {
-      showMethodSelection: !hasMetodoCriacao && !hasFeiticeirosAttributes,
-      selectedMethod: hasMetodoCriacao ? METODOS_CRIACAO[hasMetodoCriacao] : null,
+      // UI states
+      showMethodSelection: !hasFeiticeirosAttributes, // Mostrar seletor apenas se não tiver atributos
+      selectedMethod: null,
       showDistribution: false,
       editDialog: { open: false, type: '', title: '' },
       isLoading: false,
       localErrors: {},
-
+      
+      // Estados para Derived Values
       showDerivedValuesModal: false,
-      derivedValuesBonuses: parseDerivedBonuses(character?.derived_values_bonuses),
-
-      localAttributes: hasFeiticeirosAttributes
+      derivedValuesBonuses: character?.derived_values_bonuses || {
+        atencao: 0,
+        defesa: 0,
+        iniciativa: 0,
+        deslocamento: 0
+      },
+      
+      // Attribute states - INICIALIZAR COM DADOS DO BANCO
+      localAttributes: hasFeiticeirosAttributes 
         ? DEFAULT_ATTRIBUTES.map(defaultAttr => {
-            const charAttr = character.feiticeiros_attributes.find(attr =>
+            const charAttr = character.feiticeiros_attributes.find(attr => 
               attr.attribute?.name === defaultAttr.name
             );
             return {
@@ -99,20 +87,18 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
           })
         : DEFAULT_ATTRIBUTES,
       availableValues: [...FIXED_VALUES],
-      distributionAttributes: DEFAULT_ATTRIBUTES.map(attr => ({
-        ...attr,
-        value: 10,
-        assignedValue: null
-      })),
+      distributionAttributes: [...DEFAULT_ATTRIBUTES],
       pontosDisponiveis: 17,
-
+      
+      // RECURSOS SEPARADOS CONFORME PDF - COM DADOS DO BANCO
       currentHP: character?.current_hit_points || 0,
       currentSoul: character?.current_soul_integrity || 0,
       currentPE: character?.current_energy_points || 0,
       maxHP: character?.max_hit_points || 10,
       maxPE: character?.max_energy_points || 0,
-
-      pericias: character?.feiticeiros_pericias && character.feiticeiros_pericias.length > 0
+      
+      // List states - CARREGAR DO BANCO SE EXISTIR
+      pericias: character?.feiticeiros_pericias && character.feiticeiros_pericias.length > 0 
         ? PERICIAS.map(pericia => {
             const charPericia = character.feiticeiros_pericias.find(p => p.nome === pericia.nome);
             return charPericia ? { ...pericia, ...charPericia } : pericia;
@@ -136,7 +122,8 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
             return charAtaque ? { ...ataque, ...charAtaque } : ataque;
           })
         : [...ATAQUES],
-
+      
+      // Character info - COM DADOS DO BANCO
       characterInfo: {
         nivel: character?.level || 1,
         origem: character?.origem || '',
@@ -150,44 +137,31 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     };
   });
 
-  const canConfirm = useCallback(() => {
-    if (state.selectedMethod?.id === 'FIXOS') {
-      return state.availableValues.length === 0;
-    }
-    if (state.selectedMethod?.id === 'COMPRA') {
-      return state.pontosDisponiveis === 0;
-    }
-    if (state.selectedMethod?.id === 'ROLAGEM') {
-      return state.distributionAttributes.every(attr => attr.value >= 8 && attr.value <= 15);
-    }
-    return false;
-  }, [state.selectedMethod?.id, state.availableValues.length, state.pontosDisponiveis, state.distributionAttributes]);
-
-  // Ref para armazenar estado atual para evitar problemas de closure
-  const stateRef = useRef(state);
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
+  // REF PRINCIPAL PARA ESTABILIDADE
   const stableRef = useRef({
     character,
     onUpdate,
     diceRollModal,
     characterInfo: state.characterInfo,
-
+    
+    // Debounce otimizado para diferentes tipos de update
     debouncedCharacterUpdate: createDebounce(150)((field, value) => {
       if (stableRef.current.character && stableRef.current.onUpdate) {
+        console.log('🔥 Debounced character update:', field, value);
         stableRef.current.onUpdate('character', field, value);
       }
     }),
 
     debouncedFeiticeirosUpdate: createDebounce(150)((type, identifier, data) => {
       if (stableRef.current.character && stableRef.current.onUpdate) {
+        console.log('🔥 Debounced feiticeiros update:', type, identifier, data);
         stableRef.current.onUpdate(type, identifier, data);
       }
     }),
 
+    // HANDLERS PRINCIPAIS
     handleCharacterInfoUpdate: (field, value) => {
+      console.log('🔥 handleCharacterInfoUpdate:', field, value);
       setState(prev => {
         const newCharacterInfo = { ...prev.characterInfo, [field]: value };
         stableRef.current.characterInfo = newCharacterInfo;
@@ -197,7 +171,9 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     handleCharacterInfoClick: (field) => {
+      console.log('🔥 handleCharacterInfoClick:', field);
       const config = FIELD_CONFIG[field] || { display: field, desc: '' };
+      
       setState(prev => ({
         ...prev,
         editDialog: {
@@ -211,72 +187,74 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
       }));
     },
 
-    handleSaveDerivedValuesBonuses: async (newBonuses) => {
-      const validatedBonuses = {
-        atencao: parseInt(newBonuses.atencao) || 0,
-        defesa: parseInt(newBonuses.defesa) || 0,
-        iniciativa: parseInt(newBonuses.iniciativa) || 0,
-        deslocamento: parseInt(newBonuses.deslocamento) || 0
-      };
-      
+    // Handlers para Derived Values
+    handleOpenDerivedValuesModal: () => {
+      console.log('🔥 handleOpenDerivedValuesModal');
       setState(prev => ({
         ...prev,
-        derivedValuesBonuses: validatedBonuses,
-        showDerivedValuesModal: false
+        showDerivedValuesModal: true
       }));
-
-      if (stableRef.current.character) {
-        try {          
-          const response = await fetch('/api/feiticeiros/derived-values', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              characterId: stableRef.current.character.id,
-              bonuses: validatedBonuses
-            })
-          });
-
-          const result = await response.json();
-          if (!result.success) {
-            throw new Error(result.error || 'Erro ao salvar derived values');
-          }
-        } catch (error) {
-          setState(prev => ({
-            ...prev,
-            derivedValuesBonuses: stateRef.current.derivedValuesBonuses
-          }));
-          throw error;
-        }
-      }
-    },
-
-    handleOpenDerivedValuesModal: () => {
-      setState(prev => ({ ...prev, showDerivedValuesModal: true }));
     },
 
     handleCloseDerivedValuesModal: () => {
-      setState(prev => ({ ...prev, showDerivedValuesModal: false }));
+      console.log('🔥 handleCloseDerivedValuesModal');
+      setState(prev => ({
+        ...prev,
+        showDerivedValuesModal: false
+      }));
+    },
+
+    handleSaveDerivedValuesBonuses: (newBonuses) => {
+      console.log('🔥 handleSaveDerivedValuesBonuses:', newBonuses);
+      setState(prev => ({
+        ...prev,
+        derivedValuesBonuses: newBonuses,
+        showDerivedValuesModal: false
+      }));
+
+      // Salvar no character
+      if (stableRef.current.character && stableRef.current.onUpdate) {
+        stableRef.current.onUpdate('character', 'derived_values_bonuses', newBonuses);
+      }
     },
 
     handleSaveEdit: (type, current, max, field) => {
+      console.log('🔥 handleSaveEdit:', type, current, max, field);
       if (type === 'hp') {
         const newCurrent = Math.max(0, current);
         const newMax = Math.max(1, max);
-        setState(prev => ({ ...prev, currentHP: newCurrent, maxHP: newMax }));
+        
+        setState(prev => ({
+          ...prev,
+          currentHP: newCurrent,
+          maxHP: newMax
+        }));
+
         if (stableRef.current.character && stableRef.current.onUpdate) {
           stableRef.current.onUpdate('character', 'current_hit_points', newCurrent);
           stableRef.current.onUpdate('character', 'max_hit_points', newMax);
         }
       } else if (type === 'soul') {
         const newCurrent = Math.max(0, current);
-        setState(prev => ({ ...prev, currentSoul: newCurrent }));
+        
+        setState(prev => ({
+          ...prev,
+          currentSoul: newCurrent
+        }));
+
         if (stableRef.current.character && stableRef.current.onUpdate) {
           stableRef.current.onUpdate('character', 'current_soul_integrity', newCurrent);
         }
       } else if (type === 'energy') {
         const newCurrent = Math.max(0, current);
         const newMax = Math.max(1, max);
-        setState(prev => ({ ...prev, currentPE: newCurrent, maxPE: newMax }));
+        
+        setState(prev => ({
+          ...prev,
+          currentPE: newCurrent,
+          maxPE: newMax
+        }));
+
         if (stableRef.current.character && stableRef.current.onUpdate) {
           stableRef.current.onUpdate('character', 'current_energy_points', newCurrent);
           stableRef.current.onUpdate('character', 'max_energy_points', newMax);
@@ -284,10 +262,12 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
       } else if (type === 'characterInfo' && field) {
         stableRef.current.handleCharacterInfoUpdate(field, current);
       }
+      
       setState(prev => ({ ...prev, editDialog: { open: false, type: '', title: '' } }));
     },
 
     handleHealthClick: () => {
+      console.log('🔥 handleHealthClick');
       setState(prev => ({
         ...prev,
         editDialog: {
@@ -302,6 +282,7 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     handleSoulClick: () => {
+      console.log('🔥 handleSoulClick');
       setState(prev => ({
         ...prev,
         editDialog: {
@@ -316,6 +297,7 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     handleEnergyClick: () => {
+      console.log('🔥 handleEnergyClick');
       setState(prev => ({
         ...prev,
         editDialog: {
@@ -330,6 +312,7 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     handleQuickAction: (type, amount) => {
+      console.log('🔥 handleQuickAction:', type, amount);
       setState(prev => {
         const updates = {
           heal: () => [Math.min(prev.maxHP, prev.currentHP + amount), 'current_hit_points'],
@@ -345,8 +328,8 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
 
         const newState = {
           ...prev,
-          ...(type === 'heal' || type === 'damage' ? { currentHP: newValue } :
-              type === 'soul_heal' || type === 'soul_damage' ? { currentSoul: newValue } :
+          ...(type === 'heal' || type === 'damage' ? { currentHP: newValue } : 
+              type === 'soul_heal' || type === 'soul_damage' ? { currentSoul: newValue } : 
               { currentPE: newValue })
         };
 
@@ -359,6 +342,7 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     handleToggleTreinada: (itemNome, checked, tipo, modulo) => {
+      console.log('🔥 handleToggleTreinada:', itemNome, checked, tipo, modulo);
       setState(prev => ({
         ...prev,
         [modulo]: prev[modulo].map(p => {
@@ -369,24 +353,32 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
         })
       }));
 
+      // Salvar no banco usando as NOVAS ENDPOINTS
       if (stableRef.current.character && stableRef.current.onUpdate) {
-        const typeMap = {
-          pericias: 'pericia',
-          oficios: 'oficio',
-          resistencias: 'resistencia',
-          ataques: 'ataque'
+        const endpointMap = {
+          pericias: 'feiticeiros_pericia',
+          oficios: 'feiticeiros_oficio', 
+          resistencias: 'feiticeiros_resistencia',
+          ataques: 'feiticeiros_ataque'
         };
-        const type = typeMap[modulo];
-        if (type) {
-          const updatedItem = stateRef.current[modulo].find(p => p.nome === itemNome);
+        
+        const endpoint = endpointMap[modulo];
+        if (endpoint) {
+          const updatedItem = state[modulo].find(p => p.nome === itemNome);
           if (updatedItem) {
             stableRef.current.debouncedFeiticeirosUpdate(
-              type,
-              itemNome,
+              endpoint, 
+              itemNome, 
               {
-                treinada: tipo === 'mestre' ? true : checked,
-                mestre: tipo === 'mestre' ? checked : updatedItem.mestre,
-                outros: updatedItem.outros || 0
+                characterId: stableRef.current.character.id,
+                [`${modulo.slice(0, -1)}Nome`]: itemNome,
+                data: {
+                  treinada: tipo === 'mestre' ? true : checked,
+                  mestre: tipo === 'mestre' ? checked : updatedItem.mestre,
+                  outros: updatedItem.outros || 0,
+                  atributo: updatedItem.atributo,
+                  descricao: updatedItem.descricao
+                }
               }
             );
           }
@@ -395,31 +387,40 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     handleOutrosChange: (itemNome, outros, modulo) => {
+      console.log('🔥 handleOutrosChange:', itemNome, outros, modulo);
       setState(prev => ({
         ...prev,
-        [modulo]: prev[modulo].map(p =>
+        [modulo]: prev[modulo].map(p => 
           p.nome === itemNome ? { ...p, outros } : p
         )
       }));
 
+      // Salvar no banco usando as NOVAS ENDPOINTS
       if (stableRef.current.character && stableRef.current.onUpdate) {
-        const typeMap = {
-          pericias: 'pericia',
-          oficios: 'oficio',
-          resistencias: 'resistencia',
-          ataques: 'ataque'
+        const endpointMap = {
+          pericias: 'feiticeiros_pericia',
+          oficios: 'feiticeiros_oficio',
+          resistencias: 'feiticeiros_resistencia', 
+          ataques: 'feiticeiros_ataque'
         };
-        const type = typeMap[modulo];
-        if (type) {
-          const updatedItem = stateRef.current[modulo].find(p => p.nome === itemNome);
+        
+        const endpoint = endpointMap[modulo];
+        if (endpoint) {
+          const updatedItem = state[modulo].find(p => p.nome === itemNome);
           if (updatedItem) {
             stableRef.current.debouncedFeiticeirosUpdate(
-              type,
+              endpoint,
               itemNome,
               {
-                treinada: updatedItem.treinada || false,
-                mestre: updatedItem.mestre || false,
-                outros: parseInt(outros) || 0
+                characterId: stableRef.current.character.id,
+                [`${modulo.slice(0, -1)}Nome`]: itemNome,
+                data: {
+                  treinada: updatedItem.treinada || false,
+                  mestre: updatedItem.mestre || false,
+                  outros: parseInt(outros) || 0,
+                  atributo: updatedItem.atributo,
+                  descricao: updatedItem.descricao
+                }
               }
             );
           }
@@ -428,6 +429,7 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     handlePericiaRoll: (pericia, total) => {
+      console.log('🔥 handlePericiaRoll:', pericia.nome, total);
       if (stableRef.current.character && stableRef.current.diceRollModal) {
         stableRef.current.diceRollModal.appear({
           characterId: stableRef.current.character.id,
@@ -440,13 +442,14 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     handleMethodSelect: (method) => {
+      console.log('🔥 handleMethodSelect:', method.id);
       setState(prev => ({
         ...prev,
         selectedMethod: method,
         showMethodSelection: false,
         showDistribution: true
       }));
-
+      
       if (method.id === 'FIXOS') {
         setState(prev => ({
           ...prev,
@@ -471,25 +474,26 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     assignValueToAttribute: (attributeIndex, value) => {
+      console.log('🔥 assignValueToAttribute:', attributeIndex, value);
       setState(prev => {
         const newAttributes = [...prev.distributionAttributes];
         const attribute = newAttributes[attributeIndex];
-
+        
         if (attribute.assignedValue !== null) {
           const newAvailableValues = [...prev.availableValues, attribute.assignedValue].sort((a, b) => b - a);
           return {
             ...prev,
             availableValues: newAvailableValues,
-            distributionAttributes: newAttributes.map((attr, idx) =>
+            distributionAttributes: newAttributes.map((attr, idx) => 
               idx === attributeIndex ? { ...attr, assignedValue: value, value: value } : attr
             )
           };
         }
-
+        
         return {
           ...prev,
           availableValues: prev.availableValues.filter(v => v !== value),
-          distributionAttributes: newAttributes.map((attr, idx) =>
+          distributionAttributes: newAttributes.map((attr, idx) => 
             idx === attributeIndex ? { ...attr, assignedValue: value, value: value } : attr
           )
         };
@@ -497,21 +501,22 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     removeValueFromAttribute: (attributeIndex) => {
+      console.log('🔥 removeValueFromAttribute:', attributeIndex);
       setState(prev => {
         const newAttributes = [...prev.distributionAttributes];
         const attribute = newAttributes[attributeIndex];
-
+        
         if (attribute.assignedValue !== null) {
           const newAvailableValues = [...prev.availableValues, attribute.assignedValue].sort((a, b) => b - a);
           return {
             ...prev,
             availableValues: newAvailableValues,
-            distributionAttributes: newAttributes.map((attr, idx) =>
+            distributionAttributes: newAttributes.map((attr, idx) => 
               idx === attributeIndex ? { ...attr, assignedValue: null, value: 10 } : attr
             )
           };
         }
-
+        
         return prev;
       });
     },
@@ -523,16 +528,17 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     ajustarAtributoCompra: (attributeIndex, novoValor) => {
+      console.log('🔥 ajustarAtributoCompra:', attributeIndex, novoValor);
       if (novoValor < 8 || novoValor > 15) return;
 
       setState(prev => {
         const atributo = prev.distributionAttributes[attributeIndex];
         const custo = stableRef.current.calcularCustoAtributo(atributo.value, novoValor);
-
+        
         if (prev.pontosDisponiveis >= custo) {
           const novosAtributos = [...prev.distributionAttributes];
           novosAtributos[attributeIndex] = { ...atributo, value: novoValor };
-
+          
           return {
             ...prev,
             distributionAttributes: novosAtributos,
@@ -544,74 +550,50 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     },
 
     confirmDistribution: async () => {
-      console.log('🔥 confirmDistribution - INICIANDO PROCESSO DE SALVAMENTO');
-      
-      // Usar stateRef para garantir dados corretos (evitar problema de closure)
-      const currentState = stateRef.current;
-      
-      console.log('🔥 DADOS REAIS PARA API:', 
-        currentState.distributionAttributes.map(attr => `${attr.name}=${attr.value}`).join(', ')
-      );
-      
-      setState(prev => ({
-        ...prev,
-        isLoading: true,
-        showDistribution: false
-      }));
-      
+      console.log('🔥 confirmDistribution');
+      setState(prev => ({ ...prev, isLoading: true }));
       try {
-        if (stableRef.current.character && stableRef.current.character.id && currentState.selectedMethod) {
-          console.log('🔥 Iniciando salvamento via API...');
-          
-          const response = await fetch('/api/feiticeiros/distribution', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              characterId: stableRef.current.character.id,
-              distributionData: currentState.distributionAttributes,
-              metodo: currentState.selectedMethod.id
-            })
+        setState(prev => ({ 
+          ...prev, 
+          localAttributes: prev.distributionAttributes,
+          showDistribution: false 
+        }));
+        
+        // SALVAR ATRIBUTOS USANDO AS NOVAS ENDPOINTS
+        if (stableRef.current.character && stableRef.current.onUpdate) {
+          const updatePromises = state.distributionAttributes.map(attr => {
+            return new Promise((resolve) => {
+              stableRef.current.debouncedFeiticeirosUpdate(
+                'feiticeiros_attribute',
+                attr.name,
+                {
+                  characterId: stableRef.current.character.id,
+                  attributeName: attr.name,
+                  value: attr.value
+                }
+              );
+              resolve();
+            });
           });
-
-          const result = await response.json();
-
-          if (result.success) {
-            console.log('✅ DISTRIBUIÇÃO SALVA COM SUCESSO!');
-            
-            setState(prev => ({
-              ...prev,
-              isLoading: false,
-              localAttributes: currentState.distributionAttributes,
-              showMethodSelection: false,
-              localErrors: { ...prev.localErrors, distribution: null }
-            }));
-
-            if (stableRef.current.onUpdate) {
-              stableRef.current.onUpdate('character', 'feiticeiros_metodo_criacao', currentState.selectedMethod.id);
-              stableRef.current.onUpdate('character', 'feiticeiros_distribution_completed', true);
-            }
-          } else {
-            throw new Error(result.error || 'Erro ao salvar distribuição');
-          }
-        } else {
-          throw new Error('Character ou método não disponível para salvamento');
+          
+          await Promise.all(updatePromises);
         }
       } catch (error) {
-        console.error('❌ ERRO ao confirmar distribuição:', error);
-        
+        console.error('Erro ao confirmar distribuição:', error);
         setState(prev => ({
           ...prev,
-          isLoading: false,
-          showDistribution: true,
           localErrors: {
             ...prev.localErrors,
             distribution: 'Erro ao salvar atributos. Tente novamente.'
           }
         }));
+      } finally {
+        setState(prev => ({ ...prev, isLoading: false }));
       }
     },
 
     resetDistribution: () => {
+      console.log('🔥 resetDistribution');
       setState(prev => {
         if (prev.selectedMethod?.id === 'FIXOS') {
           return {
@@ -643,34 +625,41 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
         }
         return prev;
       });
-
-      setState(prev => ({
-        ...prev,
-        localErrors: { ...prev.localErrors, distribution: null }
+      
+      setState(prev => ({ 
+        ...prev, 
+        localErrors: { ...prev.localErrors, distribution: null } 
       }));
     },
 
     updateAttribute: (attributeName, value) => {
+      console.log('🔥 updateAttribute:', attributeName, value);
       const numValue = value === "" ? 0 : Math.max(0, Math.min(30, parseInt(value) || 0));
-
+      
       setState(prev => ({
         ...prev,
-        localAttributes: prev.localAttributes.map(attr =>
+        localAttributes: prev.localAttributes.map(attr => 
           attr.name === attributeName ? { ...attr, value: numValue } : attr
         )
       }));
 
+      // SALVAR USANDO AS NOVAS ENDPOINTS
       if (stableRef.current.character && stableRef.current.onUpdate) {
         stableRef.current.debouncedFeiticeirosUpdate(
-          'attribute',
+          'feiticeiros_attribute',
           attributeName,
-          { value: numValue }
+          {
+            characterId: stableRef.current.character.id,
+            attributeName: attributeName,
+            value: numValue
+          }
         );
       }
     },
 
     handleAttributeRoll: (attributeName) => {
-      const attribute = stateRef.current.localAttributes.find(attr => attr.name === attributeName);
+      console.log('🔥 handleAttributeRoll:', attributeName);
+      const attribute = state.localAttributes.find(attr => attr.name === attributeName);
       if (attribute && stableRef.current.character && stableRef.current.diceRollModal) {
         stableRef.current.diceRollModal.appear({
           characterId: stableRef.current.character.id,
@@ -705,10 +694,22 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
         e.preventDefault();
         callback(name, Math.max(0, currentValue - 1));
       }
+    },
+
+    canConfirm: () => {
+      if (state.selectedMethod?.id === 'FIXOS') {
+        return state.availableValues.length === 0;
+      }
+      if (state.selectedMethod?.id === 'COMPRA') {
+        return state.pontosDisponiveis >= 0;
+      }
+      return true;
     }
   });
 
+  // Atualizar dados instáveis no ref quando mudarem
   useEffect(() => {
+    console.log('🔥 useFeiticeirosSheet - Props updated');
     stableRef.current.character = character;
     stableRef.current.onUpdate = onUpdate;
     stableRef.current.diceRollModal = diceRollModal;
@@ -718,16 +719,18 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     stableRef.current.characterInfo = state.characterInfo;
   }, [state.characterInfo]);
 
+  // Cálculos pesados memoizados
   const wheelPositions = useMemo(() => {
+    console.log('🔥 useFeiticeirosSheet - Wheel positions calculated');
     const centerX = 260;
-    const centerY = 290;
+    const centerY = 280;
     const radius = 230;
-
+    
     return WHEEL_CONFIG.map((pos) => {
       const rad = pos.angle * Math.PI / 180;
       const x = centerX + radius * Math.cos(rad);
       const y = centerY + radius * Math.sin(rad);
-
+      
       return pos.name ? {
         x, y, type: 'attribute', angle: pos.angle, name: pos.name
       } : {
@@ -736,16 +739,20 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     });
   }, []);
 
+  // CORREÇÃO CRÍTICA: Passar perícias para cálculo da ATENÇÃO
   const additionalValues = useMemo(() => {
+    console.log('🔥 useFeiticeirosSheet - Additional values calculated');
     return calculateAdditionalValues(
-      state.localAttributes,
+      state.localAttributes, 
       state.characterInfo.nivel,
       state.characterInfo.especializacao,
       state.pericias
     );
   }, [state.localAttributes, state.characterInfo.nivel, state.characterInfo.especializacao, state.pericias]);
 
+  // Valores derivados com bônus aplicados
   const derivedValuesWithBonuses = useMemo(() => {
+    console.log('🔥 useFeiticeirosSheet - Derived values with bonuses calculated');
     const baseValues = {
       ATENÇÃO: additionalValues?.ATENÇÃO?.valor || 10,
       DEFESA: additionalValues?.DEFESA?.valor || 10,
@@ -773,10 +780,11 @@ export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
     };
   }, [additionalValues, state.derivedValuesBonuses]);
 
+  // Canvas
   const canvasRef = useRef(null);
   const animationFrameRef = useRef(null);
 
-const drawMahoragaWheels = useCallback(() => {
+  const drawMahoragaWheels = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
@@ -784,29 +792,29 @@ const drawMahoragaWheels = useCallback(() => {
     animationFrameRef.current = requestAnimationFrame(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-
+      
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+      
       const centerX = canvas.width / 2;
-      const centerY = canvas.height / 1.8;
-
-      // Cores da paleta azul do tema
-      ctx.strokeStyle = 'rgba(99, 158, 194, 0.9)'; // #639EC2 com transparência
+      const centerY = canvas.height / 2;
+      
+      // Desenho simplificado
+      ctx.strokeStyle = 'rgba(74, 20, 140, 0.9)';
       ctx.lineWidth = 8;
       ctx.beginPath();
       ctx.arc(centerX, centerY, 120, 0, 2 * Math.PI);
       ctx.stroke();
-
-      ctx.fillStyle = 'rgba(99, 158, 194, 1)'; // #639EC2 sólido
+      
+      ctx.fillStyle = 'rgba(105, 27, 154, 1)';
       ctx.beginPath();
       ctx.arc(centerX, centerY, 40, 0, 2 * Math.PI);
       ctx.fill();
-
-      ctx.strokeStyle = 'rgba(140, 140, 140, 0.9)'; // #8c8c8c com transparência
+      
+      ctx.strokeStyle = 'rgba(106, 27, 154, 0.9)';
       ctx.lineWidth = 6;
       const connections = [[1, 4], [7, 6], [0, 3], [2, 5]];
-
+      
       connections.forEach(([startIdx, endIdx]) => {
         const startPos = wheelPositions[startIdx];
         const endPos = wheelPositions[endIdx];
@@ -818,7 +826,7 @@ const drawMahoragaWheels = useCallback(() => {
         }
       });
     });
-  }, [wheelPositions]);
+  };
 
   useEffect(() => {
     drawMahoragaWheels();
@@ -827,16 +835,19 @@ const drawMahoragaWheels = useCallback(() => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [drawMahoragaWheels]);
+  }, [drawMahoragaWheels, wheelPositions]);
 
+  // CARREGAR DADOS QUANDO CHARACTER MUDAR
   useEffect(() => {
+    console.log('🔥 useFeiticeirosSheet - Character changed, reloading data');
+    
     if (character) {
       const hasFeiticeirosAttributes = character.feiticeiros_attributes && character.feiticeiros_attributes.length > 0;
-      const hasMetodoCriacao = character.feiticeiros_metodo_criacao;
-
+      
+      // Atualizar atributos
       if (hasFeiticeirosAttributes) {
         const loadedAttributes = DEFAULT_ATTRIBUTES.map(defaultAttr => {
-          const charAttr = character.feiticeiros_attributes.find(attr =>
+          const charAttr = character.feiticeiros_attributes.find(attr => 
             attr.attribute?.name === defaultAttr.name
           );
           return {
@@ -844,20 +855,15 @@ const drawMahoragaWheels = useCallback(() => {
             value: charAttr?.value || defaultAttr.value
           };
         });
-
-        setState(prev => ({
-          ...prev,
+        
+        setState(prev => ({ 
+          ...prev, 
           localAttributes: loadedAttributes,
-          showMethodSelection: !hasMetodoCriacao && !hasFeiticeirosAttributes,
-          selectedMethod: hasMetodoCriacao ? METODOS_CRIACAO[hasMetodoCriacao] : null
-        }));
-      } else {
-        setState(prev => ({
-          ...prev,
-          showMethodSelection: !hasMetodoCriacao
+          showMethodSelection: false 
         }));
       }
 
+      // Atualizar character info
       const newCharacterInfo = {
         nivel: character.level || 1,
         origem: character.origem || '',
@@ -868,7 +874,7 @@ const drawMahoragaWheels = useCallback(() => {
         multiclasse: character.multiclasse || '',
         grau: character.grau || ''
       };
-
+      
       setState(prev => ({
         ...prev,
         currentHP: character.current_hit_points || 0,
@@ -877,22 +883,37 @@ const drawMahoragaWheels = useCallback(() => {
         maxHP: character.max_hit_points || 10,
         maxPE: character.max_energy_points || 0,
         characterInfo: newCharacterInfo,
-        derivedValuesBonuses: parseDerivedBonuses(character.derived_values_bonuses)
+        derivedValuesBonuses: character.derived_values_bonuses || {
+          atencao: 0,
+          defesa: 0,
+          iniciativa: 0,
+          deslocamento: 0
+        }
       }));
-
+      
       stableRef.current.characterInfo = newCharacterInfo;
     }
-  }, [character?.id]);
+  }, [character?.id]); // RECARREGA QUANDO O CHARACTER MUDAR
+
+  // RETORNO SUPER ESTÁVEL
+  console.log('🔥 useFeiticeirosSheet - Return API');
 
   return {
+    // Estados
     ...state,
+    
+    // Refs e valores calculados
     canvasRef,
     wheelPositions,
     additionalValues,
     derivedValuesWithBonuses,
+    
+    // Setters
     setShowMethodSelection: (value) => setState(prev => ({ ...prev, showMethodSelection: value })),
     setShowDistribution: (value) => setState(prev => ({ ...prev, showDistribution: value })),
     setEditDialog: (value) => setState(prev => ({ ...prev, editDialog: value })),
+    
+    // HANDLERS ESTÁVEIS
     handleCharacterInfoClick: stableRef.current.handleCharacterInfoClick,
     handleHealthClick: stableRef.current.handleHealthClick,
     handleSoulClick: stableRef.current.handleSoulClick,
@@ -913,7 +934,9 @@ const drawMahoragaWheels = useCallback(() => {
     handleInputChange: stableRef.current.handleInputChange,
     handleBlur: stableRef.current.handleBlur,
     handleKeyDown: stableRef.current.handleKeyDown,
-    canConfirm,
+    canConfirm: stableRef.current.canConfirm,
+    
+    // Handlers para Derived Values
     handleOpenDerivedValuesModal: stableRef.current.handleOpenDerivedValuesModal,
     handleCloseDerivedValuesModal: stableRef.current.handleCloseDerivedValuesModal,
     handleSaveDerivedValuesBonuses: stableRef.current.handleSaveDerivedValuesBonuses

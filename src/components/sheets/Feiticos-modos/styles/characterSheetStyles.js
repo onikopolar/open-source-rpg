@@ -108,7 +108,7 @@ export const styles = (theme) => ({
   hierarchicalLayout: {
     display: 'flex',
     alignItems: 'flex-start',
-    justifyContent: 'center', 
+    justifyContent: 'center',
     gap: '20px',
     marginBottom: '40px',
     flexWrap: 'nowrap',
@@ -138,14 +138,14 @@ export const styles = (theme) => ({
   centerColumn: {
     flex: '0 0 auto',
     display: 'flex',
-    justifyContent: 'center', 
-    alignItems: 'center', 
+    justifyContent: 'center',
+    alignItems: 'center',
     minWidth: '580px',
     padding: '60px 10px',
     marginTop: '0px',
-    margin: '0 auto', 
+    margin: '0 auto',
     position: 'relative',
-    left: '0px' 
+    left: '0px'
   },
   rightColumn: {
     flex: '0 0 370px',
@@ -222,7 +222,6 @@ export const styles = (theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: '520px',
-    transform: 'translateX(0px)',
     background: 'radial-gradient(circle, rgba(99, 158, 194, 0.1) 0%, transparent 70%)',
     borderRadius: '50%',
   },

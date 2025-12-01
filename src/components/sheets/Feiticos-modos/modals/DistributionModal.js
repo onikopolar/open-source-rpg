@@ -1,4 +1,4 @@
-// modals/DistributionModal.js
+// modals/DistributionModal.js - VERSÃO COMPLETA COM LOGS DETALHADOS
 import React from 'react';
 import {
   Dialog,
@@ -24,6 +24,7 @@ import { METODOS_CRIACAO, TABELA_CUSTOS } from '../constants/characterSheet';
 const DistributionModal = React.memo(({
   showDistribution,
   setShowDistribution,
+  setShowMethodSelection,
   selectedMethod,
   availableValues,
   distributionAttributes,
@@ -39,9 +40,29 @@ const DistributionModal = React.memo(({
   canConfirm,
   classes
 }) => {
-  if (!showDistribution) return null;
+  console.log("=== 🟢 DISTRIBUTION MODAL RENDER ===");
+  console.log("showDistribution:", showDistribution);
+  console.log("selectedMethod:", selectedMethod?.id);
+  console.log("availableValues:", availableValues);
+  console.log("availableValues.length:", availableValues.length);
+  console.log("distributionAttributes:", distributionAttributes);
+  console.log("distributionAttributes detalhado:", distributionAttributes.map(attr => ({
+    name: attr.name,
+    value: attr.value,
+    assignedValue: attr.assignedValue,
+    isNull: attr.assignedValue === null
+  })));
+  console.log("canConfirm:", canConfirm ? canConfirm() : "canConfirm não disponível");
+  console.log("=== FIM RENDER ===");
+
+  if (!showDistribution) {
+    console.log("🔴 Modal não está visível, retornando null");
+    return null;
+  }
 
   const renderMethodContent = () => {
+    console.log("🟣 renderMethodContent - método:", selectedMethod?.id);
+    
     switch (selectedMethod?.id) {
       case 'FIXOS':
         return React.createElement(React.Fragment, null,
@@ -60,12 +81,34 @@ const DistributionModal = React.memo(({
                   key: index,
                   className: classes.valueChip,
                   onClick: () => {
+                    console.log("=== 🟡 CLIQUE NO VALOR FIXO ===");
+                    console.log("Valor clicado:", value);
+                    console.log("availableValues antes:", availableValues);
+                    
+                    // VERIFICAR ATRIBUTOS VAZIOS
                     const emptyAttributeIndex = distributionAttributes.findIndex(
                       attr => attr.assignedValue === null
                     );
+                    
+                    console.log("🔍 Buscando atributos vazios...");
+                    console.log("Total de atributos:", distributionAttributes.length);
+                    console.log("Atributos vazios encontrados no índice:", emptyAttributeIndex);
+                    
+                    // LOG DETALHADO DE CADA ATRIBUTO
+                    distributionAttributes.forEach((attr, idx) => {
+                      console.log(`Atributo ${idx}: ${attr.name} | valor: ${attr.value} | assignedValue: ${attr.assignedValue} | é null: ${attr.assignedValue === null}`);
+                    });
+                    
                     if (emptyAttributeIndex !== -1) {
+                      console.log("✅ Atributo vazio encontrado no índice:", emptyAttributeIndex);
+                      console.log("🔵 Chamando assignValueToAttribute com:", emptyAttributeIndex, value);
                       assignValueToAttribute(emptyAttributeIndex, value);
+                    } else {
+                      console.log("❌ NENHUM ATRIBUTO VAZIO ENCONTRADO!");
+                      console.log("Todos os atributos já têm valores atribuídos:");
+                      console.log("Atributos atuais:", distributionAttributes);
                     }
+                    console.log("=== FIM CLIQUE ===");
                   }
                 }, value)
               )
@@ -98,16 +141,26 @@ const DistributionModal = React.memo(({
         );
 
       default:
+        console.log("🟡 Método desconhecido:", selectedMethod?.id);
         return null;
     }
   };
 
   const renderAttributeControls = (attribute, index) => {
+    console.log(`🟣 Renderizando controles do atributo ${index}: ${attribute.name}`, {
+      value: attribute.value,
+      assignedValue: attribute.assignedValue,
+      isNull: attribute.assignedValue === null
+    });
+
     if (selectedMethod?.id === 'COMPRA') {
       return React.createElement(Box, { display: "flex", alignItems: "center", gap: 1 },
         React.createElement(IconButton, {
           size: "small",
-          onClick: () => ajustarAtributoCompra(index, attribute.value - 1),
+          onClick: () => {
+            console.log("🔵 Diminuindo atributo:", attribute.name, "de", attribute.value, "para", attribute.value - 1);
+            ajustarAtributoCompra(index, attribute.value - 1);
+          },
           disabled: attribute.value <= 8 || isLoading
         }, React.createElement(Close)),
         
@@ -120,7 +173,10 @@ const DistributionModal = React.memo(({
         
         React.createElement(IconButton, {
           size: "small",
-          onClick: () => ajustarAtributoCompra(index, attribute.value + 1),
+          onClick: () => {
+            console.log("🔵 Aumentando atributo:", attribute.name, "de", attribute.value, "para", attribute.value + 1);
+            ajustarAtributoCompra(index, attribute.value + 1);
+          },
           disabled: attribute.value >= 15 || isLoading
         }, React.createElement(Check))
       );
@@ -131,9 +187,8 @@ const DistributionModal = React.memo(({
         type: "number",
         value: attribute.value,
         onChange: (e) => {
-          const newAttributes = [...distributionAttributes];
-          newAttributes[index].value = parseInt(e.target.value) || 0;
-          setDistributionAttributes(newAttributes);
+          const newValue = parseInt(e.target.value) || 0;
+          console.log("🔵 Alterando atributo manualmente:", attribute.name, "para", newValue);
         },
         inputProps: { 
           min: 0, 
@@ -151,6 +206,7 @@ const DistributionModal = React.memo(({
       React.createElement(IconButton, {
         size: "small",
         onClick: () => {
+          console.log("🔵 Rolando dado para atributo:", attribute.name);
           if (character && !isLoading) {
             diceRollModal.appear({
               characterId: character.id,
@@ -167,6 +223,10 @@ const DistributionModal = React.memo(({
   };
 
   const renderStatusAlerts = () => {
+    const canConfirmResult = canConfirm ? canConfirm() : false;
+    console.log("🟣 Renderizando alertas - canConfirm:", canConfirmResult);
+    console.log("availableValues.length para alerta:", availableValues.length);
+
     return React.createElement(React.Fragment, null,
       selectedMethod?.id === 'FIXOS' && availableValues.length === 0 && React.createElement(Alert, { severity: "success", sx: { mt: 2 } },
         'Todos os valores foram distribuídos!'
@@ -178,9 +238,57 @@ const DistributionModal = React.memo(({
     );
   };
 
+  const handleConfirmClick = () => {
+    console.log("=== 🟡 CLIQUE NO BOTÃO CONFIRMAR ===");
+    console.log("canConfirm disponível:", !!canConfirm);
+    console.log("canConfirm():", canConfirm ? canConfirm() : "não disponível");
+    console.log("isLoading:", isLoading);
+    
+    if (typeof confirmDistribution !== 'function') {
+      console.log("❌ confirmDistribution não é uma função!");
+      return;
+    }
+
+    if (!canConfirm) {
+      console.log("❌ canConfirm é falso/nulo");
+      return;
+    }
+
+    const canConfirmResult = canConfirm();
+    console.log("Resultado de canConfirm():", canConfirmResult);
+
+    if (!canConfirmResult || isLoading) {
+      console.log("❌ Não pode confirmar - canConfirm:", canConfirmResult, "isLoading:", isLoading);
+      console.log("=== FIM CLIQUE CONFIRMAR (BLOQUEADO) ===");
+      return;
+    }
+
+    console.log("✅ TUDO OK! Chamando confirmDistribution...");
+    confirmDistribution();
+    console.log("=== FIM CLIQUE CONFIRMAR (EXECUTADO) ===");
+  };
+
+  const handleBackClick = () => {
+    console.log("🟡 Voltando para seleção de método");
+    setShowDistribution(false);
+    setShowMethodSelection(true);
+  };
+
+  const handleResetClick = () => {
+    console.log("🟡 Reiniciando distribuição");
+    resetDistribution();
+  };
+
+  const handleCloseModal = () => {
+    console.log("🟡 Fechando modal de distribuição");
+    if (!isLoading) {
+      setShowDistribution(false);
+    }
+  };
+
   return React.createElement(Dialog, {
     open: showDistribution,
-    onClose: () => !isLoading && setShowDistribution(false),
+    onClose: handleCloseModal,
     maxWidth: "md",
     className: classes.distributionModal,
     sx: {
@@ -196,10 +304,10 @@ const DistributionModal = React.memo(({
     
     React.createElement(DialogTitle, { sx: { textAlign: 'center' } },
       React.createElement(Typography, { variant: "h5", component: "div", fontWeight: "bold" },
-        selectedMethod?.nome
+        selectedMethod?.nome || 'Método Desconhecido'
       ),
       React.createElement(Typography, { variant: "body2", component: "div", color: "textSecondary" },
-        selectedMethod?.descricao
+        selectedMethod?.descricao || 'Descrição não disponível'
       )
     ),
     
@@ -253,7 +361,7 @@ const DistributionModal = React.memo(({
     
     React.createElement(DialogActions, { sx: { justifyContent: 'space-between', p: 3 } },
       React.createElement(Button, {
-        onClick: resetDistribution,
+        onClick: handleResetClick,
         startIcon: React.createElement(Shuffle),
         variant: "outlined",
         disabled: isLoading
@@ -261,20 +369,23 @@ const DistributionModal = React.memo(({
       
       React.createElement(Box, { display: "flex", gap: 1 },
         React.createElement(Button, {
-          onClick: () => {
-            setShowDistribution(false);
-            setShowMethodSelection(true);
-          },
+          onClick: handleBackClick,
           variant: "outlined",
           disabled: isLoading
         }, '← Voltar'),
         
         React.createElement(Button, {
-          onClick: confirmDistribution,
+          onClick: handleConfirmClick,
           variant: "contained",
           startIcon: React.createElement(Check),
-          disabled: !canConfirm() || isLoading,
-          className: classes.setupButton
+          disabled: !canConfirm || !canConfirm() || isLoading,
+          className: classes.setupButton,
+          sx: {
+            backgroundColor: '#4a148c',
+            '&:hover': {
+              backgroundColor: '#6a1b9a'
+            }
+          }
         }, isLoading ? 'Salvando...' : 'Confirmar')
       )
     )

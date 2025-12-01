@@ -10,30 +10,239 @@ export default async function handler(req, res) {
   if (req.method === 'PUT') {
     console.log('PUT - Atualizando personagem:', id)
     try {
-      const character = await prisma.character.update({
-        where: { id: parseInt(id) },
-        data: {
-          name: req.body.name,
-          age: req.body.age || null,
-          gender: req.body.gender || null,
-          player_name: req.body.player_name || null,
-          rpg_system: req.body.rpg_system !== undefined ? req.body.rpg_system : undefined,
-          current_hit_points: req.body.current_hit_points || 0,
-          max_hit_points: req.body.max_hit_points || 0,
-          stress_level: req.body.stress_level || 0,
-          trauma_level: req.body.trauma_level || 0,
-          willpower: req.body.willpower || 0,
-          experience: req.body.experience || 0,
-          health_squares: req.body.health_squares !== undefined ? JSON.stringify(req.body.health_squares) : undefined,
-          stress_squares: req.body.stress_squares !== undefined ? JSON.stringify(req.body.stress_squares) : undefined
+      const characterId = parseInt(id)
+      
+      // Buscar personagem atual para verificar sistema anterior
+      const currentCharacter = await prisma.character.findUnique({
+        where: { id: characterId },
+        include: {
+          feiticeiros_attributes: true,
+          feiticeiros_pericias: true,
+          feiticeiros_oficios: true,
+          feiticeiros_resistencias: true,
+          feiticeiros_ataques: true
         }
       })
 
+      // Preparar dados para atualização
+      const updateData = {
+        name: req.body.name,
+        age: req.body.age !== undefined ? req.body.age : null,
+        gender: req.body.gender !== undefined ? req.body.gender : null,
+        player_name: req.body.player_name !== undefined ? req.body.player_name : null,
+        rpg_system: req.body.rpg_system !== undefined ? req.body.rpg_system : undefined,
+        current_hit_points: req.body.current_hit_points !== undefined ? req.body.current_hit_points : undefined,
+        max_hit_points: req.body.max_hit_points !== undefined ? req.body.max_hit_points : undefined,
+        stress_level: req.body.stress_level !== undefined ? req.body.stress_level : undefined,
+        trauma_level: req.body.trauma_level !== undefined ? req.body.trauma_level : undefined,
+        willpower: req.body.willpower !== undefined ? req.body.willpower : undefined,
+        experience: req.body.experience !== undefined ? req.body.experience : undefined,
+        health_squares: req.body.health_squares !== undefined ? JSON.stringify(req.body.health_squares) : undefined,
+        stress_squares: req.body.stress_squares !== undefined ? JSON.stringify(req.body.stress_squares) : undefined,
+        
+        // CAMPOS DO FEITICEIROS QUE ESTAVAM FALTANDO
+        origem: req.body.origem !== undefined ? req.body.origem : undefined,
+        treino: req.body.treino !== undefined ? req.body.treino : undefined,
+        especializacao: req.body.especializacao !== undefined ? req.body.especializacao : undefined,
+        tecnica: req.body.tecnica !== undefined ? req.body.tecnica : undefined,
+        experiencia: req.body.experiencia !== undefined ? req.body.experiencia : undefined,
+        multiclasse: req.body.multiclasse !== undefined ? req.body.multiclasse : undefined,
+        grau: req.body.grau !== undefined ? req.body.grau : undefined,
+        current_soul_integrity: req.body.current_soul_integrity !== undefined ? req.body.current_soul_integrity : undefined,
+        current_energy_points: req.body.current_energy_points !== undefined ? req.body.current_energy_points : undefined,
+        max_energy_points: req.body.max_energy_points !== undefined ? req.body.max_energy_points : undefined,
+        
+        // ✅ CORREÇÃO DEFINITIVA: REMOVIDO COMPLETAMENTE
+        // O derived_values_bonuses é gerenciado EXCLUSIVAMENTE pela API específica
+        // (/api/feiticeiros/derived-values) para evitar conflitos e corrupção de dados
+        
+        // REMOVIDOS: Esses campos são gerenciados exclusivamente pelo derived-values.js
+        // Não incluir aqui para evitar conflitos e sobrescrita
+        // atencao_bonus: req.body.atencao_bonus !== undefined ? req.body.atencao_bonus : undefined,
+        // defesa_bonus: req.body.defesa_bonus !== undefined ? req.body.defesa_bonus : undefined,
+        // iniciativa_bonus: req.body.iniciativa_bonus !== undefined ? req.body.iniciativa_bonus : undefined,
+        // deslocamento_bonus: req.body.deslocamento_bonus !== undefined ? req.body.deslocamento_bonus : undefined
+      }
+
+      // Remover campos undefined para não sobrescrever com null
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key]
+        }
+      })
+
+      console.log('PUT - Dados para atualização:', updateData)
+
+      // Atualizar o personagem
+      const character = await prisma.character.update({
+        where: { id: characterId },
+        data: updateData
+      })
+
       console.log('PUT - Personagem atualizado:', character.id)
+      console.log('PUT - Sistema RPG atualizado para:', character.rpg_system)
+
+      // Se o sistema foi alterado para Feiticeiros e não tem dados ainda, criar os dados
+      if (req.body.rpg_system === 'feiticeiros' && currentCharacter) {
+        const hasFeiticeirosData = currentCharacter.feiticeiros_attributes.length > 0 || 
+                                  currentCharacter.feiticeiros_pericias.length > 0
+
+        if (!hasFeiticeirosData) {
+          console.log('PUT - Criando dados do Feiticeiros para personagem:', characterId)
+
+          try {
+            // Criar atributos do Feiticeiros
+            const feiticeirosAttributes = await prisma.feiticeirosAttribute.findMany()
+            console.log(`PUT - Encontrados ${feiticeirosAttributes.length} atributos Feiticeiros`)
+
+            if (feiticeirosAttributes.length > 0) {
+              for (const attr of feiticeirosAttributes) {
+                await prisma.feiticeirosCharacterAttribute.create({
+                  data: {
+                    character_id: characterId,
+                    attribute_id: attr.id,
+                    value: attr.base_value
+                  }
+                })
+              }
+              console.log(`PUT - ${feiticeirosAttributes.length} atributos Feiticeiros vinculados`)
+            }
+
+            // Criar perícias
+            const periciasData = [
+              { nome: 'ATLETISMO', atributo: 'FORÇA', descricao: 'Testes de força física, saltos, escaladas, natação' },
+              { nome: 'ACROBACIA', atributo: 'DESTREZA', descricao: 'Equilíbrio, cambalhotas, esquivar, movimentos ágeis' },
+              { nome: 'FURTIVIDADE', atributo: 'DESTREZA', descricao: 'Movimento silencioso, esconder-se, passar despercebido' },
+              { nome: 'PRESTIDIGITAÇÃO', atributo: 'DESTREZA', descricao: 'Truques manuais, pickpocket, atos de destreza manual' },
+              { nome: 'DIREÇÃO', atributo: 'SABEDORIA', descricao: 'Navegação, orientação, leitura de mapas' },
+              { nome: 'INTUIÇÃO', atributo: 'SABEDORIA', descricao: 'Percepção de intenções, leitura de pessoas' },
+              { nome: 'MEDICINA', atributo: 'SABEDORIA', descricao: 'Primeiros socorros, diagnóstico, tratamento de ferimentos' },
+              { nome: 'OCULTISMO', atributo: 'SABEDORIA', descricao: 'Conhecimento sobre magia, criaturas sobrenaturais, símbolos' },
+              { nome: 'PERCEPÇÃO', atributo: 'SABEDORIA', descricao: 'Percepção sensorial, notar detalhes, escutar sons' },
+              { nome: 'SOBREVIVÊNCIA', atributo: 'SABEDORIA', descricao: 'Rastreamento, caça, acampamento, orientação na natureza' },
+              { nome: 'FEITIÇARIA', atributo: 'INTELIGÊNCIA', descricao: 'Conhecimento específico sobre feitiços e magias' },
+              { nome: 'HISTÓRIA', atributo: 'INTELIGÊNCIA', descricao: 'Conhecimento histórico, lendas, eventos passados' },
+              { nome: 'INVESTIGAÇÃO', atributo: 'INTELIGÊNCIA', descricao: 'Análise de cenas, resolução de enigmas, dedução' },
+              { nome: 'TECNOLOGIA', atributo: 'INTELIGÊNCIA', descricao: 'Uso de dispositivos tecnológicos, eletrônicos, computadores' },
+              { nome: 'TEOLOGIA', atributo: 'INTELIGÊNCIA', descricao: 'Conhecimento sobre religiões, deuses, práticas espirituais' },
+              { nome: 'ENGANAÇÃO', atributo: 'PRESENÇA', descricao: 'Mentir, disfarces, blefes, criar histórias convincentes' },
+              { nome: 'INTIMIDAÇÃO', atributo: 'PRESENÇA', descricao: 'Amedrontar, coagir, impor respeito através da presença' },
+              { nome: 'PERFORMANCE', atributo: 'PRESENÇA', descricao: 'Atuação, canto, dança, apresentações artísticas' },
+              { nome: 'PERSUASÃO', atributo: 'PRESENÇA', descricao: 'Convencer, negociar, diplomacia, discursos persuasivos' }
+            ]
+
+            for (const pericia of periciasData) {
+              await prisma.feiticeirosPericia.create({
+                data: {
+                  character_id: characterId,
+                  ...pericia
+                }
+              })
+            }
+            console.log(`PUT - ${periciasData.length} perícias Feiticeiros criadas`)
+
+            // Criar ofícios
+            const oficiosData = [
+              { nome: 'CANALIZADOR', atributo: 'INTELIGÊNCIA', descricao: 'Criação e manutenção de canais de energia amaldiçoada' },
+              { nome: 'ENTALHADOR', atributo: 'INTELIGÊNCIA', descricao: 'Criação de selos, símbolos e artefatos mágicos' },
+              { nome: 'ASTÚCIA', atributo: 'INTELIGÊNCIA', descricao: 'Estratégia, tática, planejamento em combate' }
+            ]
+
+            for (const oficio of oficiosData) {
+              await prisma.feiticeirosOficio.create({
+                data: {
+                  character_id: characterId,
+                  ...oficio
+                }
+              })
+            }
+            console.log(`PUT - ${oficiosData.length} ofícios Feiticeiros criados`)
+
+            // Criar resistências
+            const resistenciasData = [
+              { nome: 'FORTITUDE', atributo: 'CONSTITUIÇÃO', descricao: 'Resistência a efeitos físicos, venenos, doenças' },
+              { nome: 'INTEGRIDADE', atributo: 'CONSTITUIÇÃO', descricao: 'Resistência a corrupção, degeneração, decomposição' },
+              { nome: 'REFLEXOS', atributo: 'DESTREZA', descricao: 'Esquiva de ataques, explosões, armadilhas' },
+              { nome: 'VONTADE', atributo: 'SABEDORIA', descricao: 'Resistência a efeitos mentais, ilusões, controle mental' }
+            ]
+
+            for (const resistencia of resistenciasData) {
+              await prisma.feiticeirosResistencia.create({
+                data: {
+                  character_id: characterId,
+                  ...resistencia
+                }
+              })
+            }
+            console.log(`PUT - ${resistenciasData.length} resistências Feiticeiros criadas`)
+
+            // Criar ataques
+            const ataquesData = [
+              { nome: 'CORPO-A-CORPO', atributo: 'FORÇA', descricao: 'Ataques com armas brancas e combate físico' },
+              { nome: 'A DISTÂNCIA', atributo: 'DESTREZA', descricao: 'Ataques com armas de arremesso, arcos, bestas' },
+              { nome: 'AMALDIÇOADO', atributo: 'INTELIGÊNCIA', descricao: 'Ataques usando energia amaldiçoada e feitiços' }
+            ]
+
+            for (const ataque of ataquesData) {
+              await prisma.feiticeirosAtaque.create({
+                data: {
+                  character_id: characterId,
+                  ...ataque
+                }
+              })
+            }
+            console.log(`PUT - ${ataquesData.length} ataques Feiticeiros criados`)
+
+            console.log('PUT - Configuracao Feiticeiros concluida com sucesso')
+          } catch (feiticeirosError) {
+            console.error('PUT - Erro ao configurar Feiticeiros:', feiticeirosError)
+          }
+        } else {
+          console.log('PUT - Personagem já possui dados do Feiticeiros, pulando criação')
+        }
+      }
+
+      // Buscar personagem atualizado com todos os dados
+      const updatedCharacter = await prisma.character.findUnique({
+        where: { id: characterId },
+        include: {
+          attributes: {
+            include: {
+              attribute: true
+            }
+          },
+          skills: {
+            include: {
+              skill: true
+            }
+          },
+          yearzero_attributes: {
+            include: {
+              attribute: true
+            }
+          },
+          yearzero_skills: {
+            include: {
+              skill: true
+            }
+          },
+          feiticeiros_attributes: {
+            include: {
+              attribute: true
+            }
+          },
+          feiticeiros_pericias: true,
+          feiticeiros_oficios: true,
+          feiticeiros_resistencias: true,
+          feiticeiros_ataques: true
+        }
+      })
+
+      console.log('PUT - Personagem atualizado com sucesso')
       return res.status(200).json({
         success: true,
         message: `Personagem ${id} atualizado com sucesso`,
-        data: character
+        data: updatedCharacter
       })
     } catch (error) {
       console.error('PUT - Erro ao atualizar personagem:', error)

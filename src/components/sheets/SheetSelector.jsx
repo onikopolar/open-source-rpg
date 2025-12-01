@@ -33,7 +33,7 @@ const SheetSelector = ({
       name: 'Sistema Classico',
       description: 'Sistema tradicional com atributos e habilidades separadas. Ideal para D&D, Pathfinder e outros sistemas baseados em d20.',
       icon: <CasinoIcon sx={{ fontSize: 40 }} />,
-      color: '#1976d2',
+      color: '#639EC2',
       features: [
         'Atributos separados (Forca, Destreza, Constituicao, etc)',
         'Habilidades individuais customizaveis',
@@ -47,7 +47,7 @@ const SheetSelector = ({
       name: 'Year Zero Engine',
       description: 'Sistema moderno utilizado em Alien RPG, Mutant Year Zero e Forbidden Lands. Foca em dados de habilidade e mecanicas de push.',
       icon: <AutoAwesomeIcon sx={{ fontSize: 40 }} />,
-      color: '#ed6c02',
+      color: '#E74C3C',
       features: [
         'Sistema de dados base + dados de habilidade',
         'Mecanica de push de dados',
@@ -62,7 +62,7 @@ const SheetSelector = ({
       name: 'Feiticeiros & Maldições',
       description: 'Sistema baseado no universo de Jujutsu Kaisen, focado em energia amaldiçoada, técnicas únicas e domínios expansion.',
       icon: <AutoAwesomeIcon sx={{ fontSize: 40 }} />,
-      color: '#9c27b0',
+      color: '#9B59B6',
       features: [
         'Sistema de Energia Amaldiçoada',
         'Técnicas Amaldiçoadas únicas',
@@ -144,10 +144,11 @@ const SheetSelector = ({
     <Box sx={{ 
       marginBottom: 4, 
       padding: 3, 
-      border: '2px solid #e0e0e0', 
+      border: '2px solid #8c8c8c', 
       borderRadius: 2,
-      backgroundColor: '#f8f9fa',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      backgroundColor: '#2b2b2b',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+      background: 'linear-gradient(135deg, #2b2b2b 0%, #201E1E 100%)'
     }}>
       {/* Cabecalho da secao */}
       <Box sx={{ textAlign: 'center', marginBottom: 3 }}>
@@ -155,16 +156,17 @@ const SheetSelector = ({
           variant="h4" 
           sx={{ 
             fontWeight: 'bold', 
-            color: '#333', 
+            color: '#639EC2', 
             marginBottom: 1,
-            fontSize: { xs: '1.75rem', md: '2.125rem' }
+            fontSize: { xs: '1.75rem', md: '2.125rem' },
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)'
           }}
         >
           Sistema RPG
         </Typography>
         <Typography 
           variant="body1" 
-          color="text.secondary"
+          color="#8c8c8c"
           sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}
         >
           Selecione o sistema de RPG para adaptar automaticamente sua ficha de personagem
@@ -179,8 +181,12 @@ const SheetSelector = ({
             sx={{ 
               marginBottom: 2, 
               borderRadius: 2,
+              backgroundColor: '#181717',
+              color: '#639EC2',
+              border: '1px solid #639EC2',
               '& .MuiAlert-message': {
-                width: '100%'
+                width: '100%',
+                color: '#639EC2'
               }
             }}
           >
@@ -190,9 +196,10 @@ const SheetSelector = ({
             sx={{ 
               height: 6, 
               borderRadius: 3,
-              backgroundColor: '#e0e0e0',
+              backgroundColor: '#8c8c8c',
               '& .MuiLinearProgress-bar': {
-                backgroundColor: '#1976d2'
+                backgroundColor: '#639EC2',
+                background: 'linear-gradient(90deg, #639EC2, #9B59B6)'
               }
             }} 
           />
@@ -204,10 +211,11 @@ const SheetSelector = ({
         <Box sx={{ 
           marginBottom: 3, 
           padding: 2, 
-          backgroundColor: 'white', 
+          backgroundColor: '#181717', 
           borderRadius: 2, 
-          border: `2px solid ${currentSystemData.color}30`,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          border: `2px solid ${currentSystemData.color}`,
+          boxShadow: `0 4px 20px ${currentSystemData.color}40`,
+          background: 'linear-gradient(135deg, #181717 0%, #201E1E 100%)'
         }}>
           <Typography 
             variant="h6" 
@@ -216,7 +224,8 @@ const SheetSelector = ({
               display: 'flex', 
               alignItems: 'center', 
               gap: 1,
-              flexWrap: 'wrap'
+              flexWrap: 'wrap',
+              color: '#FFFFFF'
             }}
           >
             <CheckCircleIcon sx={{ color: currentSystemData.color }} />
@@ -225,7 +234,7 @@ const SheetSelector = ({
               {currentSystemData.name}
             </span>
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="#8c8c8c">
             {currentSystemData.description}
           </Typography>
         </Box>
@@ -247,15 +256,23 @@ const SheetSelector = ({
                 <Card
                   sx={{
                     cursor: isDisabled ? 'not-allowed' : (isSelected ? 'default' : 'pointer'),
-                    border: isSelected ? `3px solid ${system.color}` : '2px solid #ddd',
-                    backgroundColor: isSelected ? `${system.color}08` : 'white',
+                    border: isSelected ? `3px solid ${system.color}` : '2px solid #8c8c8c',
+                    backgroundColor: isSelected ? '#181717' : '#201E1E',
+                    background: isSelected ? 
+                      `linear-gradient(135deg, #181717 0%, ${system.color}20 100%)` :
+                      'linear-gradient(135deg, #201E1E 0%, #2b2b2b 100%)',
                     transition: 'all 0.3s ease',
                     opacity: isDisabled ? 0.6 : 1,
                     height: '100%',
                     '&:hover': {
-                      transform: isDisabled || isSelected ? 'none' : 'translateY(-4px)',
-                      boxShadow: isDisabled || isSelected ? 2 : 6,
-                      borderColor: system.color
+                      transform: isDisabled || isSelected ? 'none' : 'translateY(-8px)',
+                      boxShadow: isDisabled || isSelected ? 
+                        `0 4px 20px ${system.color}30` : 
+                        `0 12px 40px ${system.color}40`,
+                      borderColor: system.color,
+                      background: isSelected ? 
+                        `linear-gradient(135deg, #181717 0%, ${system.color}20 100%)` :
+                        `linear-gradient(135deg, #201E1E 0%, ${system.color}15 100%)`
                     }
                   }}
                   onClick={() => !isDisabled && handleSystemChange(system.id)}
@@ -272,7 +289,11 @@ const SheetSelector = ({
                   }}>
                     {/* Cabecalho do card do sistema */}
                     <Box sx={{ textAlign: 'center', marginBottom: 2 }}>
-                      <Box sx={{ color: system.color, marginBottom: 1 }}>
+                      <Box sx={{ 
+                        color: system.color, 
+                        marginBottom: 1,
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))'
+                      }}>
                         {system.icon}
                       </Box>
                       <Typography 
@@ -281,7 +302,8 @@ const SheetSelector = ({
                           fontWeight: 'bold', 
                           color: system.color, 
                           marginBottom: 1,
-                          fontSize: { xs: '1.25rem', md: '1.5rem' }
+                          fontSize: { xs: '1.25rem', md: '1.5rem' },
+                          textShadow: '0 2px 4px rgba(0,0,0,0.5)'
                         }}
                       >
                         {system.name}
@@ -294,8 +316,12 @@ const SheetSelector = ({
                           size="small" 
                           sx={{ 
                             backgroundColor: system.color,
-                            color: 'white',
-                            fontWeight: 'bold'
+                            color: '#FFFFFF',
+                            fontWeight: 'bold',
+                            boxShadow: `0 2px 8px ${system.color}60`,
+                            '& .MuiChip-icon': {
+                              color: '#FFFFFF'
+                            }
                           }}
                         />
                       )}
@@ -304,7 +330,7 @@ const SheetSelector = ({
                     {/* Descricao do sistema */}
                     <Typography 
                       variant="body2" 
-                      color="text.secondary" 
+                      color="#E0E0E0" 
                       sx={{ 
                         marginBottom: 2, 
                         flexGrow: 1, 
@@ -323,7 +349,8 @@ const SheetSelector = ({
                           fontWeight: 'bold', 
                           marginBottom: 1, 
                           color: system.color,
-                          fontSize: { xs: '0.8rem', md: '0.875rem' }
+                          fontSize: { xs: '0.8rem', md: '0.875rem' },
+                          textShadow: '0 1px 2px rgba(0,0,0,0.5)'
                         }}
                       >
                         Caracteristicas Principais:
@@ -337,7 +364,8 @@ const SheetSelector = ({
                             sx={{ 
                               marginBottom: 1,
                               fontSize: '0.8rem',
-                              lineHeight: 1.4
+                              lineHeight: 1.4,
+                              color: '#E0E0E0'
                             }}
                           >
                             {feature}
@@ -354,7 +382,8 @@ const SheetSelector = ({
                           fontWeight: 'bold', 
                           marginBottom: 1, 
                           color: system.color,
-                          fontSize: { xs: '0.8rem', md: '0.875rem' }
+                          fontSize: { xs: '0.8rem', md: '0.875rem' },
+                          textShadow: '0 1px 2px rgba(0,0,0,0.5)'
                         }}
                       >
                         Compativel com:
@@ -369,8 +398,10 @@ const SheetSelector = ({
                             sx={{ 
                               borderColor: system.color,
                               color: system.color,
+                              backgroundColor: `${system.color}15`,
                               fontSize: '0.7rem',
-                              height: '24px'
+                              height: '24px',
+                              fontWeight: 'bold'
                             }}
                           />
                         ))}
@@ -387,15 +418,24 @@ const SheetSelector = ({
                         sx={{ 
                           backgroundColor: isSelected ? system.color : 'transparent',
                           borderColor: system.color,
-                          color: isSelected ? 'white' : system.color,
+                          color: isSelected ? '#FFFFFF' : system.color,
                           fontWeight: 'bold',
+                          boxShadow: isSelected ? `0 4px 12px ${system.color}60` : 'none',
+                          background: isSelected ? 
+                            `linear-gradient(135deg, ${system.color} 0%, ${system.color}CC 100%)` : 
+                            'transparent',
                           '&:hover': !isDisabled ? {
-                            backgroundColor: system.color,
-                            color: 'white',
-                            transform: 'translateY(-1px)'
+                            background: `linear-gradient(135deg, ${system.color} 0%, ${system.color}E6 100%)`,
+                            color: '#FFFFFF',
+                            transform: 'translateY(-2px)',
+                            boxShadow: `0 6px 20px ${system.color}80`
                           } : {},
-                          transition: 'all 0.2s ease',
-                          fontSize: { xs: '0.8rem', md: '0.875rem' }
+                          transition: 'all 0.3s ease',
+                          fontSize: { xs: '0.8rem', md: '0.875rem' },
+                          '&.Mui-disabled': {
+                            borderColor: '#8c8c8c',
+                            color: '#8c8c8c'
+                          }
                         }}
                         aria-label={isSelected ? 
                           `${system.name} - Sistema atual` : 
@@ -417,17 +457,18 @@ const SheetSelector = ({
       <Box sx={{ 
         marginTop: 3, 
         padding: 2, 
-        backgroundColor: 'white', 
+        backgroundColor: '#181717', 
         borderRadius: 2, 
-        border: '1px solid #e0e0e0',
-        textAlign: 'center'
+        border: '1px solid #639EC2',
+        textAlign: 'center',
+        background: 'linear-gradient(135deg, #181717 0%, #639EC210 100%)'
       }}>
         <Typography 
           variant="caption" 
-          color="text.secondary"
+          color="#E0E0E0"
           sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}
         >
-          <strong>Nota:</strong> Voce pode alternar entre sistemas a qualquer momento. 
+          <strong style={{ color: '#639EC2' }}>Nota:</strong> Voce pode alternar entre sistemas a qualquer momento. 
           Sua ficha sera automaticamente adaptada mantendo seus dados principais.
         </Typography>
       </Box>

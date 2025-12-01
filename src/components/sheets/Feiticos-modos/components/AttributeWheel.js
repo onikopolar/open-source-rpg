@@ -64,10 +64,10 @@ const AttributeWheel = React.memo(({
           textTransform: 'uppercase',
           letterSpacing: '1px',
           whiteSpace: 'nowrap',
-          background: 'rgba(106, 27, 154, 0.9)',
+          background: 'rgba(99, 158, 194, 0.9)',
           padding: '4px 10px',
           borderRadius: '12px',
-          border: '2px solid #4a148c',
+          border: '2px solid #4a7a9c',
           backdropFilter: 'blur(10px)',
           boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
           display: 'inline-block'

@@ -1,5 +1,6 @@
 // components/PericiaCardCompact.js
 import React from 'react';
+import { withStyles } from '@mui/styles';
 import { 
   Box, 
   Typography, 
@@ -11,6 +12,52 @@ import {
 } from '@mui/material';
 import { Casino } from '@mui/icons-material';
 import { calcularTotalPericia } from '../utils/characterCalculations';
+
+const styles = {
+  periciaCardCompact: {
+    // Estilos para o card compacto de perícia
+  },
+  periciaHeaderCompact: {
+    // Estilos para o cabeçalho compacto
+  },
+  periciaNameCompact: {
+    // Estilos para o nome da perícia
+  },
+  periciaAtributoCompact: {
+    // Estilos para o atributo da perícia
+  },
+  periciaTotalCompact: {
+    // Estilos para o total da perícia
+  },
+  periciaControlsCompact: {
+    // Estilos para os controles da perícia
+  },
+  periciaCheckboxContainer: {
+    // Estilos para o container do checkbox
+  },
+  checkboxLabel: {
+    // Estilos para o label do checkbox
+  },
+  treinadaCheckboxCompact: {
+    // Estilos para o checkbox de treinada
+  },
+  mestreCheckboxCompact: {
+    // Estilos para o checkbox de mestre
+  },
+  outrosFieldCompact: {
+    // Estilos para o campo outros
+  },
+  periciaRollButtonCompact: {
+    // Estilos para o botão de rolar
+  },
+  cardContent: {
+    padding: '10px'
+  },
+  periciaInfo: {
+    flex: 1,
+    minWidth: '100px'
+  }
+};
 
 const PericiaCardCompact = React.memo(({ 
   pericia, 
@@ -27,11 +74,11 @@ const PericiaCardCompact = React.memo(({
   return React.createElement(Card, { 
     className: classes.periciaCardCompact
   },
-    React.createElement(CardContent, { style: { padding: '10px' } },
+    React.createElement(CardContent, { className: classes.cardContent },
       React.createElement(Box, { 
         className: classes.periciaHeaderCompact
       },
-        React.createElement(Box, { style: { flex: 1, minWidth: '100px' } },
+        React.createElement(Box, { className: classes.periciaInfo },
           React.createElement(Typography, { 
             className: classes.periciaNameCompact
           }, pericia.nome),
@@ -64,7 +111,7 @@ const PericiaCardCompact = React.memo(({
             React.createElement(Checkbox, {
               checked: pericia.mestre,
               onChange: (e) => onToggleTreinada(pericia.nome, e.target.checked, 'mestre', modulo),
-              size: "small", 
+              size: "small",
               className: classes.mestreCheckboxCompact
             })
           ),
@@ -96,4 +143,4 @@ const PericiaCardCompact = React.memo(({
   );
 });
 
-export default PericiaCardCompact;
+export default withStyles(styles)(PericiaCardCompact);

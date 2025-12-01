@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
+import { withStyles } from '@mui/styles';
 import Image from 'next/image';
 
 import {
@@ -13,7 +14,7 @@ import {
 import useModal from '../hooks/useModal';
 import GeneratePortraitModal from './modals/GeneratePortraitModal';
 
-function CharacterBox({ character, deleteCharacter, ...rest }) {
+function CharacterBox({ character, deleteCharacter, classes, ...rest }) {
   const getCharacterPictureURL = () => {
     if(!character) {
       return null;
@@ -40,100 +41,42 @@ function CharacterBox({ character, deleteCharacter, ...rest }) {
 
   return (
     <Box
-      sx={{
-        backgroundColor: 'primary.900',
-        borderRadius: '5px',
-        padding: '15px',
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        minHeight: '121px',
-        gap: '20px',
-      }}
+      className={classes.root}
       {...rest}
     >
       <Image
         src={getCharacterPictureURL()}
         alt="Character Portrait"
-        style={{
-          width: '75px',
-          height: '75px',
-          borderRadius: '50%',
-        }}
+        className={classes.image}
         width={70}
         height={100}
       />
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'start',
-        flexDirection: 'column',
-        gap: '10px',
-      }}>
-        <Typography sx={{
-          fontSize: '18px',
-          fontWeight: 'bold',
-          marginTop: '8px',
-          color: 'white'
-        }}>
+      <Box className={classes.content}>
+        <Typography className={classes.name} title={`${character.name} (ID: ${character.id})`}>
           {character.name} (ID: {character.id})
         </Typography>
-        <Box sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#E80A67',
-          gap: '3px',
-        }}>
+        <Box className={classes.health}>
           {character.current_hit_points === 0 ? (
             <HeartIconNoLife />
           ) : (
             <HeartIcon />
           )}
-          <Typography sx={{ fontWeight: 'bold', color: 'white' }}>
+          <Typography className={classes.healthText}>
             {character.current_hit_points}/{character.max_hit_points}
           </Typography>
         </Box>
-        <Box sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '10px',
-          marginTop: '10px'
-        }}>
+        <Box className={classes.actions}>
           <Button
             variant="outlined"
             href={`/sheet/${character.id}`}
             target="_blank"
-            sx={{ 
-              width: 40, 
-              height: 40, 
-              minWidth: 40, 
-              borderRadius: '5px',
-              color: 'white',
-              borderColor: 'white',
-              '&:hover': {
-                borderColor: 'primary.light',
-                backgroundColor: 'primary.700'
-              }
-            }}
+            className={classes.button}
           >
             <LinkIcon />
           </Button>
           <Button
             variant="outlined"
-            sx={{ 
-              width: 40, 
-              height: 40, 
-              minWidth: 40, 
-              borderRadius: '5px',
-              color: 'white',
-              borderColor: 'white',
-              '&:hover': {
-                borderColor: 'primary.light',
-                backgroundColor: 'primary.700'
-              }
-            }}
+            className={classes.button}
             onClick={() => generatePortraitModal.appear({ characterId: character.id })}
           >
             <CameraIcon />
@@ -141,18 +84,7 @@ function CharacterBox({ character, deleteCharacter, ...rest }) {
           <Button
             variant="outlined"
             onClick={() => deleteCharacter(character.id)}
-            sx={{ 
-              width: 40, 
-              height: 40, 
-              minWidth: 40, 
-              borderRadius: '5px',
-              color: 'white',
-              borderColor: 'white',
-              '&:hover': {
-                borderColor: 'error.light',
-                backgroundColor: 'error.dark'
-              }
-            }}
+            className={`${classes.button} ${classes.deleteButton}`}
           >
             <DeleteIcon />
           </Button>
@@ -162,4 +94,76 @@ function CharacterBox({ character, deleteCharacter, ...rest }) {
   );
 }
 
-export default CharacterBox;
+const styles = theme => ({
+  root: {
+    backgroundColor: theme.palette.primary[900],
+    borderRadius: '5px',
+    padding: '15px',
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    minHeight: '121px',
+    gap: '20px',
+  },
+  image: {
+    width: '75px',
+    height: '75px',
+    borderRadius: '50%',
+  },
+  content: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'start',
+    flexDirection: 'column',
+    gap: '10px',
+    width: 'calc(100% - 95px)', // 75px da imagem + 20px do gap
+  },
+  name: {
+    fontSize: '18px',
+    fontWeight: 'bold',
+    marginTop: '8px',
+    color: 'white',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    width: '100%',
+  },
+  health: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#E80A67',
+    gap: '3px',
+  },
+  healthText: {
+    fontWeight: 'bold',
+    color: 'white'
+  },
+  actions: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px',
+    marginTop: '10px'
+  },
+  button: {
+    width: 40,
+    height: 40,
+    minWidth: 40,
+    borderRadius: '5px',
+    color: 'white',
+    borderColor: 'white',
+    '&:hover': {
+      borderColor: theme.palette.primary.light,
+      backgroundColor: theme.palette.primary[700]
+    }
+  },
+  deleteButton: {
+    '&:hover': {
+      borderColor: theme.palette.error.light,
+      backgroundColor: theme.palette.error.dark
+    }
+  }
+});
+
+export default withStyles(styles)(CharacterBox);

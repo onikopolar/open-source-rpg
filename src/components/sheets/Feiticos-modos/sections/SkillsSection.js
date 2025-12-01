@@ -1,8 +1,28 @@
 // sections/SkillsSection.js
 import React from 'react';
+import { withStyles } from '@mui/styles';
 import { Box, Typography, Grid } from '@mui/material';
 import PericiaCardCompact from '../components/PericiaCardCompact';
 import ModuleSection from '../components/ModuleSection';
+
+const styles = {
+  hierarchicalLayout: {
+    // Estilos para o layout hierárquico
+  },
+  leftColumn: {
+    // Estilos para a coluna esquerda
+  },
+  rightColumn: {
+    // Estilos para a coluna direita
+  },
+  rightModulesContainer: {
+    // Estilos para o container de módulos da direita
+  },
+  columnTitle: {
+    color: '#960df2',
+    borderColor: '#780ac2'
+  }
+};
 
 const SkillsSection = ({
   pericias,
@@ -19,8 +39,7 @@ const SkillsSection = ({
   return React.createElement(Box, { className: classes.hierarchicalLayout },
     React.createElement(Box, { className: classes.leftColumn },
       React.createElement(Typography, { 
-        className: classes.columnTitle,
-        style: { color: '#960df2', borderColor: '#780ac2' }
+        className: classes.columnTitle
       }, 'PERÍCIAS'),
       
       React.createElement(Grid, { container: true, spacing: 0.5 },
@@ -83,4 +102,4 @@ const SkillsSection = ({
   );
 };
 
-export default React.memo(SkillsSection);
+export default withStyles(styles)(React.memo(SkillsSection));
