@@ -197,7 +197,7 @@ function DiceRollModal({
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
                                                 borderRadius: 1,
-                                                backgroundColor: '#e0e0e0',
+                                                backgroundColor: '#7a6c69ff',
                                                 fontWeight: 'bold',
                                                 fontSize: '1rem'
                                             }}
@@ -257,6 +257,16 @@ function DiceRollModal({
                                         value={facesNumber}
                                         label="Número de faces"
                                         onChange={({ target }) => handleFacesChange(target.value)}
+                                        MenuProps={{
+                                            sx: {
+                                                zIndex: '99999 !important'
+                                            },
+                                            PaperProps: {
+                                                sx: {
+                                                    zIndex: '99999 !important'
+                                                }
+                                            }
+                                        }}
                                     >
                                         <MenuItem value={3}>D3</MenuItem>
                                         <MenuItem value={4}>D4</MenuItem>
