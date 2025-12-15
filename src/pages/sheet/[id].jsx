@@ -1,4 +1,4 @@
-// src/pages/sheet/[id].jsx - VERSÃO REFATORADA CORRIGIDA
+// src/pages/sheet/[id].jsx - VERSÃO REFATORADA CORRIGIDA (SEM STATUSBAR DUPLICADO)
 import React, { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -21,8 +21,7 @@ import socket from '../../utils/socket';
 
 import {
   Header, 
-  Section, 
-  StatusBar
+  Section
 } from '../../components';
 
 import SheetSelector from '../../components/sheets/SheetSelector';
@@ -389,6 +388,24 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
         {/* Ficha do sistema selecionado */}
         <Collapse in={isSheetExpanded} timeout="auto" unmountOnExit>
           <Box sx={{ mt: 3 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              mb: 3,
+              p: 2,
+              backgroundColor: 'background.paper',
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: isMobile ? 2 : 0
+            }}>
+              <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.5rem' : '1.75rem' }}>
+                Ficha - {rpgSystem === 'year_zero' ? 'Year Zero Engine' : rpgSystem === 'feiticeiros' ? 'Feiticeiros & Maldições' : 'Sistema Clássico'}
+              </Typography>
+            </Box>
+
             {rpgSystem === 'year_zero' ? (
               <YearZeroSheet 
                 character={character}
@@ -424,46 +441,26 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 isMobile={isMobile}
               />
             ) : (
-              // Sistema clássico
-              <Box>
-                <Section title="Status">
-                  <StatusBar
-                    character={character}
-                    onStatusBarClick={() => {
-                      modals.statusBarModal.appear({
-                        characterId: character.id,
-                        characterName: character.name,
-                        currentHitPoints: character.current_hit_points,
-                        maxHitPoints: character.max_hit_points
-                      });
-                    }}
-                    onQuickHeal={(amount) => enhancedHandlers.handleQuickHealthChange(amount, 'heal')}
-                    onQuickDamage={(amount) => enhancedHandlers.handleQuickHealthChange(amount, 'damage')}
-                    isLoading={loadingStates.quickHealth}
-                    isMobile={isMobile}
-                  />
-                </Section>
-
-                <ClassicSystem
-                  character={character}
-                  attributeDiceModal={modals.attributeDiceModal}
-                  diceRollModal={modals.diceRollModal}
-                  statusBarModal={modals.statusBarModal}
-                  loadingStates={loadingStates}
-                  errors={errors}
-                  isMobile={isMobile}
-                  getAttributeValue={(charAttr) => enhancedHandlers.getAttributeValue(charAttr)}
-                  getSkillValue={(charSkill) => enhancedHandlers.getSkillValue(charSkill)}
-                  handleAttributeChange={(attributeId, newValue) => enhancedHandlers.handleAttributeChange(attributeId, newValue)}
-                  handleSkillChange={(skillId, newValue) => enhancedHandlers.handleSkillChange(skillId, newValue)}
-                  saveAttributeValue={(attributeId) => enhancedHandlers.saveAttributeValue(attributeId)}
-                  saveSkillValue={(skillId) => enhancedHandlers.saveSkillValue(skillId)}
-                  validateNumericInput={validateNumericInput}
-                  handleQuickHealthChange={(amount, type) => enhancedHandlers.handleQuickHealthChange(amount, type)}
-                  attributeValues={attributeValues}
-                  skillValues={skillValues}
-                />
-              </Box>
+              // Sistema clássico - APENAS ClassicSystem (sem StatusBar duplicado)
+              <ClassicSystem
+                character={character}
+                attributeDiceModal={modals.attributeDiceModal}
+                diceRollModal={modals.diceRollModal}
+                statusBarModal={modals.statusBarModal}
+                loadingStates={loadingStates}
+                errors={errors}
+                isMobile={isMobile}
+                getAttributeValue={(charAttr) => enhancedHandlers.getAttributeValue(charAttr)}
+                getSkillValue={(charSkill) => enhancedHandlers.getSkillValue(charSkill)}
+                handleAttributeChange={(attributeId, newValue) => enhancedHandlers.handleAttributeChange(attributeId, newValue)}
+                handleSkillChange={(skillId, newValue) => enhancedHandlers.handleSkillChange(skillId, newValue)}
+                saveAttributeValue={(attributeId) => enhancedHandlers.saveAttributeValue(attributeId)}
+                saveSkillValue={(skillId) => enhancedHandlers.saveSkillValue(skillId)}
+                validateNumericInput={validateNumericInput}
+                handleQuickHealthChange={(amount, type) => enhancedHandlers.handleQuickHealthChange(amount, type)}
+                attributeValues={attributeValues}
+                skillValues={skillValues}
+              />
             )}
           </Box>
         </Collapse>

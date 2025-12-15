@@ -1,5 +1,13 @@
 import React from 'react';
-import { Grid, Box, Typography, TextField, Button, CircularProgress } from '@mui/material';
+import { 
+  Grid, 
+  Box, 
+  Typography, 
+  TextField, 
+  Button, 
+  CircularProgress
+} from '@mui/material';
+import { Section, StatusBar } from '../../../components';
 
 export const ClassicSystem = ({ 
   character, 
@@ -16,12 +24,10 @@ export const ClassicSystem = ({
   saveAttributeValue,
   saveSkillValue,
   validateNumericInput,
-  handleQuickHealthChange,
-  attributeValues,
-  skillValues
+  handleQuickHealthChange
 }) => {
   
-  // Renderização de atributos
+  // Renderização de atributos - IDÊNTICO AO ORIGINAL
   const renderAttribute = (charAttr) => {
     if (!charAttr?.attribute?.id) {
       return null;
@@ -30,7 +36,7 @@ export const ClassicSystem = ({
     const attributeId = charAttr.attribute.id;
     const isLoading = loadingStates[`attribute-${attributeId}`];
     const error = errors[`attribute-${attributeId}`];
-    const attributeValue = getAttributeValue(charAttr, attributeValues);
+    const attributeValue = getAttributeValue(charAttr);
 
     return (
       <Grid item xs={12} sm={6} md={4} key={attributeId}>
@@ -83,18 +89,9 @@ export const ClassicSystem = ({
               inputMode: 'numeric'
             }}
             onBlur={() => {
-              saveAttributeValue(
-                character, 
-                attributeValues, 
-                attributeId, 
-                (key, loading) => loadingStates[`attribute-${attributeId}`] = loading,
-                () => {}, // clearError function
-                (error, context) => errors[context] = error,
-                () => {}, // setCharacter function
-                'classic'
-              );
+              saveAttributeValue(attributeId);
             }}
-            onChange={(event) => handleAttributeChange(attributeId, event.target.value, () => {})}
+            onChange={(event) => handleAttributeChange(attributeId, event.target.value)}
             onKeyDown={validateNumericInput}
             placeholder="0"
             disabled={isLoading}
@@ -108,14 +105,14 @@ export const ClassicSystem = ({
     );
   };
 
-  // Renderização de habilidades
+  // Renderização de habilidades - IDÊNTICO AO ORIGINAL
   const renderSkill = (charSkill) => {
     if (!charSkill?.skill?.id) return null;
     
     const skillId = charSkill.skill.id;
     const isLoading = loadingStates[`skill-${skillId}`];
     const error = errors[`skill-${skillId}`];
-    const skillValue = getSkillValue(charSkill, skillValues);
+    const skillValue = getSkillValue(charSkill);
 
     return (
       <Grid item xs={12} sm={6} md={4} key={skillId}>
@@ -168,18 +165,9 @@ export const ClassicSystem = ({
               inputMode: 'numeric'
             }}
             onBlur={() => {
-              saveSkillValue(
-                character,
-                skillValues,
-                skillId,
-                (key, loading) => loadingStates[`skill-${skillId}`] = loading,
-                () => {}, // clearError function
-                (error, context) => errors[context] = error,
-                () => {}, // setCharacter function
-                'classic'
-              );
+              saveSkillValue(skillId);
             }}
-            onChange={(event) => handleSkillChange(skillId, event.target.value, () => {})}
+            onChange={(event) => handleSkillChange(skillId, event.target.value)}
             onKeyDown={validateNumericInput}
             placeholder="0"
             disabled={isLoading}
@@ -193,78 +181,38 @@ export const ClassicSystem = ({
     );
   };
 
+  // Retorno IDÊNTICO ao original
   return (
     <Box>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.5rem' : '1.75rem' }}>
-          Ficha - Sistema Clássico
-        </Typography>
-      </Box>
+      <Section title="Status">
+        <StatusBar
+          character={character}
+          onStatusBarClick={() => {
+            statusBarModal.appear({
+              characterId: character.id,
+              characterName: character.name,
+              currentHitPoints: character.current_hit_points,
+              maxHitPoints: character.max_hit_points
+            });
+          }}
+          onQuickHeal={(amount) => handleQuickHealthChange(amount, 'heal')}
+          onQuickDamage={(amount) => handleQuickHealthChange(amount, 'damage')}
+          isLoading={loadingStates.quickHealth}
+          isMobile={isMobile}
+        />
+      </Section>
 
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Status
-        </Typography>
-        {/* StatusBar seria importado aqui */}
-        <Box sx={{ 
-          p: 2, 
-          border: '1px solid #e0e0e0', 
-          borderRadius: 1,
-          backgroundColor: 'background.paper'
-        }}>
-          <Typography>Pontos de Vida: {character.current_hit_points || 0}/{character.max_hit_points || 0}</Typography>
-          <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-            <Button 
-              size="small" 
-              variant="contained" 
-              color="success"
-              onClick={() => handleQuickHealthChange(character, 1, 'heal')}
-            >
-              +1 HP
-            </Button>
-            <Button 
-              size="small" 
-              variant="contained" 
-              color="error"
-              onClick={() => handleQuickHealthChange(character, 1, 'damage')}
-            >
-              -1 HP
-            </Button>
-            <Button 
-              size="small" 
-              variant="outlined"
-              onClick={() => {
-                statusBarModal.appear({
-                  characterId: character.id,
-                  characterName: character.name,
-                  currentHitPoints: character.current_hit_points,
-                  maxHitPoints: character.max_hit_points
-                });
-              }}
-            >
-              Editar
-            </Button>
-          </Box>
-        </Box>
-      </Box>
-
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Atributos
-        </Typography>
+      <Section title="Atributos">
         <Grid container spacing={2}>
           {character.attributes?.map(renderAttribute)}
         </Grid>
-      </Box>
+      </Section>
 
-      <Box>
-        <Typography variant="h6" gutterBottom>
-          Habilidades
-        </Typography>
+      <Section title="Habilidades">
         <Grid container spacing={2}>
           {character.skills?.map(renderSkill)}
         </Grid>
-      </Box>
+      </Section>
     </Box>
   );
 };
