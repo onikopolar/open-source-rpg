@@ -13,8 +13,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'IDs e valor devem ser números válidos' })
       }
 
-      if (numValue < 1 || numValue > 6) {
-        return res.status(400).json({ error: 'Valor do atributo deve estar entre 1 e 6' })
+      if (numValue < 0 || numValue > 6) {
+        return res.status(400).json({ error: 'Valor do atributo deve estar entre 0 e 6' })
       }
 
       const result = await prisma.yearZeroAttributes.upsert({

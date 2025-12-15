@@ -13,7 +13,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'IDs e valor devem ser números válidos' })
       }
 
-      if (numValue < 1 || numValue > 6) {
+      if (numValue < 0 || numValue > 6) {
         return res.status(400).json({ error: 'Valor da skill deve estar entre 1 e 6' })
       }
 
