@@ -29,7 +29,7 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
 
   const isClient = useIsClient();
 
-  // Inicialização do componente
+  // Inicialização do componente - CORRIGIDA
   useEffect(() => {
     if (!isClient) {
       setIsInitialized(true);
@@ -51,11 +51,18 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
       setIsFirstTime(firstTime);
       
       const hasRpgSystem = !!rawCharacter?.rpg_system;
-      const shouldExpandSelector = !hasRpgSystem;
-      const shouldExpandSheet = hasRpgSystem;
       
-      setIsSelectorExpanded(shouldExpandSelector);
-      setIsSheetExpanded(shouldExpandSheet);
+      // ��� LÓGICA CORRIGIDA AQUI:
+      // Se é PRIMEIRA VEZ, sempre mostrar seletor (mesmo que já tenha sistema)
+      if (firstTime) {
+        setIsSelectorExpanded(true);
+        setIsSheetExpanded(false);
+      } else {
+        // Se NÃO é primeira vez, verifica se tem sistema
+        setIsSelectorExpanded(!hasRpgSystem);
+        setIsSheetExpanded(hasRpgSystem);
+      }
+      
       setIsInitialized(true);
     } catch (error) {
       console.error('Erro na inicialização:', error);
@@ -128,7 +135,7 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
     });
   }, []);
 
-  // Mudança de sistema RPG - IMPORTANTE: api será passado do componente principal
+  // Mudança de sistema RPG - CORRIGIDA para funcionar com primeira vez
   const handleSystemChange = useCallback(async (newSystem, api) => {
     if (newSystem === 'expand_selector') {
       setIsSelectorExpanded(true);
@@ -136,7 +143,7 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
       return;
     }
 
-    if (newSystem === rpgSystem) {
+    if (newSystem === rpgSystem && rpgSystem) {
       setIsSelectorExpanded(false);
       setIsSheetExpanded(true);
       return;
@@ -154,14 +161,17 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
       setIsSheetExpanded(true);
       setRpgSystem(newSystem);
       
+      // Marcar como visitada se for primeira vez
       if (isFirstTime) {
         markSheetAsVisited();
       }
       
+      // Salvar sistema no banco
       await api.put(`/character/${character.id}`, {
         rpg_system: newSystem
       });
       
+      // Atualizar estado local
       setCharacter(prev => ({
         ...prev,
         rpg_system: newSystem
@@ -185,6 +195,7 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
       setIsChangingSystem(false);
       
     } catch (error) {
+      // Em caso de erro, voltar para seletor
       setIsSelectorExpanded(true);
       setIsSheetExpanded(false);
       setRpgSystem('');
