@@ -1,4 +1,4 @@
-// src/pages/sheet/[id].jsx - VERSÃO REFATORADA CORRIGIDA
+// src/pages/sheet/[id].jsx - VERSÃO REFATORADA
 import React, { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -200,13 +200,8 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     isSheetExpanded,
     isFirstTime,
     isInitialized,
-    handleSystemChange: originalHandleSystemChange
+    handleSystemChange
   } = useCharacterSheet(rawCharacter, refreshData);
-  
-  // Wrapper para handleSystemChange que inclui o api
-  const handleSystemChange = useCallback((newSystem) => {
-    return originalHandleSystemChange(newSystem, api);
-  }, [originalHandleSystemChange]);
 
   // Criar handlers
   const handlers = createHandlers({
