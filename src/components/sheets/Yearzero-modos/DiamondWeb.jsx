@@ -14,7 +14,7 @@ const styles = (theme) => ({
   },
   webLine: {
     position: 'absolute',
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: 'rgba(225, 56, 0, 0.67)',
     height: '1px',
     transformOrigin: '0 0'
   }

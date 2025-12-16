@@ -411,11 +411,11 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 character={character}
                 attributes={character.yearzero_attributes?.map(attr => ({
                   name: attr.attribute?.name,
-                  year_zero_value: yearZeroAttributeValues[attr.attribute_id] || attr.value || 1
+                  year_zero_value: yearZeroAttributeValues[attr.attribute_id] || attr.value || 0
                 })) || []}
                 skills={character.yearzero_skills?.map(skill => ({
                   name: skill.skill?.name,
-                  year_zero_value: yearZeroSkillValues[skill.skill_id] || skill.value || 1
+                  year_zero_value: yearZeroSkillValues[skill.skill_id] || skill.value || 0
                 })) || []}
                 onUpdate={enhancedHandlers.handleYearZeroUpdate}
                 onAttributeRoll={(attributeName, attributeValue, stressCount, stressSquares) => 

@@ -64,7 +64,7 @@ export const attributeComponentsStyles = (theme) => ({
   },
   attributeOctagon: {
     position: 'relative',
-    background: 'rgba(255, 255, 255, 0.9)',
+    background: 'rgba(234, 234, 234, 0.9)',
     color: '#ff6b35',
     textAlign: 'center',
     fontWeight: 'bold',
@@ -167,7 +167,7 @@ export const attributeComponentsStyles = (theme) => ({
   },
   skillOctagon: {
     position: 'relative',
-    background: 'rgba(255, 255, 255, 0.9)',
+    background: '#c9c9c9e6',
     color: '#1976d2',
     textAlign: 'center',
     fontWeight: 'bold',
@@ -354,7 +354,7 @@ export const AttributeOctagon = ({
               onChange={(e) => onInputChange(e, attributeName)}
               onBlur={(e) => onBlur(e, attributeName)}
               onKeyDown={(e) => onKeyDown(e, attributeValue, attributeName)}
-              inputProps={{ min: 1, max: 6 }}
+              inputProps={{ min: 0, max: 6 }}
               className={classes.attributeInput}
               size="small"
             />
@@ -397,7 +397,7 @@ export const SkillComponent = ({
               onChange={(e) => onInputChange(e, skillName)}
               onBlur={(e) => onBlur(e, skillName)}
               onKeyDown={(e) => onKeyDown(e, skillValue, skillName)}
-              inputProps={{ min: 1, max: 6 }}
+              inputProps={{ min: 0, max: 6 }}
               className={classes.skillInput}
               size="small"
             />

@@ -141,7 +141,7 @@ model Skill {
 model YearZeroCharacterAttribute {
   character_id Int
   attribute_id Int
-  value        Int               @default(1)
+  value        Int               @default(0)
   attribute    YearZeroAttribute @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
   character    Character         @relation(fields: [character_id], references: [id], onDelete: Cascade)
 
@@ -162,7 +162,7 @@ model YearZeroAttribute {
 model YearZeroCharacterSkill {
   character_id Int
   skill_id     Int
-  value        Int           @default(1)
+  value        Int           @default(0)
   character    Character     @relation(fields: [character_id], references: [id], onDelete: Cascade)
   skill        YearZeroSkill @relation(fields: [skill_id], references: [id], onDelete: Cascade)
 
