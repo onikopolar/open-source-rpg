@@ -13,7 +13,7 @@ export const formatSkillDisplayName = (skillName) => {
   return nameMap[skillName] || skillName;
 };
 
-// Styles para os componentes
+// Styles para os componentes - APENAS CORES MAIS VIBRANTES
 export const attributeComponentsStyles = (theme) => ({
   attributePosition: {
     position: 'absolute',
@@ -52,6 +52,7 @@ export const attributeComponentsStyles = (theme) => ({
     justifyContent: 'center',
     alignItems: 'center'
   },
+  // ATRIBUTOS: Laranja MESMO, mas MAIS VIBRANTE
   attributeOctagonBorder: {
     position: 'absolute',
     top: '0',
@@ -60,11 +61,12 @@ export const attributeComponentsStyles = (theme) => ({
     height: '100%',
     background: 'linear-gradient(135deg, #ff6b35 0%, #e65100 50%, #bf360c 100%)',
     clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)',
-    zIndex: 1
+    zIndex: 1,
+    filter: 'brightness(1.1) saturate(1.2)' // MAIS VIBRANTE
   },
   attributeOctagon: {
     position: 'relative',
-    background: 'rgba(234, 234, 234, 0.9)',
+    background: 'rgba(255, 255, 255, 0.95)', // MAIS BRANCO
     color: '#ff6b35',
     textAlign: 'center',
     fontWeight: 'bold',
@@ -98,7 +100,8 @@ export const attributeComponentsStyles = (theme) => ({
     letterSpacing: '0.3px',
     marginTop: '3px',
     whiteSpace: 'nowrap',
-    border: '1px solid #fff'
+    border: '1px solid #fff',
+    filter: 'brightness(1.1)' // MAIS VIBRANTE
   },
   attributeInputRow: {
     display: 'flex',
@@ -109,7 +112,7 @@ export const attributeComponentsStyles = (theme) => ({
   attributeInput: {
     width: '38px',
     '& .MuiOutlinedInput-root': {
-      background: 'rgba(255, 255, 255, 0.8)',
+      background: 'rgba(255, 255, 255, 0.9)', // MAIS BRANCO
       borderRadius: '2px',
       '& fieldset': {
         borderColor: '#ff6b35',
@@ -136,7 +139,7 @@ export const attributeComponentsStyles = (theme) => ({
     padding: '4px',
     minWidth: 'auto',
     color: '#ff6b35',
-    background: 'rgba(255, 255, 255, 0.8)',
+    background: 'rgba(255, 255, 255, 0.9)', // MAIS BRANCO
     border: '1px solid #ff6b35',
     borderRadius: '2px',
     '& .MuiSvgIcon-root': {
@@ -155,6 +158,7 @@ export const attributeComponentsStyles = (theme) => ({
     justifyContent: 'center',
     alignItems: 'center'
   },
+  // SKILLS: Azul MESMO, mas MAIS VIBRANTE
   skillOctagonBorder: {
     position: 'absolute',
     top: '0',
@@ -163,11 +167,12 @@ export const attributeComponentsStyles = (theme) => ({
     height: '100%',
     background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 50%, #0d47a1 100%)',
     clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)',
-    zIndex: 1
+    zIndex: 1,
+    filter: 'brightness(1.1) saturate(1.2)' // MAIS VIBRANTE
   },
   skillOctagon: {
     position: 'relative',
-    background: '#c9c9c9e6',
+    background: 'rgba(255, 255, 255, 0.95)', // MAIS BRANCO
     color: '#1976d2',
     textAlign: 'center',
     fontWeight: 'bold',
@@ -209,7 +214,8 @@ export const attributeComponentsStyles = (theme) => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    wordWrap: 'break-word'
+    wordWrap: 'break-word',
+    filter: 'brightness(1.1)' // MAIS VIBRANTE
   },
   skillInputRow: {
     display: 'flex',
@@ -221,7 +227,7 @@ export const attributeComponentsStyles = (theme) => ({
   skillInput: {
     width: '34px',
     '& .MuiOutlinedInput-root': {
-      background: 'rgba(255, 255, 255, 0.8)',
+      background: 'rgba(255, 255, 255, 0.9)', // MAIS BRANCO
       borderRadius: '2px',
       '& fieldset': {
         borderColor: '#1976d2',
@@ -248,7 +254,7 @@ export const attributeComponentsStyles = (theme) => ({
     padding: '3px',
     minWidth: 'auto',
     color: '#1976d2',
-    background: 'rgba(255, 255, 255, 0.8)',
+    background: 'rgba(255, 255, 255, 0.9)', // MAIS BRANCO
     border: '1px solid #1976d2',
     borderRadius: '2px',
     '&:hover': {
@@ -331,7 +337,7 @@ export const attributeComponentsStyles = (theme) => ({
   }
 });
 
-// Componentes individuais
+// Componentes individuais - EXATAMENTE OS MESMOS
 export const AttributeOctagon = ({ 
   classes, 
   attributeName, 

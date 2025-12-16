@@ -10,7 +10,7 @@ const styles = (theme) => ({
     flexShrink: 0
   },
   healthTracker: {
-    background: 'rgba(255, 255, 255, 0.8)',
+    background: '#655959cc',
     border: '1px solid #4caf50',
     borderRadius: '4px',
     padding: '10px 12px',
@@ -20,7 +20,7 @@ const styles = (theme) => ({
     backdropFilter: 'blur(10px)'
   },
   stressTracker: {
-    background: 'rgba(255, 255, 255, 0.8)',
+    background: '#655959cc',
     border: '1px solid #ff6b35',
     borderRadius: '4px',
     padding: '10px 12px',
