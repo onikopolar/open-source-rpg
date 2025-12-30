@@ -16,6 +16,8 @@ export default async function handler(req, res) {
       const currentCharacter = await prisma.character.findUnique({
         where: { id: characterId },
         include: {
+          attributes: true,
+          skills: true,
           feiticeiros_attributes: true,
           feiticeiros_pericias: true,
           feiticeiros_oficios: true,
@@ -40,7 +42,7 @@ export default async function handler(req, res) {
         health_squares: req.body.health_squares !== undefined ? JSON.stringify(req.body.health_squares) : undefined,
         stress_squares: req.body.stress_squares !== undefined ? JSON.stringify(req.body.stress_squares) : undefined,
         
-        // CAMPOS DO FEITICEIROS QUE ESTAVAM FALTANDO
+        // Campos do Feiticeiros
         origem: req.body.origem !== undefined ? req.body.origem : undefined,
         treino: req.body.treino !== undefined ? req.body.treino : undefined,
         especializacao: req.body.especializacao !== undefined ? req.body.especializacao : undefined,
@@ -51,17 +53,6 @@ export default async function handler(req, res) {
         current_soul_integrity: req.body.current_soul_integrity !== undefined ? req.body.current_soul_integrity : undefined,
         current_energy_points: req.body.current_energy_points !== undefined ? req.body.current_energy_points : undefined,
         max_energy_points: req.body.max_energy_points !== undefined ? req.body.max_energy_points : undefined,
-        
-        // ✅ CORREÇÃO DEFINITIVA: REMOVIDO COMPLETAMENTE
-        // O derived_values_bonuses é gerenciado EXCLUSIVAMENTE pela API específica
-        // (/api/feiticeiros/derived-values) para evitar conflitos e corrupção de dados
-        
-        // REMOVIDOS: Esses campos são gerenciados exclusivamente pelo derived-values.js
-        // Não incluir aqui para evitar conflitos e sobrescrita
-        // atencao_bonus: req.body.atencao_bonus !== undefined ? req.body.atencao_bonus : undefined,
-        // defesa_bonus: req.body.defesa_bonus !== undefined ? req.body.defesa_bonus : undefined,
-        // iniciativa_bonus: req.body.iniciativa_bonus !== undefined ? req.body.iniciativa_bonus : undefined,
-        // deslocamento_bonus: req.body.deslocamento_bonus !== undefined ? req.body.deslocamento_bonus : undefined
       }
 
       // Remover campos undefined para não sobrescrever com null
@@ -81,6 +72,92 @@ export default async function handler(req, res) {
 
       console.log('PUT - Personagem atualizado:', character.id)
       console.log('PUT - Sistema RPG atualizado para:', character.rpg_system)
+
+      // VERSÃO 1.2.0 - Fix: Adicionado setup para sistema Classic
+      // Se o sistema foi alterado para Classic e não tem atributos/skills ainda, criar os dados
+      if (req.body.rpg_system === 'classic' && currentCharacter) {
+        console.log('PUT - Verificando setup do sistema Classic')
+        
+        const hasClassicAttributes = currentCharacter.attributes && currentCharacter.attributes.length > 0
+        const hasClassicSkills = currentCharacter.skills && currentCharacter.skills.length > 0
+        
+        if (!hasClassicAttributes || !hasClassicSkills) {
+          console.log('PUT - Iniciando setup do sistema Classic para personagem:', characterId)
+          
+          try {
+            // Buscar todos os atributos classicos disponíveis no sistema
+            const allAttributes = await prisma.attribute.findMany({
+              orderBy: { name: 'asc' }
+            })
+            
+            console.log(`PUT - Encontrados ${allAttributes.length} atributos classicos no sistema`)
+            
+            // Criar atributos para o personagem se não existirem
+            if (allAttributes.length > 0 && !hasClassicAttributes) {
+              for (const attr of allAttributes) {
+                // Verificar se já existe este atributo para o personagem
+                const existingAttribute = await prisma.characterAttribute.findFirst({
+                  where: {
+                    character_id: characterId,
+                    attribute_id: attr.id
+                  }
+                })
+                
+                if (!existingAttribute) {
+                  await prisma.characterAttribute.create({
+                    data: {
+                      character_id: characterId,
+                      attribute_id: attr.id,
+                      value: 1 // Valor padrão
+                    }
+                  })
+                  console.log(`PUT - Atributo "${attr.name}" criado para o personagem`)
+                }
+              }
+              console.log(`PUT - ${allAttributes.length} atributos classicos configurados`)
+            }
+            
+            // Buscar todas as skills classicas disponíveis no sistema
+            const allSkills = await prisma.skill.findMany({
+              orderBy: { name: 'asc' }
+            })
+            
+            console.log(`PUT - Encontradas ${allSkills.length} skills classicas no sistema`)
+            
+            // Criar skills para o personagem se não existirem
+            if (allSkills.length > 0 && !hasClassicSkills) {
+              for (const skill of allSkills) {
+                // Verificar se já existe esta skill para o personagem
+                const existingSkill = await prisma.characterSkill.findFirst({
+                  where: {
+                    character_id: characterId,
+                    skill_id: skill.id
+                  }
+                })
+                
+                if (!existingSkill) {
+                  await prisma.characterSkill.create({
+                    data: {
+                      character_id: characterId,
+                      skill_id: skill.id,
+                      value: 0 // Valor padrão
+                    }
+                  })
+                  console.log(`PUT - Skill "${skill.name}" criada para o personagem`)
+                }
+              }
+              console.log(`PUT - ${allSkills.length} skills classicas configuradas`)
+            }
+            
+            console.log('PUT - Setup do sistema Classic concluído com sucesso')
+            
+          } catch (classicError) {
+            console.error('PUT - Erro ao configurar sistema Classic:', classicError)
+          }
+        } else {
+          console.log('PUT - Personagem já possui atributos e skills do Classic')
+        }
+      }
 
       // Se o sistema foi alterado para Feiticeiros e não tem dados ainda, criar os dados
       if (req.body.rpg_system === 'feiticeiros' && currentCharacter) {
@@ -193,7 +270,7 @@ export default async function handler(req, res) {
             }
             console.log(`PUT - ${ataquesData.length} ataques Feiticeiros criados`)
 
-            console.log('PUT - Configuracao Feiticeiros concluida com sucesso')
+            console.log('PUT - Configuração Feiticeiros concluída com sucesso')
           } catch (feiticeirosError) {
             console.error('PUT - Erro ao configurar Feiticeiros:', feiticeirosError)
           }

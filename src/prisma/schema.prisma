@@ -18,7 +18,7 @@ model Character {
   age         Int?
   gender      String?
   player_name String?
-  rpg_system  String   @default("classic")
+  rpg_system  String?   // MODIFICADO: Agora permite null
   level       Int?     @default(1)
   experience  Int?     @default(0)
   is_dead     Boolean  @default(false)
@@ -66,6 +66,9 @@ model Character {
   origem         String?
   tecnica        String?
   treino         String?
+
+  // NEW: EQUIPMENT NOTES
+  equipment_notes String? @db.Text
 
   // META & CONFIGURATION
   derived_values_bonuses String? @default("{}")

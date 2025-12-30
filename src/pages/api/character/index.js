@@ -16,245 +16,30 @@ export default async function handler(req, res) {
         })
       }
 
+      // Criar personagem sem sistema RPG - será escolhido depois
       const character = await prisma.character.create({
         data: {
           name: req.body.name,
           age: req.body.age || null,
           gender: req.body.gender || null,
           player_name: req.body.player_name || null,
-          rpg_system: req.body.rpg_system || 'classic',
+          // IMPORTANTE: Criar com null - sistema será escolhido na página sheet
+          rpg_system: null,
           current_hit_points: req.body.current_hit_points || 0,
           max_hit_points: req.body.max_hit_points || 0
         }
       })
 
       console.log('POST - Personagem criado com ID:', character.id)
-      console.log('POST - Sistema RPG selecionado:', req.body.rpg_system || 'classic')
-
-      const allAttributes = await prisma.attribute.findMany()
-      console.log(`POST - Encontrados ${allAttributes.length} attributes classicos no sistema`)
-
-      if (allAttributes.length > 0) {
-        for (const attr of allAttributes) {
-          await prisma.characterAttributes.create({
-            data: {
-              character: { connect: { id: character.id } },
-              attribute: { connect: { id: attr.id } },
-              value: 1
-            }
-          })
-        }
-        console.log(`POST - ${allAttributes.length} attributes classicos associados ao personagem`)
-      }
-
-      const allSkills = await prisma.skill.findMany()
-      console.log(`POST - Encontrados ${allSkills.length} skills classicos no sistema`)
-
-      if (allSkills.length > 0) {
-        for (const skill of allSkills) {
-          await prisma.characterSkills.create({
-            data: {
-              character: { connect: { id: character.id } },
-              skill: { connect: { id: skill.id } },
-              value: 0
-            }
-          })
-        }
-        console.log(`POST - ${allSkills.length} skills classicos associados ao personagem`)
-      }
-
-      const isYearZeroSystem = req.body.rpg_system === 'year_zero'
-      if (isYearZeroSystem) {
-        console.log('POST - Sistema Year Zero detectado, criando atributos e skills Year Zero')
-
-        try {
-          const yearZeroAttributes = await prisma.yearZeroAttribute.findMany()
-          console.log(`POST - Encontrados ${yearZeroAttributes.length} atributos Year Zero`)
-
-          if (yearZeroAttributes.length > 0) {
-            for (const attr of yearZeroAttributes) {
-              await prisma.yearZeroAttributes.create({
-                data: {
-                  character_id: character.id,
-                  attribute_id: attr.id,
-                  value: 1
-                }
-              })
-            }
-            console.log(`POST - ${yearZeroAttributes.length} atributos Year Zero vinculados`)
-          }
-
-          const yearZeroSkills = await prisma.yearZeroSkill.findMany()
-          console.log(`POST - Encontrados ${yearZeroSkills.length} skills Year Zero`)
-
-          if (yearZeroSkills.length > 0) {
-            for (const skill of yearZeroSkills) {
-              await prisma.yearZeroSkills.create({
-                data: {
-                  character_id: character.id,
-                  skill_id: skill.id,
-                  value: 1
-                }
-              })
-            }
-            console.log(`POST - ${yearZeroSkills.length} skills Year Zero vinculados`)
-          }
-
-          console.log('POST - Configuracao Year Zero concluida com sucesso')
-        } catch (yearZeroError) {
-          console.error('POST - Erro ao configurar Year Zero:', yearZeroError)
-        }
-      }
-
-      const isFeiticeirosSystem = req.body.rpg_system === 'feiticeiros'
-      if (isFeiticeirosSystem) {
-        console.log('POST - Sistema Feiticeiros detectado, criando dados do Feiticeiros')
-
-        try {
-          const feiticeirosAttributes = await prisma.feiticeirosAttribute.findMany()
-          console.log(`POST - Encontrados ${feiticeirosAttributes.length} atributos Feiticeiros`)
-
-          if (feiticeirosAttributes.length > 0) {
-            for (const attr of feiticeirosAttributes) {
-              await prisma.feiticeirosCharacterAttribute.create({
-                data: {
-                  character_id: character.id,
-                  attribute_id: attr.id,
-                  value: attr.base_value
-                }
-              })
-            }
-            console.log(`POST - ${feiticeirosAttributes.length} atributos Feiticeiros vinculados`)
-          }
-
-          const periciasData = [
-            { nome: 'ATLETISMO', atributo: 'FORÇA', descricao: 'Testes de força física, saltos, escaladas, natação' },
-            { nome: 'ACROBACIA', atributo: 'DESTREZA', descricao: 'Equilíbrio, cambalhotas, esquivar, movimentos ágeis' },
-            { nome: 'FURTIVIDADE', atributo: 'DESTREZA', descricao: 'Movimento silencioso, esconder-se, passar despercebido' },
-            { nome: 'PRESTIDIGITAÇÃO', atributo: 'DESTREZA', descricao: 'Truques manuais, pickpocket, atos de destreza manual' },
-            { nome: 'DIREÇÃO', atributo: 'SABEDORIA', descricao: 'Navegação, orientação, leitura de mapas' },
-            { nome: 'INTUIÇÃO', atributo: 'SABEDORIA', descricao: 'Percepção de intenções, leitura de pessoas' },
-            { nome: 'MEDICINA', atributo: 'SABEDORIA', descricao: 'Primeiros socorros, diagnóstico, tratamento de ferimentos' },
-            { nome: 'OCULTISMO', atributo: 'SABEDORIA', descricao: 'Conhecimento sobre magia, criaturas sobrenaturais, símbolos' },
-            { nome: 'PERCEPÇÃO', atributo: 'SABEDORIA', descricao: 'Percepção sensorial, notar detalhes, escutar sons' },
-            { nome: 'SOBREVIVÊNCIA', atributo: 'SABEDORIA', descricao: 'Rastreamento, caça, acampamento, orientação na natureza' },
-            { nome: 'FEITIÇARIA', atributo: 'INTELIGÊNCIA', descricao: 'Conhecimento específico sobre feitiços e magias' },
-            { nome: 'HISTÓRIA', atributo: 'INTELIGÊNCIA', descricao: 'Conhecimento histórico, lendas, eventos passados' },
-            { nome: 'INVESTIGAÇÃO', atributo: 'INTELIGÊNCIA', descricao: 'Análise de cenas, resolução de enigmas, dedução' },
-            { nome: 'TECNOLOGIA', atributo: 'INTELIGÊNCIA', descricao: 'Uso de dispositivos tecnológicos, eletrônicos, computadores' },
-            { nome: 'TEOLOGIA', atributo: 'INTELIGÊNCIA', descricao: 'Conhecimento sobre religiões, deuses, práticas espirituais' },
-            { nome: 'ENGANAÇÃO', atributo: 'PRESENÇA', descricao: 'Mentir, disfarces, blefes, criar histórias convincentes' },
-            { nome: 'INTIMIDAÇÃO', atributo: 'PRESENÇA', descricao: 'Amedrontar, coagir, impor respeito através da presença' },
-            { nome: 'PERFORMANCE', atributo: 'PRESENÇA', descricao: 'Atuação, canto, dança, apresentações artísticas' },
-            { nome: 'PERSUASÃO', atributo: 'PRESENÇA', descricao: 'Convencer, negociar, diplomacia, discursos persuasivos' }
-          ]
-
-          for (const pericia of periciasData) {
-            await prisma.feiticeirosPericia.create({
-              data: {
-                character_id: character.id,
-                ...pericia
-              }
-            })
-          }
-          console.log(`POST - ${periciasData.length} perícias Feiticeiros criadas`)
-
-          const oficiosData = [
-            { nome: 'CANALIZADOR', atributo: 'INTELIGÊNCIA', descricao: 'Criação e manutenção de canais de energia amaldiçoada' },
-            { nome: 'ENTALHADOR', atributo: 'INTELIGÊNCIA', descricao: 'Criação de selos, símbolos e artefatos mágicos' },
-            { nome: 'ASTÚCIA', atributo: 'INTELIGÊNCIA', descricao: 'Estratégia, tática, planejamento em combate' }
-          ]
-
-          for (const oficio of oficiosData) {
-            await prisma.feiticeirosOficio.create({
-              data: {
-                character_id: character.id,
-                ...oficio
-              }
-            })
-          }
-          console.log(`POST - ${oficiosData.length} ofícios Feiticeiros criados`)
-
-          const resistenciasData = [
-            { nome: 'FORTITUDE', atributo: 'CONSTITUIÇÃO', descricao: 'Resistência a efeitos físicos, venenos, doenças' },
-            { nome: 'INTEGRIDADE', atributo: 'CONSTITUIÇÃO', descricao: 'Resistência a corrupção, degeneração, decomposição' },
-            { nome: 'REFLEXOS', atributo: 'DESTREZA', descricao: 'Esquiva de ataques, explosões, armadilhas' },
-            { nome: 'VONTADE', atributo: 'SABEDORIA', descricao: 'Resistência a efeitos mentais, ilusões, controle mental' }
-          ]
-
-          for (const resistencia of resistenciasData) {
-            await prisma.feiticeirosResistencia.create({
-              data: {
-                character_id: character.id,
-                ...resistencia
-              }
-            })
-          }
-          console.log(`POST - ${resistenciasData.length} resistências Feiticeiros criadas`)
-
-          const ataquesData = [
-            { nome: 'CORPO-A-CORPO', atributo: 'FORÇA', descricao: 'Ataques com armas brancas e combate físico' },
-            { nome: 'A DISTÂNCIA', atributo: 'DESTREZA', descricao: 'Ataques com armas de arremesso, arcos, bestas' },
-            { nome: 'AMALDIÇOADO', atributo: 'INTELIGÊNCIA', descricao: 'Ataques usando energia amaldiçoada e feitiços' }
-          ]
-
-          for (const ataque of ataquesData) {
-            await prisma.feiticeirosAtaque.create({
-              data: {
-                character_id: character.id,
-                ...ataque
-              }
-            })
-          }
-          console.log(`POST - ${ataquesData.length} ataques Feiticeiros criados`)
-
-          console.log('POST - Configuracao Feiticeiros concluida com sucesso')
-        } catch (feiticeirosError) {
-          console.error('POST - Erro ao configurar Feiticeiros:', feiticeirosError)
-        }
-      }
-
-      const completeCharacter = await prisma.character.findUnique({
-        where: { id: character.id },
-        include: {
-          attributes: {
-            include: {
-              attribute: true
-            }
-          },
-          skills: {
-            include: {
-              skill: true
-            }
-          },
-          yearzero_attributes: {
-            include: {
-              attribute: true
-            }
-          },
-          yearzero_skills: {
-            include: {
-              skill: true
-            }
-          },
-          feiticeiros_attributes: {
-            include: {
-              attribute: true
-            }
-          },
-          feiticeiros_pericias: true,
-          feiticeiros_oficios: true,
-          feiticeiros_resistencias: true,
-          feiticeiros_ataques: true
-        }
-      })
+      console.log('POST - Sistema RPG: null (não definido)')
+      console.log('POST - Sistema será selecionado pelo usuário na página sheet')
 
       const response = {
         success: true,
         message: 'Personagem criado com sucesso',
         id: character.id,
-        system: req.body.rpg_system || 'classic',
-        data: completeCharacter
+        system: null,
+        data: character
       }
       console.log('POST - Resposta final:', response)
       return res.status(200).json(response)
