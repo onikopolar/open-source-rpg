@@ -5,7 +5,7 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
   if (!character?.id) return;
 
   console.log('[YearZero Handlers] Iniciando update');
-  console.log('[YearZero Handlers] Versao 1.1.0 - Feature: Suporte para equipment_notes');
+  console.log('[YearZero Handlers] Versao 1.3.0 - Feature: Suporte para radiation_squares via API separada');
   console.log('[YearZero Handlers] Dados recebidos:', { type, name, value, characterId: character.id });
   
   const getAttributeIdByName = (attrName) => {
@@ -112,8 +112,9 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       const squaresJson = JSON.stringify(value);
       console.log('[YearZero Handlers] Atualizando stress squares:', squaresJson);
       
-      await api.put(`/character/${character.id}`, {
-        stress_squares: squaresJson
+      await api.put('/yearzero/health-stress', {
+        character_id: character.id,
+        stress_squares: value
       });
       
       setCharacter(prev => ({
@@ -125,13 +126,27 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       const squaresJson = JSON.stringify(value);
       console.log('[YearZero Handlers] Atualizando health squares:', squaresJson);
       
-      await api.put(`/character/${character.id}`, {
-        health_squares: squaresJson
+      await api.put('/yearzero/health-stress', {
+        character_id: character.id,
+        health_squares: value
       });
       
       setCharacter(prev => ({
         ...prev,
         health_squares: squaresJson
+      }));
+      
+    } else if (type === 'radiation_squares') {
+      console.log('[YearZero Handlers] Atualizando radiation squares:', value);
+      
+      await api.put('/yearzero/radiation-squares', {
+        character_id: character.id,
+        radiation_squares: value
+      });
+      
+      setCharacter(prev => ({
+        ...prev,
+        radiation_squares: JSON.stringify(value)
       }));
       
     } else if (type === 'equipment_notes') {

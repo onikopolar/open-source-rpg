@@ -15,27 +15,72 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
-  Inventory as InventoryIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon
+  Inventory as InventoryIcon
 } from '@mui/icons-material';
 
-const EquipmentNotepad = ({ character, onSave }) => {
+// Estilos para o componente (igual aos trackers)
+export const equipmentNotepadStyles = (theme) => ({
+  equipmentTracker: {
+    background: '#655959cc',
+    border: '1px solid #2196f3',
+    borderRadius: '4px',
+    padding: '10px 12px',
+    width: '100%',
+    boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+    height: 'fit-content',
+    backdropFilter: 'blur(10px)',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)',
+      borderColor: '#1976d2',
+      transform: 'translateY(-2px)'
+    }
+  },
+  equipmentHeader: {
+    fontSize: '0.7rem',
+    fontWeight: 'bold',
+    marginBottom: '6px',
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    letterSpacing: '0.5px',
+    color: '#2196f3'
+  },
+  equipmentContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '60px'
+  },
+  equipmentText: {
+    fontSize: '0.65rem',
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    lineHeight: 1.3
+  },
+  equipmentHint: {
+    fontSize: '0.55rem',
+    color: 'rgba(33, 150, 243, 0.8)',
+    textAlign: 'center',
+    marginTop: '4px',
+    fontStyle: 'italic'
+  }
+});
+
+const EquipmentNotepad = ({ character, onSave, classes }) => {
   const [open, setOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [equipmentNotes, setEquipmentNotes] = useState('');
   const [tempNotes, setTempNotes] = useState('');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Carregar notas do equipamento quando o componente montar ou o personagem mudar
+  // Carregar notas
   useEffect(() => {
     if (character?.equipment_notes) {
       try {
-        // Tentar analisar se for JSON string
         let notes = character.equipment_notes;
         if (typeof notes === 'string') {
           notes = notes.replace(/^"+|"+$/g, '');
@@ -44,101 +89,84 @@ const EquipmentNotepad = ({ character, onSave }) => {
           }
         }
         setEquipmentNotes(typeof notes === 'string' ? notes : '');
+        setTempNotes(typeof notes === 'string' ? notes : '');
       } catch (error) {
-        console.error('Erro ao carregar notas de equipamento:', error);
+        console.error('Erro ao carregar notas:', error);
         setEquipmentNotes('');
+        setTempNotes('');
       }
     } else {
       setEquipmentNotes('');
+      setTempNotes('');
     }
   }, [character]);
 
   const handleOpen = () => {
     setOpen(true);
-    setIsEditing(false);
     setTempNotes(equipmentNotes);
   };
 
   const handleClose = () => {
     setOpen(false);
-    setIsEditing(false);
-  };
-
-  const handleEdit = () => {
-    setIsEditing(true);
-    setTempNotes(equipmentNotes);
   };
 
   const handleSave = async () => {
     setEquipmentNotes(tempNotes);
-    setIsEditing(false);
-    
     if (onSave && character?.id) {
       try {
         await onSave('equipment_notes', tempNotes);
       } catch (error) {
-        console.error('Erro ao salvar notas de equipamento:', error);
+        console.error('Erro ao salvar:', error);
       }
     }
+    handleClose();
   };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
+  const handleCancel = () => {
     setTempNotes(equipmentNotes);
+    handleClose();
   };
 
   const handleNotesChange = (e) => {
     setTempNotes(e.target.value);
   };
 
+  // Contar itens para preview
+  const countItems = () => {
+    if (!equipmentNotes.trim()) return 0;
+    return equipmentNotes.split('\n').filter(line => line.trim()).length;
+  };
+
   return (
     <>
-      {/* Botão para abrir o modal */}
-      <Paper
-        elevation={2}
-        sx={{
-          position: 'fixed',
-          bottom: 20,
-          right: 20,
-          zIndex: 1000,
-          borderRadius: 2,
-          overflow: 'hidden',
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            transform: 'translateY(-2px)',
-            boxShadow: 6
-          }
-        }}
+      {/* RETÂNGULO/QUADRADO - Igual aos trackers */}
+      <Paper 
+        className={classes.equipmentTracker}
+        onClick={handleOpen}
       >
-        <Button
-          onClick={handleOpen}
-          variant="contained"
-          startIcon={<InventoryIcon />}
-          sx={{
-            backgroundColor: '#1976d2',
-            color: 'white',
-            padding: '12px 20px',
-            borderRadius: 2,
-            '&:hover': {
-              backgroundColor: '#1565c0'
+        <Typography className={classes.equipmentHeader}>
+          <InventoryIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+          Equipamentos
+        </Typography>
+        
+        <Box className={classes.equipmentContent}>
+          <Typography className={classes.equipmentText}>
+            {countItems() > 0 
+              ? `${countItems()} itens anotados` 
+              : 'Clique para anotar equipamentos'
             }
-          }}
-        >
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <Typography variant="body2" fontWeight="bold">
-              Equipamentos
-            </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.9, textAlign: 'left' }}>
-              Abra para ler/anotar
-            </Typography>
-          </Box>
-        </Button>
+          </Typography>
+        </Box>
+        
+        <Typography className={classes.equipmentHint}>
+          Abrir notepad
+        </Typography>
       </Paper>
 
-      {/* Modal/Diálogo */}
+      {/* MODAL - É o notepad direto */}
       <Dialog
         open={open}
-        onClose={handleClose}
+        onClose={handleCancel}
         maxWidth="md"
         fullWidth
         fullScreen={isMobile}
@@ -149,7 +177,9 @@ const EquipmentNotepad = ({ character, onSave }) => {
             maxHeight: isMobile ? '100vh' : '700px',
             width: isMobile ? '100vw' : '600px',
             margin: isMobile ? 0 : '20px',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            background: '#655959ee',
+            backdropFilter: 'blur(10px)'
           }
         }}
       >
@@ -167,28 +197,23 @@ const EquipmentNotepad = ({ character, onSave }) => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <InventoryIcon />
             <Typography variant="h6" component="div">
-              Equipamentos & Anotações
+              Notepad - Equipamentos
             </Typography>
           </Box>
-          <IconButton
-            onClick={handleClose}
-            size="small"
-            sx={{ color: 'white' }}
-          >
+          <IconButton onClick={handleCancel} size="small" sx={{ color: 'white' }}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
 
         <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {isEditing ? (
-            <TextField
-              autoFocus
-              multiline
-              rows={isMobile ? 20 : 25}
-              value={tempNotes}
-              onChange={handleNotesChange}
-              placeholder="Digite suas anotações sobre equipamentos aqui...
-              
+          <TextField
+            autoFocus
+            multiline
+            rows={isMobile ? 20 : 25}
+            value={tempNotes}
+            onChange={handleNotesChange}
+            placeholder="Digite suas anotações sobre equipamentos aqui...
+
 Exemplo:
 - Pistola (6 balas)
 - Faca de combate
@@ -198,121 +223,68 @@ Exemplo:
 - Corda (10m)
 - Cantil com água
 - Mapa da região"
-              variant="outlined"
-              fullWidth
-              sx={{
-                flex: 1,
-                '& .MuiOutlinedInput-root': {
-                  height: '100%',
-                  alignItems: 'flex-start',
-                  '& textarea': {
-                    height: '100% !important',
-                    resize: 'none',
-                    padding: 3,
-                    fontSize: '0.95rem',
-                    lineHeight: 1.6
-                  }
+            variant="outlined"
+            fullWidth
+            sx={{
+              flex: 1,
+              '& .MuiOutlinedInput-root': {
+                height: '100%',
+                alignItems: 'flex-start',
+                backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                '& textarea': {
+                  height: '100% !important',
+                  resize: 'none',
+                  padding: 3,
+                  fontSize: '0.95rem',
+                  lineHeight: 1.6,
+                  fontFamily: 'monospace',
+                  color: 'rgba(255, 255, 255, 0.9)'
+                },
+                '& fieldset': {
+                  borderColor: 'rgba(33, 150, 243, 0.3)'
                 }
-              }}
-            />
-          ) : (
-            <Box
-              sx={{
-                flex: 1,
-                p: 3,
-                overflow: 'auto',
-                backgroundColor: '#f9f9f9',
-                minHeight: '100%'
-              }}
-            >
-              {equipmentNotes ? (
-                <Typography
-                  component="div"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    fontSize: '0.95rem',
-                    lineHeight: 1.6,
-                    color: 'text.primary'
-                  }}
-                >
-                  {equipmentNotes}
-                </Typography>
-              ) : (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    color: 'text.secondary',
-                    textAlign: 'center',
-                    p: 4
-                  }}
-                >
-                  <InventoryIcon sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
-                  <Typography variant="h6" gutterBottom>
-                    Nenhuma anotação de equipamentos
-                  </Typography>
-                  <Typography variant="body2">
-                    Clique no botão "Editar" para começar a adicionar seus equipamentos e anotações.
-                  </Typography>
-                  <Typography variant="caption" sx={{ mt: 2, opacity: 0.7 }}>
-                    Dica: Liste seus equipamentos, armas, itens especiais e quaisquer observações importantes.
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          )}
+              },
+              '& .MuiInputBase-input::placeholder': {
+                color: 'rgba(255, 255, 255, 0.5)'
+              }
+            }}
+          />
         </DialogContent>
 
-        <DialogActions
-          sx={{
-            backgroundColor: '#f5f5f5',
-            borderTop: '1px solid #e0e0e0',
-            p: 2,
-            justifyContent: 'space-between'
-          }}
-        >
-          {isEditing ? (
-            <>
-              <Button
-                onClick={handleCancelEdit}
-                startIcon={<CancelIcon />}
-                variant="outlined"
-                color="secondary"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSave}
-                startIcon={<SaveIcon />}
-                variant="contained"
-                color="primary"
-                disabled={tempNotes === equipmentNotes}
-              >
-                Salvar
-              </Button>
-            </>
-          ) : (
-            <>
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                {equipmentNotes 
-                  ? `${equipmentNotes.split('\n').length} linhas, ${equipmentNotes.length} caracteres`
-                  : 'Sem anotações'
-                }
-              </Typography>
-              <Button
-                onClick={handleEdit}
-                startIcon={<EditIcon />}
-                variant="contained"
-                color="primary"
-              >
-                {equipmentNotes ? 'Editar' : 'Adicionar Anotações'}
-              </Button>
-            </>
-          )}
+        <DialogActions sx={{ 
+          backgroundColor: 'rgba(0, 0, 0, 0.3)', 
+          p: 2,
+          borderTop: '1px solid rgba(255, 255, 255, 0.1)'
+        }}>
+          <Button 
+            onClick={handleCancel} 
+            startIcon={<CancelIcon />} 
+            variant="outlined"
+            sx={{
+              color: '#ff6b35',
+              borderColor: '#ff6b35',
+              '&:hover': {
+                borderColor: '#ff6b35',
+                backgroundColor: 'rgba(255, 107, 53, 0.1)'
+              }
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            startIcon={<SaveIcon />} 
+            variant="contained"
+            sx={{
+              backgroundColor: '#2196f3',
+              '&:hover': {
+                backgroundColor: '#1976d2'
+              }
+            }}
+            disabled={tempNotes === equipmentNotes}
+          >
+            Salvar
+          </Button>
         </DialogActions>
       </Dialog>
     </>

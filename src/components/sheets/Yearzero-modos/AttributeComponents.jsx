@@ -2,7 +2,10 @@ import React from 'react';
 import { Box, TextField, IconButton, Typography } from '@mui/material';
 import { Casino } from '@mui/icons-material';
 
-// Helper function
+// Versão atualizada - Adicionando helpers e componente de agrupamento
+console.log('[AttributeComponents] Versão 1.4.0 - Feature: Adicionado helpers e componente AttributeWithSkills');
+
+// Helper function para formatar nomes de skills
 export const formatSkillDisplayName = (skillName) => {
   const nameMap = {
     'COMBATE CORPO A CORPO': 'CORPO A\nCORPO',
@@ -11,6 +14,162 @@ export const formatSkillDisplayName = (skillName) => {
     'AJUDA MÉDICA': 'AJUDA\nMÉDICA'
   };
   return nameMap[skillName] || skillName;
+};
+
+// Helper para obter valor de atributo com validação
+export const getAttributeValue = (attributes, attributeName, defaultAttributes = []) => {
+  const validatedAttributes = attributes.length ? attributes : defaultAttributes;
+  const attribute = validatedAttributes.find(a => a.name === attributeName);
+  const value = attribute?.year_zero_value || 0;
+  return Math.max(0, Math.min(6, value));
+};
+
+// Helper para obter valor de skill com validação
+export const getSkillValue = (skills, skillName, defaultSkills = []) => {
+  const validatedSkills = skills.length ? skills : defaultSkills;
+  const skill = validatedSkills.find(s => s.name === skillName);
+  const value = skill?.year_zero_value || 0;
+  return Math.max(0, Math.min(6, value));
+};
+
+// Helper para atualizar atributo
+export const updateAttribute = (attributeName, value, currentAttributes, onUpdate, setLocalAttributes) => {
+  let numValue;
+  if (value === "" || value === null || value === undefined) {
+    numValue = 0;
+  } else {
+    numValue = parseInt(value);
+    if (isNaN(numValue)) numValue = 0;
+  }
+  
+  numValue = Math.max(0, Math.min(6, numValue));
+  
+  setLocalAttributes(prev => prev.map(attr => 
+    attr.name === attributeName ? { ...attr, year_zero_value: numValue } : attr
+  ));
+  
+  if (onUpdate) {
+    onUpdate('attribute', attributeName, numValue);
+  }
+  
+  return numValue;
+};
+
+// Helper para atualizar skill
+export const updateSkill = (skillName, value, currentSkills, onUpdate, setLocalSkills) => {
+  let numValue;
+  if (value === "" || value === null || value === undefined) {
+    numValue = 0;
+  } else {
+    numValue = parseInt(value);
+    if (isNaN(numValue)) numValue = 0;
+  }
+  
+  numValue = Math.max(0, Math.min(6, numValue));
+  
+  setLocalSkills(prev => prev.map(skill => 
+    skill.name === skillName ? { ...skill, year_zero_value: numValue } : skill
+  ));
+  
+  if (onUpdate) {
+    onUpdate('skill', skillName, numValue);
+  }
+  
+  return numValue;
+};
+
+// Helper para mudança de input
+export const handleInputChange = (e, callback, name, currentValue, setter, onUpdate) => {
+  const value = e.target.value;
+  
+  if (value === '') {
+    callback(name, '', currentValue, onUpdate, setter);
+    return;
+  }
+  
+  const numValue = parseInt(value);
+  if (!isNaN(numValue)) {
+    callback(name, numValue, currentValue, onUpdate, setter);
+  }
+};
+
+// Helper para blur
+export const handleBlur = (e, callback, name, currentValue, setter, onUpdate) => {
+  let value = e.target.value;
+  
+  if (value === '') {
+    value = '0';
+  }
+  
+  const numValue = parseInt(value);
+  if (isNaN(numValue) || numValue < 0) {
+    value = '0';
+  } else if (numValue > 6) {
+    value = '6';
+  }
+  
+  callback(name, value, currentValue, onUpdate, setter);
+};
+
+// Helper para teclas de seta
+export const handleKeyDown = (e, currentValue, callback, name, setter, onUpdate) => {
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const newValue = Math.min(6, currentValue + 1);
+    callback(name, newValue, setter, onUpdate);
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const newValue = Math.max(0, currentValue - 1);
+    callback(name, newValue, setter, onUpdate);
+  }
+};
+
+// Helper para incrementar
+export const handleIncrement = (currentValue, callback, name, setter, onUpdate) => {
+  const newValue = Math.min(6, currentValue + 1);
+  callback(name, newValue, setter, onUpdate);
+};
+
+// Helper para decrementar
+export const handleDecrement = (currentValue, callback, name, setter, onUpdate) => {
+  const newValue = Math.max(0, currentValue - 1);
+  callback(name, newValue, setter, onUpdate);
+};
+
+// Configurações de mapeamento de atributos para skills
+export const attributeSkillMap = {
+  'Força': { 
+    positionClass: 'positionTop', 
+    skills: { 
+      0: 'COMBATE CORPO A CORPO', 
+      1: 'MAQUINÁRIO PESADO', 
+      2: 'RESISTÊNCIA' 
+    }
+  },
+  'Agilidade': { 
+    positionClass: 'positionLeft', 
+    skills: { 
+      0: 'COMBATE À DISTÂNCIA', 
+      1: 'MOBILIDADE', 
+      2: 'PILOTAGEM' 
+    }
+  },
+  'Inteligência': { 
+    positionClass: 'positionRight', 
+    skills: { 
+      0: 'OBSERVAÇÃO', 
+      1: 'SOBREVIVÊNCIA', 
+      2: 'TECNOLOGIA' 
+    }
+  },
+  'Empatia': { 
+    positionClass: 'positionBottom', 
+    skills: { 
+      0: 'MANIPULAÇÃO', 
+      1: 'COMANDO', 
+      2: 'AJUDA MÉDICA' 
+    }
+  }
 };
 
 // Styles para os componentes - APENAS CORES MAIS VIBRANTES
@@ -337,7 +496,7 @@ export const attributeComponentsStyles = (theme) => ({
   }
 });
 
-// Componentes individuais - EXATAMENTE OS MESMOS
+// Componentes individuais
 export const AttributeOctagon = ({ 
   classes, 
   attributeName, 
@@ -346,40 +505,54 @@ export const AttributeOctagon = ({
   onInputChange,
   onBlur,
   onKeyDown,
+  onIncrement,
+  onDecrement,
   onDiceClick
-}) => (
-  <Box className={`${classes.attributePosition} ${positionClass}`}>
-    <Box className={classes.attributeOctagonContainer}>
-      <div className={classes.attributeOctagonBorder} />
-      <div className={classes.attributeOctagon}>
-        <Box className={classes.attributeOctagonContent}>
-          <Box className={classes.attributeInputRow}>
-            <TextField
-              type="number"
-              value={attributeValue}
-              onChange={(e) => onInputChange(e, attributeName)}
-              onBlur={(e) => onBlur(e, attributeName)}
-              onKeyDown={(e) => onKeyDown(e, attributeValue, attributeName)}
-              inputProps={{ min: 0, max: 6 }}
-              className={classes.attributeInput}
-              size="small"
-            />
-            <IconButton
-              className={classes.attributeDiceButton}
-              onClick={() => onDiceClick(attributeName)}
-              size="small"
-            >
-              <Casino />
-            </IconButton>
+}) => {
+  const handleWheel = (e) => {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      onIncrement(attributeValue, attributeName);
+    } else {
+      onDecrement(attributeValue, attributeName);
+    }
+  };
+
+  return (
+    <Box className={`${classes.attributePosition} ${positionClass}`}>
+      <Box className={classes.attributeOctagonContainer}>
+        <div className={classes.attributeOctagonBorder} />
+        <div className={classes.attributeOctagon}>
+          <Box className={classes.attributeOctagonContent}>
+            <Box className={classes.attributeInputRow}>
+              <TextField
+                type="number"
+                value={attributeValue}
+                onChange={(e) => onInputChange(e, attributeName)}
+                onBlur={(e) => onBlur(e, attributeName)}
+                onKeyDown={(e) => onKeyDown(e, attributeValue, attributeName)}
+                onWheel={handleWheel}
+                inputProps={{ min: 0, max: 6 }}
+                className={classes.attributeInput}
+                size="small"
+              />
+              <IconButton
+                className={classes.attributeDiceButton}
+                onClick={() => onDiceClick(attributeName)}
+                size="small"
+              >
+                <Casino />
+              </IconButton>
+            </Box>
+            <Typography className={classes.attributeNameBox}>
+              {attributeName}
+            </Typography>
           </Box>
-          <Typography className={classes.attributeNameBox}>
-            {attributeName}
-          </Typography>
-        </Box>
-      </div>
+        </div>
+      </Box>
     </Box>
-  </Box>
-);
+  );
+};
 
 export const SkillComponent = ({ 
   classes, 
@@ -389,37 +562,150 @@ export const SkillComponent = ({
   onInputChange,
   onBlur,
   onKeyDown,
+  onIncrement,
+  onDecrement,
   onDiceClick
-}) => (
-  <Box className={`${classes.skillGroup} ${positionClass}`}>
-    <Box className={classes.skillOctagonContainer}>
-      <div className={classes.skillOctagonBorder} />
-      <div className={classes.skillOctagon}>
-        <Box className={classes.skillOctagonContent}>
-          <Box className={classes.skillInputRow}>
-            <TextField
-              type="number"
-              value={skillValue}
-              onChange={(e) => onInputChange(e, skillName)}
-              onBlur={(e) => onBlur(e, skillName)}
-              onKeyDown={(e) => onKeyDown(e, skillValue, skillName)}
-              inputProps={{ min: 0, max: 6 }}
-              className={classes.skillInput}
-              size="small"
-            />
-            <IconButton
-              className={classes.skillDiceButton}
-              onClick={() => onDiceClick(skillName)}
-              size="small"
-            >
-              <Casino fontSize="small" />
-            </IconButton>
+}) => {
+  const handleWheel = (e) => {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      onIncrement(skillValue, skillName);
+    } else {
+      onDecrement(skillValue, skillName);
+    }
+  };
+
+  return (
+    <Box className={`${classes.skillGroup} ${positionClass}`}>
+      <Box className={classes.skillOctagonContainer}>
+        <div className={classes.skillOctagonBorder} />
+        <div className={classes.skillOctagon}>
+          <Box className={classes.skillOctagonContent}>
+            <Box className={classes.skillInputRow}>
+              <TextField
+                type="number"
+                value={skillValue}
+                onChange={(e) => onInputChange(e, skillName)}
+                onBlur={(e) => onBlur(e, skillName)}
+                onKeyDown={(e) => onKeyDown(e, skillValue, skillName)}
+                onWheel={handleWheel}
+                inputProps={{ min: 0, max: 6 }}
+                className={classes.skillInput}
+                size="small"
+              />
+              <IconButton
+                className={classes.skillDiceButton}
+                onClick={() => onDiceClick(skillName)}
+                size="small"
+              >
+                <Casino fontSize="small" />
+              </IconButton>
+            </Box>
           </Box>
-        </Box>
-      </div>
+        </div>
+      </Box>
+      <Typography className={classes.skillNameBox}>
+        {formatSkillDisplayName(skillName)}
+      </Typography>
     </Box>
-    <Typography className={classes.skillNameBox}>
-      {formatSkillDisplayName(skillName)}
-    </Typography>
-  </Box>
-);
+  );
+};
+
+// Componente que agrupa atributo com suas skills
+export const AttributeWithSkills = ({ 
+  classes,
+  attributeName,
+  config,
+  attributes,
+  skills,
+  onUpdate,
+  setLocalAttributes,
+  setLocalSkills,
+  onAttributeRoll,
+  onSkillRoll,
+  defaultAttributes,
+  defaultSkills
+}) => {
+  // Helpers adaptados para este componente
+  const getSkillPositions = () => {
+    const positionMap = {
+      'Força': [classes.skillTopLeft, classes.skillTopCenter, classes.skillTopRight],
+      'Agilidade': [classes.skillLeftTop, classes.skillLeftMiddle, classes.skillLeftBottom],
+      'Inteligência': [classes.skillRightTop, classes.skillRightMiddle, classes.skillRightBottom],
+      'Empatia': [classes.skillBottomLeft, classes.skillBottomCenter, classes.skillBottomRight]
+    };
+    return positionMap[attributeName] || [];
+  };
+
+  const currentAttributeValue = getAttributeValue(attributes, attributeName, defaultAttributes);
+  const skillValues = Object.values(config.skills).map(skillName => ({
+    name: skillName,
+    value: getSkillValue(skills, skillName, defaultSkills)
+  }));
+
+  const skillPositions = getSkillPositions();
+
+  // Handlers específicos para este componente
+  const handleAttributeInputChange = (e, name) => 
+    handleInputChange(e, updateAttribute, name, attributes, setLocalAttributes, onUpdate);
+  
+  const handleAttributeBlur = (e, name) => 
+    handleBlur(e, updateAttribute, name, attributes, setLocalAttributes, onUpdate);
+  
+  const handleAttributeKeyDown = (e, currentValue, name) => 
+    handleKeyDown(e, currentValue, updateAttribute, name, setLocalAttributes, onUpdate);
+  
+  const handleAttributeIncrement = (currentValue, name) => 
+    handleIncrement(currentValue, updateAttribute, name, setLocalAttributes, onUpdate);
+  
+  const handleAttributeDecrement = (currentValue, name) => 
+    handleDecrement(currentValue, updateAttribute, name, setLocalAttributes, onUpdate);
+
+  const handleSkillInputChange = (e, name) => 
+    handleInputChange(e, updateSkill, name, skills, setLocalSkills, onUpdate);
+  
+  const handleSkillBlur = (e, name) => 
+    handleBlur(e, updateSkill, name, skills, setLocalSkills, onUpdate);
+  
+  const handleSkillKeyDown = (e, currentValue, name) => 
+    handleKeyDown(e, currentValue, updateSkill, name, setLocalSkills, onUpdate);
+  
+  const handleSkillIncrement = (currentValue, name) => 
+    handleIncrement(currentValue, updateSkill, name, setLocalSkills, onUpdate);
+  
+  const handleSkillDecrement = (currentValue, name) => 
+    handleDecrement(currentValue, updateSkill, name, setLocalSkills, onUpdate);
+
+  return (
+    <>
+      <AttributeOctagon
+        classes={classes}
+        attributeName={attributeName}
+        attributeValue={currentAttributeValue}
+        positionClass={classes[config.positionClass]}
+        onInputChange={handleAttributeInputChange}
+        onBlur={handleAttributeBlur}
+        onKeyDown={handleAttributeKeyDown}
+        onIncrement={handleAttributeIncrement}
+        onDecrement={handleAttributeDecrement}
+        onDiceClick={onAttributeRoll}
+      />
+
+      {skillValues.map((skill, index) => (
+        <SkillComponent
+          key={skill.name}
+          classes={classes}
+          skillName={skill.name}
+          skillValue={skill.value}
+          positionClass={skillPositions[index]}
+          onInputChange={handleSkillInputChange}
+          onBlur={handleSkillBlur}
+          onKeyDown={handleSkillKeyDown}
+          onIncrement={handleSkillIncrement}
+          onDecrement={handleSkillDecrement}
+          onDiceClick={onSkillRoll}
+        />
+      ))}
+    </>
+  );
+};

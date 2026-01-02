@@ -37,11 +37,12 @@ model Character {
   current_soul_integrity Int? @default(0)
 
   // YEAR ZERO SYSTEM FIELDS
-  stress_level   Int?    @default(0)
-  trauma_level   Int?    @default(0)
-  health_squares String? @default("[]")
-  stress_squares String? @default("[]")
-  willpower      Int?    @default(0)
+  stress_level     Int?    @default(0)
+  trauma_level     Int?    @default(0)
+  health_squares   String? @default("[]")
+  stress_squares   String? @default("[]")
+  radiation_squares String? @default("[]")
+  willpower        Int?    @default(0)
 
   // FEITICEIROS SYSTEM FIELDS
   feiticeiros_metodo_criacao         String? @default("FIXOS")

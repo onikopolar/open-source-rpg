@@ -3,7 +3,7 @@ const prisma = new PrismaClient()
 
 async function main() {
   console.log('=== SEED DO BANCO DE DADOS ===')
-  console.log('Versao 2.0.0 - Feature: Sistema completo com todos os sistemas RPG')
+  console.log('Versao 2.1.0 - Feature: Adicionado radiation_squares ao personagem Year Zero')
   console.log('Iniciando seed do banco de dados...')
 
   // Limpar todos os dados existentes
@@ -160,6 +160,7 @@ async function main() {
       willpower: 3,
       health_squares: JSON.stringify([true, true, true, true, true, false, false, false, false, false]),
       stress_squares: JSON.stringify([true, true, false, false, false, false, false, false, false, false]),
+      radiation_squares: JSON.stringify([false, false, false, false, false, false, false, false, false, false]),
       equipment_notes: 'Equipamentos:\n- Rifle de precis√£o (5 balas)\n- Faca de combate\n- Kit de primeiros socorros\n- Lanterna\n- Ra√ß√£o para 2 dias\n- Cantil\n- Bin√≥culos\n- Corda (15m)'
     }
   })
@@ -306,13 +307,26 @@ async function main() {
     // Configura√ß√µes gerais
     { name: 'DICE_ON_SCREEN_TIMEOUT_IN_MS', value: '5000' },
     { name: 'TIME_BETWEEN_DICES_IN_MS', value: '1000' },
-    { name: 'APP_VERSION', value: '2.0.0' },
+    { name: 'APP_VERSION', value: '2.1.0' },
     { name: 'DEFAULT_RPG_SYSTEM', value: 'year_zero' },
     
     // Configura√ß√µes Year Zero
     { name: 'YEARZERO_MAX_ATTRIBUTE_VALUE', value: '6' },
     { name: 'YEARZERO_MAX_SKILL_VALUE', value: '6' },
     { name: 'YEARZERO_BASE_ATTRIBUTE_VALUE', value: '2' },
+    { name: 'YEARZERO_RADIATION_EFFECTS', value: JSON.stringify({
+      0: 'Normal',
+      1: 'Leve (+1 stress)',
+      2: 'Leve (+1 stress)',
+      3: 'Leve (+1 stress)',
+      4: 'Moderado (+2 stress)',
+      5: 'Moderado (+2 stress)',
+      6: 'Moderado (+2 stress)',
+      7: 'Grave (+3 stress, -1 atributo)',
+      8: 'Grave (+3 stress, -1 atributo)',
+      9: 'Cr√≠tico (+4 stress, -1 atributo, risco de morte)',
+      10: 'Cr√≠tico (+4 stress, -1 atributo, risco de morte)'
+    })},
     
     // Configura√ß√µes Feiticeiros
     { name: 'FEITICEIROS_MAX_ATTRIBUTE_VALUE', value: '20' },
@@ -366,15 +380,16 @@ async function main() {
   // ============================================
   console.log('\n=== RESUMO DO SEED ===')
   console.log('‚úÖ Seed completo executado com sucesso!')
-  console.log(`Ì≥ä Personagens criados: ${await prisma.character.count()}`)
-  console.log(`‚ö° Atributos cl√°ssicos: ${await prisma.attribute.count()}`)
-  console.log(`ÌæØ Skills cl√°ssicas: ${await prisma.skill.count()}`)
-  console.log(`Ì≤™ Atributos Year Zero: ${await prisma.yearZeroAttribute.count()}`)
-  console.log(`ÌæØ Skills Year Zero: ${await prisma.yearZeroSkill.count()}`)
-  console.log(`Ì¥Æ Atributos Feiticeiros: ${await prisma.feiticeirosAttribute.count()}`)
+  console.log(`üë• Personagens criados: ${await prisma.character.count()}`)
+  console.log(`üí™ Atributos cl√°ssicos: ${await prisma.attribute.count()}`)
+  console.log(`üéØ Skills cl√°ssicas: ${await prisma.skill.count()}`)
+  console.log(`‚ö° Atributos Year Zero: ${await prisma.yearZeroAttribute.count()}`)
+  console.log(`üéØ Skills Year Zero: ${await prisma.yearZeroSkill.count()}`)
+  console.log(`üí´ Atributos Feiticeiros: ${await prisma.feiticeirosAttribute.count()}`)
   console.log(`‚öôÔ∏è Configura√ß√µes: ${await prisma.config.count()}`)
   console.log('\n=== SEED FINALIZADO ===')
   console.log('Todos os sistemas RPG foram configurados com sucesso!')
+  console.log('Nota: Adicionei o campo radiation_squares ao personagem Year Zero')
 }
 
 // Executar o seed
