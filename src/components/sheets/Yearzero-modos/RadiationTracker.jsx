@@ -1,20 +1,26 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Paper } from '@mui/material';
 import { Warning as WarningIcon } from '@mui/icons-material';
+
+// Fix: RadiationTracker sem logs de debug
+console.log('[RadiationTracker] Versão 1.2.1 - Fix: Logs de debug removidos');
 
 // Estilos para o tracker de radiação
 const radiationStyles = (theme) => ({
   radiationContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '15px',
+    width: '200px',
+    flexShrink: 0,
     background: '#655959cc',
     border: '1px solid #9c27b0',
     borderRadius: '4px',
     padding: '10px 12px',
-    width: '100%',
     boxShadow: '0 2px 8px rgba(162, 50, 182, 0.3)',
-    height: 'fit-content',
-    backdropFilter: 'blur(10px)',
-    marginBottom: '15px'
+    backdropFilter: 'blur(10px)'
   },
+  
   radiationHeader: {
     fontSize: '0.7rem',
     fontWeight: 'bold',
@@ -22,12 +28,9 @@ const radiationStyles = (theme) => ({
     textTransform: 'uppercase',
     textAlign: 'center',
     letterSpacing: '0.5px',
-    color: '#e868ffff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '5px'
+    color: '#e868ffff'
   },
+  
   squaresContainer: {
     display: 'grid',
     gridTemplateColumns: 'repeat(5, 1fr)',
@@ -36,6 +39,7 @@ const radiationStyles = (theme) => ({
     justifyContent: 'center',
     alignItems: 'center'
   },
+  
   square: {
     width: '20px',
     height: '20px',
@@ -50,25 +54,22 @@ const radiationStyles = (theme) => ({
     transition: 'all 0.2s ease',
     '&:hover': {
       transform: 'scale(1.05)'
-    },
+    }
+  },
+  
+  radiationSquare: {
+    borderColor: '#d93af5ff',
     '&.active': {
       backgroundColor: '#9c27b0'
     }
   },
+  
   trackerLabel: {
     fontSize: '0.5rem',
     fontWeight: '600',
     textAlign: 'center',
     marginTop: '1px',
     color: '#edddf0ff'
-  },
-  radiationEffects: {
-    fontSize: '0.55rem',
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
-    marginTop: '8px',
-    paddingTop: '5px',
-    borderTop: '1px dashed rgba(156, 39, 176, 0.3)'
   }
 });
 
@@ -77,13 +78,22 @@ const RadiationTracker = ({
   radiationSquares = [], 
   onRadiationUpdate 
 }) => {
-  // Inicializar squares se não estiver definido
-  const squares = radiationSquares.length === 10 ? radiationSquares : Array(10).fill(false);
+  // Estado interno sincronizado com as props
+  const [localSquares, setLocalSquares] = useState(() => 
+    radiationSquares.length === 10 ? radiationSquares : Array(10).fill(false)
+  );
+
+  // Sincroniza quando a prop muda
+  useEffect(() => {
+    if (radiationSquares.length === 10) {
+      setLocalSquares([...radiationSquares]);
+    }
+  }, [radiationSquares]);
 
   const handleSquareClick = (index) => {
     if (!onRadiationUpdate) return;
     
-    const newSquares = [...squares];
+    const newSquares = [...localSquares];
     const isCurrentlyActive = newSquares[index];
     
     if (isCurrentlyActive) {
@@ -98,11 +108,15 @@ const RadiationTracker = ({
       }
     }
     
+    // Atualiza estado local primeiro para feedback imediato
+    setLocalSquares(newSquares);
+    
+    // Depois notifica o pai
     onRadiationUpdate(newSquares);
   };
 
   const renderSquares = () => {
-    return squares.map((isActive, index) => {
+    return localSquares.map((isActive, index) => {
       const squareNumber = index + 1;
       const squareClass = `${classes.square} ${isActive ? 'active' : ''}`;
       
@@ -111,6 +125,9 @@ const RadiationTracker = ({
           <div 
             className={squareClass}
             onClick={() => handleSquareClick(index)}
+            style={{
+              backgroundColor: isActive ? '#9c27b0' : 'transparent'
+            }}
           />
           <Typography className={classes.trackerLabel}>
             {squareNumber}
@@ -118,17 +135,6 @@ const RadiationTracker = ({
         </Box>
       );
     });
-  };
-
-  // Determinar efeitos baseados no nível de radiação
-  const getRadiationEffects = () => {
-    const activeSquares = squares.filter(Boolean).length;
-    
-    if (activeSquares === 0) return "Normal";
-    if (activeSquares <= 3) return "Leve (+1 stress)";
-    if (activeSquares <= 6) return "Moderado (+2 stress)";
-    if (activeSquares <= 8) return "Grave (+3 stress, -1 atributo)";
-    return "Crítico (+4 stress, -1 atributo, risco de morte)";
   };
 
   return (
@@ -140,15 +146,9 @@ const RadiationTracker = ({
       <Box className={classes.squaresContainer}>
         {renderSquares()}
       </Box>
-      <Typography className={classes.radiationEffects}>
-        Efeito: {getRadiationEffects()}
-      </Typography>
     </Paper>
   );
 };
-
-// Versão corrigida
-console.log('[RadiationTracker] Versão 1.0.2 - Fix: Exportação corrigida');
 
 export default RadiationTracker;
 export { radiationStyles };

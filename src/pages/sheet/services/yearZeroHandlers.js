@@ -1,11 +1,13 @@
 import { api } from '../../../utils';
 
+// Fix: Handlers atualizados para endpoint correto de health-stress
+console.log('[YearZero Handlers] Versão 1.4.0 - Fix: Correção endpoint health-stress e validação');
+
 // Handlers para Year Zero
 export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, setYearZeroAttributeValues, setYearZeroSkillValues, type, name, value) => {
   if (!character?.id) return;
 
   console.log('[YearZero Handlers] Iniciando update');
-  console.log('[YearZero Handlers] Versao 1.3.0 - Feature: Suporte para radiation_squares via API separada');
   console.log('[YearZero Handlers] Dados recebidos:', { type, name, value, characterId: character.id });
   
   const getAttributeIdByName = (attrName) => {
@@ -32,16 +34,16 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       const attributeId = getAttributeIdByName(name);
       
       if (!attributeId) {
-        console.error('[YearZero Handlers] ERRO: Atributo nao encontrado:', name);
-        throw new Error(`Atributo "${name}" nao encontrado`);
+        console.error('[YearZero Handlers] Erro: Atributo não encontrado:', name);
+        throw new Error(`Atributo "${name}" não encontrado`);
       }
       
       const parsedValue = parseInt(value);
       console.log('[YearZero Handlers] Valor do atributo parseado:', parsedValue, 'Tipo:', typeof parsedValue);
       
       if (isNaN(parsedValue)) {
-        console.error('[YearZero Handlers] ERRO: Valor nao e um numero:', value);
-        throw new Error('Valor deve ser um numero');
+        console.error('[YearZero Handlers] Erro: Valor não é um número:', value);
+        throw new Error('Valor deve ser um número');
       }
       
       console.log('[YearZero Handlers] Enviando para API - atributo:', attributeId, 'valor:', parsedValue);
@@ -52,7 +54,7 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
         value: parsedValue
       });
 
-      console.log('[YearZero Handlers] Atualizacao concluida para atributo:', name, '=', parsedValue);
+      console.log('[YearZero Handlers] Atualização concluída para atributo:', name, '=', parsedValue);
 
       setCharacter(prev => ({
         ...prev,
@@ -72,16 +74,16 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       const skillId = getSkillIdByName(name);
       
       if (!skillId) {
-        console.error('[YearZero Handlers] ERRO: Skill nao encontrada:', name);
-        throw new Error(`Skill "${name}" nao encontrada`);
+        console.error('[YearZero Handlers] Erro: Skill não encontrada:', name);
+        throw new Error(`Skill "${name}" não encontrada`);
       }
       
       const parsedValue = parseInt(value);
       console.log('[YearZero Handlers] Valor da skill parseado:', parsedValue, 'Tipo:', typeof parsedValue);
       
       if (isNaN(parsedValue)) {
-        console.error('[YearZero Handlers] ERRO: Valor nao e um numero:', value);
-        throw new Error('Valor deve ser um numero');
+        console.error('[YearZero Handlers] Erro: Valor não é um número:', value);
+        throw new Error('Valor deve ser um número');
       }
       
       console.log('[YearZero Handlers] Enviando para API - skill:', skillId, 'valor:', parsedValue);
@@ -92,7 +94,7 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
         value: parsedValue
       });
 
-      console.log('[YearZero Handlers] Atualizacao concluida para skill:', name, '=', parsedValue);
+      console.log('[YearZero Handlers] Atualização concluída para skill:', name, '=', parsedValue);
 
       setCharacter(prev => ({
         ...prev,
@@ -108,35 +110,73 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
         [skillId]: parsedValue
       }));
       
-    } else if (type === 'stress_squares') {
-      const squaresJson = JSON.stringify(value);
-      console.log('[YearZero Handlers] Atualizando stress squares:', squaresJson);
+    } else if (type === 'stress_squares' || type === 'health_squares') {
+      // Fix: Validação do array de squares
+      if (!Array.isArray(value) || value.length !== 10) {
+        console.error('[YearZero Handlers] Erro: Squares deve ser array com 10 elementos:', value);
+        throw new Error('Squares deve ser array com 10 elementos');
+      }
       
-      await api.put('/yearzero/health-stress', {
+      console.log('[YearZero Handlers] Atualizando squares:', type, value);
+      
+      // Fix: Busco os valores atuais primeiro
+      let currentHealthSquares = character.health_squares;
+      let currentStressSquares = character.stress_squares;
+      
+      // Parse dos valores atuais se forem strings
+      if (typeof currentHealthSquares === 'string') {
+        try {
+          currentHealthSquares = JSON.parse(currentHealthSquares.replace(/^"+|"+$/g, ''));
+        } catch (error) {
+          console.warn('[YearZero Handlers] Não consegui parsear health_squares, usando array vazio');
+          currentHealthSquares = Array(10).fill(false);
+        }
+      }
+      
+      if (typeof currentStressSquares === 'string') {
+        try {
+          currentStressSquares = JSON.parse(currentStressSquares.replace(/^"+|"+$/g, ''));
+        } catch (error) {
+          console.warn('[YearZero Handlers] Não consegui parsear stress_squares, usando array vazio');
+          currentStressSquares = Array(10).fill(false);
+        }
+      }
+      
+      // Garante que são arrays
+      if (!Array.isArray(currentHealthSquares) || currentHealthSquares.length !== 10) {
+        currentHealthSquares = Array(10).fill(false);
+      }
+      
+      if (!Array.isArray(currentStressSquares) || currentStressSquares.length !== 10) {
+        currentStressSquares = Array(10).fill(false);
+      }
+      
+      // Fix: Prepara payload com AMBOS os arrays
+      const payload = {
         character_id: character.id,
-        stress_squares: value
-      });
+        health_squares: type === 'health_squares' ? value : currentHealthSquares,
+        stress_squares: type === 'stress_squares' ? value : currentStressSquares
+      };
       
+      console.log('[YearZero Handlers] Payload para health-stress:', payload);
+      
+      await api.put('/yearzero/health-stress', payload);
+      
+      // Atualiza o estado
       setCharacter(prev => ({
         ...prev,
-        stress_squares: squaresJson
+        [type]: JSON.stringify(value)
       }));
       
-    } else if (type === 'health_squares') {
-      const squaresJson = JSON.stringify(value);
-      console.log('[YearZero Handlers] Atualizando health squares:', squaresJson);
-      
-      await api.put('/yearzero/health-stress', {
-        character_id: character.id,
-        health_squares: value
-      });
-      
-      setCharacter(prev => ({
-        ...prev,
-        health_squares: squaresJson
-      }));
+      console.log('[YearZero Handlers] Squares atualizados com sucesso');
       
     } else if (type === 'radiation_squares') {
+      // Fix: Validação do array
+      if (!Array.isArray(value) || value.length !== 10) {
+        console.error('[YearZero Handlers] Erro: Radiation squares deve ser array com 10 elementos:', value);
+        throw new Error('Radiation squares deve ser array com 10 elementos');
+      }
+      
       console.log('[YearZero Handlers] Atualizando radiation squares:', value);
       
       await api.put('/yearzero/radiation-squares', {
@@ -168,6 +208,12 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
   } catch (error) {
     console.error(`[YearZero Handlers] Erro ao salvar ${type} ${name}:`, error);
     console.error('[YearZero Handlers] Mensagem de erro:', error.message);
+    
+    // Fix: Log mais detalhado para debug
+    if (error.response) {
+      console.error('[YearZero Handlers] Resposta do servidor:', error.response.data);
+      console.error('[YearZero Handlers] Status:', error.response.status);
+    }
   }
 };
 
@@ -191,7 +237,7 @@ export const handleYearZeroPushRoll = (character, handleYearZeroUpdate) => {
     const currentStressCount = currentStressSquares.filter(Boolean).length;
     
     if (currentStressCount >= 10) {
-      console.log('[YearZero Handlers] Stress maximo atingido');
+      console.log('[YearZero Handlers] Stress máximo atingido');
       return;
     }
     
@@ -212,7 +258,7 @@ export const handleYearZeroPushRoll = (character, handleYearZeroUpdate) => {
       newStressSquares
     );
     
-    console.log('[YearZero Handlers] Push roll concluido');
+    console.log('[YearZero Handlers] Push roll concluído');
     
   } catch (error) {
     console.error('[YearZero Handlers] Erro ao processar stress squares:', error);

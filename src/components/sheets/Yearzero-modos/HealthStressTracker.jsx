@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Paper } from '@mui/material';
+
+// Fix: Removidos logs de debug para limpeza do console
+console.log('[HealthStressTracker] Versão 1.3.1 - Fix: Logs de debug removidos');
 
 const styles = (theme) => ({
   healthStressContainer: {
@@ -87,20 +90,61 @@ const styles = (theme) => ({
   }
 });
 
-const HealthStressTracker = ({ classes, healthSquares, stressSquares, onHealthUpdate, onStressUpdate }) => {
-  const handleSquareClick = (index, currentSquares, updateFunction) => {
-    const newSquares = [...currentSquares];
+const HealthStressTracker = ({ 
+  classes, 
+  healthSquares = [], 
+  stressSquares = [], 
+  onHealthUpdate, 
+  onStressUpdate 
+}) => {
+  // Estados internos sincronizados com as props
+  const [localHealthSquares, setLocalHealthSquares] = useState(() => 
+    healthSquares.length === 10 ? healthSquares : Array(10).fill(false)
+  );
+  
+  const [localStressSquares, setLocalStressSquares] = useState(() => 
+    stressSquares.length === 10 ? stressSquares : Array(10).fill(false)
+  );
+
+  // Sincroniza quando as props mudam
+  useEffect(() => {
+    if (healthSquares.length === 10) {
+      setLocalHealthSquares([...healthSquares]);
+    }
+  }, [healthSquares]);
+
+  useEffect(() => {
+    if (stressSquares.length === 10) {
+      setLocalStressSquares([...stressSquares]);
+    }
+  }, [stressSquares]);
+
+  const handleSquareClick = (index, squaresArray, setLocalSquares, updateFunction) => {
+    if (!updateFunction) return;
+    
+    const newSquares = [...squaresArray];
     const isCurrentlyActive = newSquares[index];
     
     if (isCurrentlyActive) {
-      for (let i = index; i < newSquares.length; i++) newSquares[i] = false;
+      // Desmarcar este e todos após
+      for (let i = index; i < newSquares.length; i++) {
+        newSquares[i] = false;
+      }
     } else {
-      for (let i = 0; i <= index; i++) newSquares[i] = true;
+      // Marcar este e todos antes
+      for (let i = 0; i <= index; i++) {
+        newSquares[i] = true;
+      }
     }
+    
+    // Atualiza estado local primeiro para feedback imediato
+    setLocalSquares(newSquares);
+    
+    // Depois notifica o pai
     updateFunction(newSquares);
   };
 
-  const renderSquares = (squaresArray, type, updateFunction) => {
+  const renderSquares = (squaresArray, type, setLocalSquares, updateFunction) => {
     return squaresArray.map((isActive, index) => {
       const squareNumber = index + 1;
       const squareClass = `${classes.square} ${type === 'health' ? classes.healthSquare : classes.stressSquare} ${isActive ? 'active' : ''}`;
@@ -109,7 +153,10 @@ const HealthStressTracker = ({ classes, healthSquares, stressSquares, onHealthUp
         <Box key={index} display="flex" flexDirection="column" alignItems="center">
           <div 
             className={squareClass}
-            onClick={() => handleSquareClick(index, squaresArray, updateFunction)}
+            onClick={() => handleSquareClick(index, squaresArray, setLocalSquares, updateFunction)}
+            style={{
+              backgroundColor: isActive ? (type === 'health' ? '#4caf50' : '#ff6b35') : 'transparent'
+            }}
           />
           <Typography className={classes.trackerLabel}>
             {squareNumber}
@@ -126,7 +173,7 @@ const HealthStressTracker = ({ classes, healthSquares, stressSquares, onHealthUp
           Pontos de Vida
         </Typography>
         <Box className={classes.squaresContainer}>
-          {renderSquares(healthSquares, 'health', onHealthUpdate)}
+          {renderSquares(localHealthSquares, 'health', setLocalHealthSquares, onHealthUpdate)}
         </Box>
       </Paper>
 
@@ -135,7 +182,7 @@ const HealthStressTracker = ({ classes, healthSquares, stressSquares, onHealthUp
           Nível de Estresse
         </Typography>
         <Box className={classes.squaresContainer}>
-          {renderSquares(stressSquares, 'stress', onStressUpdate)}
+          {renderSquares(localStressSquares, 'stress', setLocalStressSquares, onStressUpdate)}
         </Box>
       </Paper>
     </Box>

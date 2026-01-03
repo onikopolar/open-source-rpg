@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, TextField, IconButton, Typography } from '@mui/material';
 import { Casino } from '@mui/icons-material';
 
-// Versão atualizada - Adicionando helpers e componente de agrupamento
-console.log('[AttributeComponents] Versão 1.4.0 - Feature: Adicionado helpers e componente AttributeWithSkills');
+// Fix: AttributeComponents com estado sincronizado nos componentes visuais
+console.log('[AttributeComponents] Versão 1.4.1 - Fix: Estado sincronizado nos componentes visuais');
 
 // Helper function para formatar nomes de skills
 export const formatSkillDisplayName = (skillName) => {
@@ -221,11 +221,11 @@ export const attributeComponentsStyles = (theme) => ({
     background: 'linear-gradient(135deg, #ff6b35 0%, #e65100 50%, #bf360c 100%)',
     clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)',
     zIndex: 1,
-    filter: 'brightness(1.1) saturate(1.2)' // MAIS VIBRANTE
+    filter: 'brightness(1.1) saturate(1.2)'
   },
   attributeOctagon: {
     position: 'relative',
-    background: 'rgba(255, 255, 255, 0.95)', // MAIS BRANCO
+    background: 'rgba(255, 255, 255, 0.95)',
     color: '#ff6b35',
     textAlign: 'center',
     fontWeight: 'bold',
@@ -260,7 +260,7 @@ export const attributeComponentsStyles = (theme) => ({
     marginTop: '3px',
     whiteSpace: 'nowrap',
     border: '1px solid #fff',
-    filter: 'brightness(1.1)' // MAIS VIBRANTE
+    filter: 'brightness(1.1)'
   },
   attributeInputRow: {
     display: 'flex',
@@ -271,7 +271,7 @@ export const attributeComponentsStyles = (theme) => ({
   attributeInput: {
     width: '38px',
     '& .MuiOutlinedInput-root': {
-      background: 'rgba(255, 255, 255, 0.9)', // MAIS BRANCO
+      background: 'rgba(255, 255, 255, 0.9)',
       borderRadius: '2px',
       '& fieldset': {
         borderColor: '#ff6b35',
@@ -298,7 +298,7 @@ export const attributeComponentsStyles = (theme) => ({
     padding: '4px',
     minWidth: 'auto',
     color: '#ff6b35',
-    background: 'rgba(255, 255, 255, 0.9)', // MAIS BRANCO
+    background: 'rgba(255, 255, 255, 0.9)',
     border: '1px solid #ff6b35',
     borderRadius: '2px',
     '& .MuiSvgIcon-root': {
@@ -327,11 +327,11 @@ export const attributeComponentsStyles = (theme) => ({
     background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 50%, #0d47a1 100%)',
     clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)',
     zIndex: 1,
-    filter: 'brightness(1.1) saturate(1.2)' // MAIS VIBRANTE
+    filter: 'brightness(1.1) saturate(1.2)'
   },
   skillOctagon: {
     position: 'relative',
-    background: 'rgba(255, 255, 255, 0.95)', // MAIS BRANCO
+    background: 'rgba(255, 255, 255, 0.95)',
     color: '#1976d2',
     textAlign: 'center',
     fontWeight: 'bold',
@@ -374,7 +374,7 @@ export const attributeComponentsStyles = (theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     wordWrap: 'break-word',
-    filter: 'brightness(1.1)' // MAIS VIBRANTE
+    filter: 'brightness(1.1)'
   },
   skillInputRow: {
     display: 'flex',
@@ -386,7 +386,7 @@ export const attributeComponentsStyles = (theme) => ({
   skillInput: {
     width: '34px',
     '& .MuiOutlinedInput-root': {
-      background: 'rgba(255, 255, 255, 0.9)', // MAIS BRANCO
+      background: 'rgba(255, 255, 255, 0.9)',
       borderRadius: '2px',
       '& fieldset': {
         borderColor: '#1976d2',
@@ -413,7 +413,7 @@ export const attributeComponentsStyles = (theme) => ({
     padding: '3px',
     minWidth: 'auto',
     color: '#1976d2',
-    background: 'rgba(255, 255, 255, 0.9)', // MAIS BRANCO
+    background: 'rgba(255, 255, 255, 0.9)',
     border: '1px solid #1976d2',
     borderRadius: '2px',
     '&:hover': {
@@ -496,7 +496,7 @@ export const attributeComponentsStyles = (theme) => ({
   }
 });
 
-// Componentes individuais
+// Componentes individuais COM ESTADO SINCRONIZADO
 export const AttributeOctagon = ({ 
   classes, 
   attributeName, 
@@ -509,13 +509,39 @@ export const AttributeOctagon = ({
   onDecrement,
   onDiceClick
 }) => {
+  // Fix: Estado local sincronizado
+  const [localValue, setLocalValue] = useState(attributeValue);
+  
+  // Fix: Sincroniza quando a prop muda
+  useEffect(() => {
+    setLocalValue(attributeValue);
+  }, [attributeValue]);
+
   const handleWheel = (e) => {
     e.preventDefault();
     if (e.deltaY < 0) {
-      onIncrement(attributeValue, attributeName);
+      onIncrement(localValue, attributeName);
     } else {
-      onDecrement(attributeValue, attributeName);
+      onDecrement(localValue, attributeName);
     }
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    
+    // Atualiza estado local primeiro para feedback imediato
+    if (value === '') {
+      setLocalValue('');
+    } else {
+      const numValue = parseInt(value);
+      if (!isNaN(numValue)) {
+        const clampedValue = Math.max(0, Math.min(6, numValue));
+        setLocalValue(clampedValue);
+      }
+    }
+    
+    // Depois chama o handler original
+    onInputChange(e, attributeName);
   };
 
   return (
@@ -527,10 +553,10 @@ export const AttributeOctagon = ({
             <Box className={classes.attributeInputRow}>
               <TextField
                 type="number"
-                value={attributeValue}
-                onChange={(e) => onInputChange(e, attributeName)}
+                value={localValue}
+                onChange={handleInputChange}
                 onBlur={(e) => onBlur(e, attributeName)}
-                onKeyDown={(e) => onKeyDown(e, attributeValue, attributeName)}
+                onKeyDown={(e) => onKeyDown(e, localValue, attributeName)}
                 onWheel={handleWheel}
                 inputProps={{ min: 0, max: 6 }}
                 className={classes.attributeInput}
@@ -566,13 +592,39 @@ export const SkillComponent = ({
   onDecrement,
   onDiceClick
 }) => {
+  // Fix: Estado local sincronizado
+  const [localValue, setLocalValue] = useState(skillValue);
+  
+  // Fix: Sincroniza quando a prop muda
+  useEffect(() => {
+    setLocalValue(skillValue);
+  }, [skillValue]);
+
   const handleWheel = (e) => {
     e.preventDefault();
     if (e.deltaY < 0) {
-      onIncrement(skillValue, skillName);
+      onIncrement(localValue, skillName);
     } else {
-      onDecrement(skillValue, skillName);
+      onDecrement(localValue, skillName);
     }
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    
+    // Atualiza estado local primeiro para feedback imediato
+    if (value === '') {
+      setLocalValue('');
+    } else {
+      const numValue = parseInt(value);
+      if (!isNaN(numValue)) {
+        const clampedValue = Math.max(0, Math.min(6, numValue));
+        setLocalValue(clampedValue);
+      }
+    }
+    
+    // Depois chama o handler original
+    onInputChange(e, skillName);
   };
 
   return (
@@ -584,10 +636,10 @@ export const SkillComponent = ({
             <Box className={classes.skillInputRow}>
               <TextField
                 type="number"
-                value={skillValue}
-                onChange={(e) => onInputChange(e, skillName)}
+                value={localValue}
+                onChange={handleInputChange}
                 onBlur={(e) => onBlur(e, skillName)}
-                onKeyDown={(e) => onKeyDown(e, skillValue, skillName)}
+                onKeyDown={(e) => onKeyDown(e, localValue, skillName)}
                 onWheel={handleWheel}
                 inputProps={{ min: 0, max: 6 }}
                 className={classes.skillInput}

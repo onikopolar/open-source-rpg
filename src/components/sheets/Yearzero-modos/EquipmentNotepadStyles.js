@@ -18,18 +18,26 @@ import {
 } from '@mui/icons-material';
 import { withStyles } from '@mui/styles';
 
-// Versão 1.0.0 - Fix: Criando EquipmentNotepad com quadrados perfeitos
-console.log('[EquipmentNotepad] Versão 1.0.0 - Criando componente com layout igual ao HealthStressTracker');
+// Fix: EquipmentNotepad agora tem mesma estrutura que HealthStress e Radiation
+console.log('[EquipmentNotepad] Versão 1.1.0 - Fix: Layout igual ao HealthStressTracker');
 
 const equipmentNotepadStyles = (theme) => ({
+  // Container principal IGUAL ao healthStressContainer e radiationContainer
   equipmentContainer: {
     display: 'flex',
     flexDirection: 'column',
     gap: '15px',
     width: '200px',
-    flexShrink: 0
+    flexShrink: 0,
+    background: '#655959cc',
+    border: '1px solid #2196f3',
+    borderRadius: '4px',
+    padding: '10px 12px',
+    boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+    backdropFilter: 'blur(10px)'
   },
   
+  // Tracker IGUAL ao healthTracker/stressTracker e radiationTracker
   equipmentTracker: {
     background: '#655959cc',
     border: '1px solid #9c27b0',
@@ -41,6 +49,7 @@ const equipmentNotepadStyles = (theme) => ({
     backdropFilter: 'blur(10px)'
   },
   
+  // Header IGUAL ao trackerHeader e radiationHeader
   equipmentHeader: {
     fontSize: '0.7rem',
     fontWeight: 'bold',
@@ -51,6 +60,7 @@ const equipmentNotepadStyles = (theme) => ({
     color: '#9c27b0'
   },
   
+  // Grid IGUAL ao squaresContainer de todos os outros
   squaresContainer: {
     display: 'grid',
     gridTemplateColumns: 'repeat(5, 1fr)',
@@ -60,6 +70,7 @@ const equipmentNotepadStyles = (theme) => ({
     alignItems: 'center'
   },
   
+  // Quadrados IGUAL ao square dos outros
   square: {
     width: '20px',
     height: '20px',
@@ -80,6 +91,7 @@ const equipmentNotepadStyles = (theme) => ({
     }
   },
   
+  // Label IGUAL ao trackerLabel dos outros
   trackerLabel: {
     fontSize: '0.5rem',
     fontWeight: '600',
@@ -88,6 +100,7 @@ const equipmentNotepadStyles = (theme) => ({
     color: 'rgba(255, 255, 255, 0.8)'
   },
   
+  // Notas IGUAL em estrutura aos outros containers
   equipmentNotesContainer: {
     background: '#655959cc',
     border: '1px solid #2196f3',
@@ -96,10 +109,10 @@ const equipmentNotepadStyles = (theme) => ({
     width: '100%',
     boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
     height: 'fit-content',
-    backdropFilter: 'blur(10px)',
-    marginTop: '10px'
+    backdropFilter: 'blur(10px)'
   },
   
+  // Header das notas IGUAL aos outros headers
   equipmentNotesHeader: {
     fontSize: '0.7rem',
     fontWeight: 'bold',
@@ -110,6 +123,7 @@ const equipmentNotepadStyles = (theme) => ({
     color: '#2196f3'
   },
   
+  // Content das notas
   notesContent: {
     fontFamily: '"Roboto Mono", monospace',
     fontSize: '0.7rem',
@@ -124,6 +138,7 @@ const equipmentNotepadStyles = (theme) => ({
     border: '1px solid rgba(255, 255, 255, 0.1)'
   },
   
+  // Botão de editar
   editButtonContainer: {
     display: 'flex',
     justifyContent: 'center',
@@ -136,6 +151,7 @@ const equipmentNotepadStyles = (theme) => ({
     minWidth: '60px'
   },
   
+  // Modal styles
   modalPaper: {
     backgroundColor: '#f9f9f9',
     '&::-webkit-scrollbar': {
@@ -190,8 +206,11 @@ const equipmentNotepadStyles = (theme) => ({
 });
 
 function EquipmentNotepad({ classes, character, onSave }) {
-  // Estado para os quadrados de equipamento
-  const [equipmentSquares, setEquipmentSquares] = useState(Array(10).fill(false));
+  // Estado para os quadrados de equipamento - COM ESTADO LOCAL SINCRONIZADO
+  const [equipmentSquares, setEquipmentSquares] = useState(() => 
+    Array(10).fill(false)
+  );
+  
   // Estado para as notas
   const [notes, setNotes] = useState('');
   // Estado para edição das notas
@@ -201,8 +220,6 @@ function EquipmentNotepad({ classes, character, onSave }) {
   
   // Carregar dados iniciais
   useEffect(() => {
-    console.log('[EquipmentNotepad] Carregando dados do personagem');
-    
     // Carregar equipamentos do banco
     if (character?.equipment_squares) {
       try {
@@ -214,15 +231,10 @@ function EquipmentNotepad({ classes, character, onSave }) {
         }
         
         if (Array.isArray(savedEquipmentSquares) && savedEquipmentSquares.length === 10) {
-          console.log('[EquipmentNotepad] Equipment squares carregados:', savedEquipmentSquares);
           setEquipmentSquares(savedEquipmentSquares);
-        } else {
-          console.log('[EquipmentNotepad] Equipment squares inválidos, usando padrão');
-          setEquipmentSquares(Array(10).fill(false));
         }
       } catch (error) {
         console.error('[EquipmentNotepad] Erro ao carregar equipment_squares:', error);
-        setEquipmentSquares(Array(10).fill(false));
       }
     }
     
@@ -235,21 +247,15 @@ function EquipmentNotepad({ classes, character, onSave }) {
           savedNotes = savedNotes.replace(/^"+|"+$/g, '');
         }
         
-        console.log('[EquipmentNotepad] Equipment notes carregados:', savedNotes);
         setNotes(savedNotes || '');
         setEditNotes(savedNotes || '');
       } catch (error) {
         console.error('[EquipmentNotepad] Erro ao carregar equipment_notes:', error);
-        setNotes('');
-        setEditNotes('');
       }
-    } else {
-      setNotes('');
-      setEditNotes('');
     }
   }, [character]);
   
-  // Manipular clique nos quadrados
+  // Manipular clique nos quadrados - COM FEEDBACK IMEDIATO
   const handleSquareClick = (index) => {
     const newSquares = [...equipmentSquares];
     const isCurrentlyActive = newSquares[index];
@@ -266,6 +272,7 @@ function EquipmentNotepad({ classes, character, onSave }) {
       }
     }
     
+    // Atualiza estado local primeiro para feedback imediato
     setEquipmentSquares(newSquares);
     
     // Salvar no banco
@@ -294,8 +301,6 @@ function EquipmentNotepad({ classes, character, onSave }) {
     if (onSave) {
       onSave('equipment_notes', editNotes);
     }
-    
-    console.log('[EquipmentNotepad] Notas salvas:', editNotes);
   };
   
   // Renderizar quadrados
@@ -309,6 +314,9 @@ function EquipmentNotepad({ classes, character, onSave }) {
           <div 
             className={squareClass}
             onClick={() => handleSquareClick(index)}
+            style={{
+              backgroundColor: isActive ? '#9c27b0' : 'transparent'
+            }}
           />
           <Typography className={classes.trackerLabel}>
             {squareNumber}
@@ -318,11 +326,9 @@ function EquipmentNotepad({ classes, character, onSave }) {
     });
   };
   
-  console.log('[EquipmentNotepad] Renderizando com quadrados perfeitos');
-  
   return (
     <Box className={classes.equipmentContainer}>
-      {/* Tracker de equipamentos */}
+      {/* Tracker de equipamentos - MESMA ESTRUTURA QUE OS OUTROS */}
       <Paper className={classes.equipmentTracker}>
         <Typography className={classes.equipmentHeader}>
           Equipamentos
@@ -332,7 +338,7 @@ function EquipmentNotepad({ classes, character, onSave }) {
         </Box>
       </Paper>
       
-      {/* Notas de equipamento */}
+      {/* Notas de equipamento - TAMBÉM DENTRO DO CONTAINER PRINCIPAL */}
       <Paper className={classes.equipmentNotesContainer}>
         <Typography className={classes.equipmentNotesHeader}>
           Notas de Equipamento
@@ -363,7 +369,7 @@ function EquipmentNotepad({ classes, character, onSave }) {
         </Box>
       </Paper>
       
-      {/* Modal de edição */}
+      {/* Modal de edição - FICA FORA DO CONTAINER */}
       <Dialog 
         open={editModalOpen} 
         onClose={handleCloseEditModal}

@@ -19,9 +19,24 @@ import {
   Cancel as CancelIcon,
   Inventory as InventoryIcon
 } from '@mui/icons-material';
+import { withStyles } from '@mui/styles';
 
-// Estilos para o componente (igual aos trackers)
-export const equipmentNotepadStyles = (theme) => ({
+// Fix: EquipmentNotepad sem border duplicada
+console.log('[EquipmentNotepad] Versão 1.2.1 - Fix: Removida border duplicada');
+
+// Estilos atualizados SEM border no container principal
+const equipmentNotepadStyles = (theme) => ({
+  // Container principal SEM border - só o wrapper externo define
+  equipmentContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '15px',
+    width: '200px',
+    flexShrink: 0
+    // REMOVIDO: background, border, box-shadow, etc
+  },
+
+  // Tracker COM border (única border visível)
   equipmentTracker: {
     background: '#655959cc',
     border: '1px solid #2196f3',
@@ -39,6 +54,7 @@ export const equipmentNotepadStyles = (theme) => ({
       transform: 'translateY(-2px)'
     }
   },
+
   equipmentHeader: {
     fontSize: '0.7rem',
     fontWeight: 'bold',
@@ -46,8 +62,13 @@ export const equipmentNotepadStyles = (theme) => ({
     textTransform: 'uppercase',
     textAlign: 'center',
     letterSpacing: '0.5px',
-    color: '#2196f3'
+    color: '#2196f3',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '5px'
   },
+
   equipmentContent: {
     display: 'flex',
     flexDirection: 'column',
@@ -55,12 +76,14 @@ export const equipmentNotepadStyles = (theme) => ({
     justifyContent: 'center',
     minHeight: '60px'
   },
+
   equipmentText: {
     fontSize: '0.65rem',
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     lineHeight: 1.3
   },
+
   equipmentHint: {
     fontSize: '0.55rem',
     color: 'rgba(33, 150, 243, 0.8)',
@@ -77,7 +100,6 @@ const EquipmentNotepad = ({ character, onSave, classes }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Carregar notas
   useEffect(() => {
     if (character?.equipment_notes) {
       try {
@@ -91,7 +113,7 @@ const EquipmentNotepad = ({ character, onSave, classes }) => {
         setEquipmentNotes(typeof notes === 'string' ? notes : '');
         setTempNotes(typeof notes === 'string' ? notes : '');
       } catch (error) {
-        console.error('Erro ao carregar notas:', error);
+        console.error('[EquipmentNotepad] Erro ao carregar notas:', error);
         setEquipmentNotes('');
         setTempNotes('');
       }
@@ -116,7 +138,7 @@ const EquipmentNotepad = ({ character, onSave, classes }) => {
       try {
         await onSave('equipment_notes', tempNotes);
       } catch (error) {
-        console.error('Erro ao salvar:', error);
+        console.error('[EquipmentNotepad] Erro ao salvar:', error);
       }
     }
     handleClose();
@@ -131,21 +153,20 @@ const EquipmentNotepad = ({ character, onSave, classes }) => {
     setTempNotes(e.target.value);
   };
 
-  // Contar itens para preview
   const countItems = () => {
     if (!equipmentNotes.trim()) return 0;
     return equipmentNotes.split('\n').filter(line => line.trim()).length;
   };
 
   return (
-    <>
-      {/* RETÂNGULO/QUADRADO - Igual aos trackers */}
+    <Box className={classes.equipmentContainer}>
+      {/* Tracker COM border (única border visível) */}
       <Paper 
         className={classes.equipmentTracker}
         onClick={handleOpen}
       >
         <Typography className={classes.equipmentHeader}>
-          <InventoryIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+          <InventoryIcon sx={{ fontSize: 14 }} />
           Equipamentos
         </Typography>
         
@@ -163,7 +184,6 @@ const EquipmentNotepad = ({ character, onSave, classes }) => {
         </Typography>
       </Paper>
 
-      {/* MODAL - É o notepad direto */}
       <Dialog
         open={open}
         onClose={handleCancel}
@@ -287,8 +307,9 @@ Exemplo:
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Box>
   );
 };
 
-export default EquipmentNotepad;
+export default withStyles(equipmentNotepadStyles)(EquipmentNotepad);
+export { equipmentNotepadStyles };

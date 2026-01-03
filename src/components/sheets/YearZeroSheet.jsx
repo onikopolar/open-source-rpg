@@ -15,10 +15,10 @@ import {
 import EquipmentNotepad, { equipmentNotepadStyles } from './Yearzero-modos/EquipmentNotepad';
 import RadiationTracker, { radiationStyles } from './Yearzero-modos/RadiationTracker';
 
-// Fix: Layout quadrado direto nos componentes
-console.log('[YearZeroSheet] Versão 2.1.7 - Fix: Componentes direitos são quadrados por design');
+// Fix: Simplificação total para componentes quadrados
+console.log('[YearZeroSheet] Versão 2.1.9 - Fix: Simplificação radical para quadrados');
 
-// Combinar todos os estilos
+// Combinar todos os estilos - SEM forçar tamanhos, só importando
 const mainStyles = (theme) => ({
   container: {
     padding: '20px',
@@ -52,7 +52,9 @@ const mainStyles = (theme) => ({
     flexDirection: 'column',
     gap: '25px',
     width: '320px',
-    flexShrink: 0
+    flexShrink: 0,
+    // Apenas alinha os itens, sem forçar tamanhos
+    alignItems: 'stretch'
   },
   attributesContainer: {
     display: 'flex',
@@ -62,45 +64,19 @@ const mainStyles = (theme) => ({
     position: 'relative',
     padding: '10px',
     minHeight: '480px',
-    background: 'rgba(0, 0, 0, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.1)'
   },
   diamondCore: {
     position: 'relative',
-    width: '260px',
-    height: '260px',
+    width: '360px',
+    height: '270px',
     margin: '0 auto',
     transform: 'scale(0.85)'
   },
-  // Fix: Estilos para tornar componentes quadrados diretamente
-  healthStressCompact: {
-    height: '320px',
-    width: '320px',
-    '& .health-stress-container': {
-      height: '320px',
-      minHeight: '320px',
-      maxHeight: '320px'
-    }
-  },
-  radiationCompact: {
-    height: '320px',
-    width: '320px',
-    '& .radiation-container': {
-      height: '320px',
-      minHeight: '320px',
-      maxHeight: '320px'
-    }
-  },
-  equipmentCompact: {
-    height: '320px',
-    width: '320px',
-    '& .equipment-container': {
-      height: '320px',
-      minHeight: '320px',
-      maxHeight: '320px'
-    }
-  },
-  // Incorporar estilos dos componentes
+  
+  // REMOVIDO COMPLETAMENTE: Todos os boxes com tamanhos forçados
+  // NÃO tem mais healthStressBox, radiationBox ou equipmentBox aqui
+  
+  // Só importa os estilos dos componentes - ELES controlam seu próprio tamanho
   ...healthStressStyles(theme),
   ...diamondWebStyles(theme),
   ...attributeComponentsStyles(theme),
@@ -432,7 +408,7 @@ function YearZeroSheet({
     { name: 'AJUDA MÉDICA', year_zero_value: 0 }
   ];
 
-  console.log('[YearZeroSheet] Renderizando layout 3 colunas com componentes quadrados diretos');
+  console.log('[YearZeroSheet] Renderizando layout simplificado');
 
   return (
     <Box className={classes.container}>
@@ -470,29 +446,34 @@ function YearZeroSheet({
 
       {/* Coluna direita - HealthStress, Radiation e Equipment empilhados em quadrados */}
       <Box className={classes.rightColumn}>
-        {/* Fix: Classes aplicadas diretamente aos componentes */}
-        <HealthStressTracker 
-          classes={classes}
-          healthSquares={healthSquares}
-          stressSquares={stressSquares}
-          onHealthUpdate={handleHealthUpdate}
-          onStressUpdate={handleStressUpdate}
-          className={classes.healthStressCompact}
-        />
+        {/* Fix: Box quadrado direto */}
+        <Box className={classes.squareBox}>
+          <HealthStressTracker 
+            classes={classes}
+            healthSquares={healthSquares}
+            stressSquares={stressSquares}
+            onHealthUpdate={handleHealthUpdate}
+            onStressUpdate={handleStressUpdate}
+          />
+        </Box>
         
-        <RadiationTracker
-          classes={classes}
-          radiationSquares={radiationSquares}
-          onRadiationUpdate={handleRadiationUpdate}
-          className={classes.radiationCompact}
-        />
+        {/* Fix: Box quadrado direto */}
+        <Box className={classes.squareBox}>
+          <RadiationTracker
+            classes={classes}
+            radiationSquares={radiationSquares}
+            onRadiationUpdate={handleRadiationUpdate}
+          />
+        </Box>
         
-        <EquipmentNotepad
-          classes={classes}
-          character={character}
-          onSave={handleEquipmentSave}
-          className={classes.equipmentCompact}
-        />
+        {/* Fix: Box quadrado direto */}
+        <Box className={classes.squareBox}>
+          <EquipmentNotepad
+            classes={classes}
+            character={character}
+            onSave={handleEquipmentSave}
+          />
+        </Box>
       </Box>
     </Box>
   );
