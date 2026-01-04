@@ -1,7 +1,7 @@
 import { api } from '../../../utils';
 
-// Fix: Handlers atualizados para endpoint correto de health-stress
-console.log('[YearZero Handlers] Versão 1.4.0 - Fix: Correção endpoint health-stress e validação');
+// Fix: Adicionei handler para experience/history squares
+console.log('[YearZero Handlers] Versão 1.5.0 - Fix: Adicionado endpoint experience-history');
 
 // Handlers para Year Zero
 export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, setYearZeroAttributeValues, setYearZeroSkillValues, type, name, value) => {
@@ -111,7 +111,6 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       }));
       
     } else if (type === 'stress_squares' || type === 'health_squares') {
-      // Fix: Validação do array de squares
       if (!Array.isArray(value) || value.length !== 10) {
         console.error('[YearZero Handlers] Erro: Squares deve ser array com 10 elementos:', value);
         throw new Error('Squares deve ser array com 10 elementos');
@@ -119,11 +118,9 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       
       console.log('[YearZero Handlers] Atualizando squares:', type, value);
       
-      // Fix: Busco os valores atuais primeiro
       let currentHealthSquares = character.health_squares;
       let currentStressSquares = character.stress_squares;
       
-      // Parse dos valores atuais se forem strings
       if (typeof currentHealthSquares === 'string') {
         try {
           currentHealthSquares = JSON.parse(currentHealthSquares.replace(/^"+|"+$/g, ''));
@@ -142,7 +139,6 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
         }
       }
       
-      // Garante que são arrays
       if (!Array.isArray(currentHealthSquares) || currentHealthSquares.length !== 10) {
         currentHealthSquares = Array(10).fill(false);
       }
@@ -151,7 +147,6 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
         currentStressSquares = Array(10).fill(false);
       }
       
-      // Fix: Prepara payload com AMBOS os arrays
       const payload = {
         character_id: character.id,
         health_squares: type === 'health_squares' ? value : currentHealthSquares,
@@ -162,7 +157,6 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       
       await api.put('/yearzero/health-stress', payload);
       
-      // Atualiza o estado
       setCharacter(prev => ({
         ...prev,
         [type]: JSON.stringify(value)
@@ -171,7 +165,6 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       console.log('[YearZero Handlers] Squares atualizados com sucesso');
       
     } else if (type === 'radiation_squares') {
-      // Fix: Validação do array
       if (!Array.isArray(value) || value.length !== 10) {
         console.error('[YearZero Handlers] Erro: Radiation squares deve ser array com 10 elementos:', value);
         throw new Error('Radiation squares deve ser array com 10 elementos');
@@ -188,6 +181,109 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
         ...prev,
         radiation_squares: JSON.stringify(value)
       }));
+      
+    } else if (type === 'experience_squares' || type === 'history_squares') {
+      // NOVO: Handler para experience e history squares
+      console.log('[YearZero Handlers] Atualizando experience/history squares:', type, value);
+      
+      if (!Array.isArray(value)) {
+        console.error('[YearZero Handlers] Erro: Squares deve ser array:', value);
+        throw new Error('Squares deve ser array');
+      }
+      
+      // Valida tamanho dos arrays
+      if (type === 'experience_squares' && value.length !== 10) {
+        console.error('[YearZero Handlers] Erro: Experience squares deve ter 10 elementos:', value.length);
+        throw new Error('Experience squares deve ter 10 elementos');
+      }
+      
+      if (type === 'history_squares' && value.length !== 3) {
+        console.error('[YearZero Handlers] Erro: History squares deve ter 3 elementos:', value.length);
+        throw new Error('History squares deve ter 3 elementos');
+      }
+      
+      // Busca valores atuais para enviar ambos
+      let currentExperienceSquares = character.experience_squares;
+      let currentHistorySquares = character.history_squares;
+      
+      // Parse dos valores atuais se forem strings
+      const parseSquares = (squares) => {
+        if (!squares) return type === 'experience_squares' ? Array(10).fill(false) : Array(3).fill(false);
+        
+        if (typeof squares === 'string') {
+          try {
+            squares = squares.replace(/^"+|"+$/g, '');
+            return JSON.parse(squares);
+          } catch (error) {
+            console.warn('[YearZero Handlers] Não consegui parsear squares, usando array vazio');
+            return type === 'experience_squares' ? Array(10).fill(false) : Array(3).fill(false);
+          }
+        }
+        
+        return squares;
+      };
+      
+      currentExperienceSquares = parseSquares(currentExperienceSquares);
+      currentHistorySquares = parseSquares(currentHistorySquares);
+      
+      // Garante tamanho correto
+      if (!Array.isArray(currentExperienceSquares) || currentExperienceSquares.length !== 10) {
+        currentExperienceSquares = Array(10).fill(false);
+      }
+      
+      if (!Array.isArray(currentHistorySquares) || currentHistorySquares.length !== 3) {
+        currentHistorySquares = Array(3).fill(false);
+      }
+      
+      const payload = {
+        character_id: character.id,
+        experience_squares: type === 'experience_squares' ? value : currentExperienceSquares,
+        history_squares: type === 'history_squares' ? value : currentHistorySquares
+      };
+      
+      console.log('[YearZero Handlers] Payload para experience-history:', payload);
+      
+      await api.put('/yearzero/experience-history', payload);
+      
+      // Atualiza o estado
+      setCharacter(prev => ({
+        ...prev,
+        [type]: JSON.stringify(value),
+        // Também atualiza os valores numéricos para compatibilidade
+        ...(type === 'experience_squares' && {
+          experience_points: value.filter(Boolean).length
+        }),
+        ...(type === 'history_squares' && {
+          history_points: value.filter(Boolean).length
+        })
+      }));
+      
+      console.log('[YearZero Handlers] Experience/history squares atualizados com sucesso');
+      
+    } else if (type === 'experience_points' || type === 'history_points') {
+      // Compatibilidade: converte valor numérico para array
+      console.log('[YearZero Handlers] Convertendo pontos numéricos para squares:', type, value);
+      
+      const parsedValue = parseInt(value) || 0;
+      const maxSquares = type === 'experience_points' ? 10 : 3;
+      
+      // Cria array de squares baseado no valor
+      const squares = Array(maxSquares).fill(false);
+      for (let i = 0; i < Math.min(parsedValue, maxSquares); i++) {
+        squares[i] = true;
+      }
+      
+      // Chama o handler de squares
+      await handleYearZeroUpdate(
+        character,
+        rpgSystem,
+        setCharacter,
+        setYearZeroAttributeValues,
+        setYearZeroSkillValues,
+        type === 'experience_points' ? 'experience_squares' : 'history_squares',
+        type === 'experience_points' ? 'experience_squares' : 'history_squares',
+        squares
+      );
       
     } else if (type === 'equipment_notes') {
       console.log('[YearZero Handlers] Atualizando equipment notes:', value);
@@ -209,7 +305,6 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
     console.error(`[YearZero Handlers] Erro ao salvar ${type} ${name}:`, error);
     console.error('[YearZero Handlers] Mensagem de erro:', error.message);
     
-    // Fix: Log mais detalhado para debug
     if (error.response) {
       console.error('[YearZero Handlers] Resposta do servidor:', error.response.data);
       console.error('[YearZero Handlers] Status:', error.response.status);

@@ -1,5 +1,5 @@
 // Exportar todos os componentes do Yearzero-modos
-// Versão 1.0.2 - Feat: Adicionado RadiationTracker e ConditionsTracker
+// Versão 1.1.0 - Feat: Adicionado ExperienceHistoryTracker
 
 import HealthStressTracker from './HealthStressTracker';
 import DiamondWeb from './DiamondWeb';
@@ -12,6 +12,7 @@ import {
 import EquipmentNotepad from './EquipmentNotepad';
 import RadiationTracker from './RadiationTracker';
 import ConditionsTracker from './ConditionsTracker';
+import ExperienceHistoryTracker from './ExperienceHistoryTracker';
 
 // Importar os objetos de estilos
 import { healthStressStyles } from './HealthStressTracker';
@@ -19,8 +20,9 @@ import { diamondWebStyles } from './DiamondWeb';
 import { equipmentNotepadStyles } from './EquipmentNotepad';
 import { radiationStyles } from './RadiationTracker';
 import { conditionsStyles } from './ConditionsTracker';
+import { experienceHistoryStyles } from './ExperienceHistoryTracker';
 
-console.log('[Yearzero-modos/index] Versão 1.0.2 - Adicionei RadiationTracker e ConditionsTracker');
+console.log('[Yearzero-modos/index] Versão 1.1.0 - Adicionei ExperienceHistoryTracker para pontos de experiência e história');
 
 export {
   HealthStressTracker,
@@ -36,5 +38,7 @@ export {
   RadiationTracker,
   radiationStyles,
   ConditionsTracker,
-  conditionsStyles
+  conditionsStyles,
+  ExperienceHistoryTracker,
+  experienceHistoryStyles
 };

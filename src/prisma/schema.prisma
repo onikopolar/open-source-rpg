@@ -43,6 +43,11 @@ model Character {
   stress_squares   String? @default("[]")
   radiation_squares String? @default("[]")
   willpower        Int?    @default(0)
+  //Adicionei campos para experience e history
+  experience_squares String? @default("[]")
+  history_squares   String? @default("[]")
+  experience_points Int?    @default(0)
+  history_points    Int?    @default(0)
 
   // FEITICEIROS SYSTEM FIELDS
   feiticeiros_metodo_criacao         String? @default("FIXOS")

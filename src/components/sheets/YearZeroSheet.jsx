@@ -14,11 +14,12 @@ import {
 } from './Yearzero-modos/AttributeComponents';
 import EquipmentNotepad, { equipmentNotepadStyles } from './Yearzero-modos/EquipmentNotepad';
 import RadiationTracker, { radiationStyles } from './Yearzero-modos/RadiationTracker';
+import ExperienceHistoryTracker, { experienceHistoryStyles } from './Yearzero-modos/ExperienceHistoryTracker';
 
-// Fix: Simplificação total para componentes quadrados
-console.log('[YearZeroSheet] Versão 2.1.9 - Fix: Simplificação radical para quadrados');
+// Fix: Adicionei os styles do ExperienceHistoryTracker que estavam faltando
+console.log('[YearZeroSheet] Versão 2.4.0 - Fix: Importei experienceHistoryStyles e removi wrappers desnecessários');
 
-// Combinar todos os estilos - SEM forçar tamanhos, só importando
+// Combinar todos os estilos
 const mainStyles = (theme) => ({
   container: {
     padding: '20px',
@@ -53,7 +54,6 @@ const mainStyles = (theme) => ({
     gap: '25px',
     width: '320px',
     flexShrink: 0,
-    // Apenas alinha os itens, sem forçar tamanhos
     alignItems: 'stretch'
   },
   attributesContainer: {
@@ -72,16 +72,13 @@ const mainStyles = (theme) => ({
     margin: '0 auto',
     transform: 'scale(0.85)'
   },
-  
-  // REMOVIDO COMPLETAMENTE: Todos os boxes com tamanhos forçados
-  // NÃO tem mais healthStressBox, radiationBox ou equipmentBox aqui
-  
-  // Só importa os estilos dos componentes - ELES controlam seu próprio tamanho
+  // Importa os estilos dos componentes - AGORA COMPLETO
   ...healthStressStyles(theme),
   ...diamondWebStyles(theme),
   ...attributeComponentsStyles(theme),
   ...equipmentNotepadStyles(theme),
-  ...radiationStyles(theme)
+  ...radiationStyles(theme),
+  ...experienceHistoryStyles(theme) // ESTAVA FALTANDO ESTE
 });
 
 // Helper para converter array em objeto indexado por nome
@@ -100,11 +97,20 @@ const objectToArray = (obj) => {
   return Object.values(obj);
 };
 
+// Função para converter valor numérico em array de booleanos
+const createSquaresFromValue = (value, max) => {
+  const squares = Array(max).fill(false);
+  const activeCount = Math.min(value, max);
+  for (let i = 0; i < activeCount; i++) {
+    squares[i] = true;
+  }
+  return squares;
+};
+
 // Helper para criar estrutura inicial otimizada
 const createOptimizedStructure = () => {
   console.log('[YearZeroSheet] Criando estrutura otimizada');
   
-  // Atributos como objeto indexado por nome
   const attributes = {
     'Força': { name: 'Força', year_zero_value: 0 },
     'Agilidade': { name: 'Agilidade', year_zero_value: 0 },
@@ -112,7 +118,6 @@ const createOptimizedStructure = () => {
     'Empatia': { name: 'Empatia', year_zero_value: 0 }
   };
   
-  // Skills como objeto indexado por nome
   const skills = {
     'COMBATE CORPO A CORPO': { name: 'COMBATE CORPO A CORPO', year_zero_value: 0 },
     'MAQUINÁRIO PESADO': { name: 'MAQUINÁRIO PESADO', year_zero_value: 0 },
@@ -145,6 +150,10 @@ function YearZeroSheet({
   const [stressSquares, setStressSquares] = useState(Array(10).fill(false));
   const [healthSquares, setHealthSquares] = useState(Array(10).fill(false));
   const [radiationSquares, setRadiationSquares] = useState(Array(10).fill(false));
+  
+  // Agora são arrays como o HealthStress
+  const [experienceSquares, setExperienceSquares] = useState(Array(10).fill(false));
+  const [historySquares, setHistorySquares] = useState(Array(3).fill(false));
 
   // Estado para controlar se já carregamos os dados iniciais
   const [initialLoadDone, setInitialLoadDone] = useState(false);
@@ -230,84 +239,134 @@ function YearZeroSheet({
     });
     
     // Carregar quadrados de stress do banco
-    if (character?.stress_squares) {
-      try {
-        let savedStressSquares = character.stress_squares;
-        
-        if (typeof savedStressSquares === 'string') {
-          savedStressSquares = savedStressSquares.replace(/^"+|"+$/g, '');
-          savedStressSquares = JSON.parse(savedStressSquares);
+    const loadStressSquares = () => {
+      if (character?.stress_squares) {
+        try {
+          let savedStressSquares = character.stress_squares;
+          
+          if (typeof savedStressSquares === 'string') {
+            savedStressSquares = savedStressSquares.replace(/^"+|"+$/g, '');
+            savedStressSquares = JSON.parse(savedStressSquares);
+          }
+          
+          if (Array.isArray(savedStressSquares) && savedStressSquares.length === 10) {
+            console.log('[YearZeroSheet] Stress squares carregados:', savedStressSquares);
+            setStressSquares(savedStressSquares);
+            return;
+          }
+        } catch (error) {
+          console.error('[YearZeroSheet] Erro ao carregar stress_squares:', error);
         }
-        
-        if (Array.isArray(savedStressSquares) && savedStressSquares.length === 10) {
-          console.log('[YearZeroSheet] Stress squares carregados:', savedStressSquares);
-          setStressSquares(savedStressSquares);
-        } else {
-          console.log('[YearZeroSheet] Stress squares inválidos, usando padrão');
-          setStressSquares(Array(10).fill(false));
-        }
-      } catch (error) {
-        console.error('[YearZeroSheet] Erro ao carregar stress_squares:', error);
-        setStressSquares(Array(10).fill(false));
       }
-    } else {
       setStressSquares(Array(10).fill(false));
-    }
+    };
     
     // Carregar quadrados de vida do banco
-    if (character?.health_squares) {
-      try {
-        let savedHealthSquares = character.health_squares;
-        
-        if (typeof savedHealthSquares === 'string') {
-          savedHealthSquares = savedHealthSquares.replace(/^"+|"+$/g, '');
-          savedHealthSquares = JSON.parse(savedHealthSquares);
+    const loadHealthSquares = () => {
+      if (character?.health_squares) {
+        try {
+          let savedHealthSquares = character.health_squares;
+          
+          if (typeof savedHealthSquares === 'string') {
+            savedHealthSquares = savedHealthSquares.replace(/^"+|"+$/g, '');
+            savedHealthSquares = JSON.parse(savedHealthSquares);
+          }
+          
+          if (Array.isArray(savedHealthSquares) && savedHealthSquares.length === 10) {
+            console.log('[YearZeroSheet] Health squares carregados:', savedHealthSquares);
+            setHealthSquares(savedHealthSquares);
+            return;
+          }
+        } catch (error) {
+          console.error('[YearZeroSheet] Erro ao carregar health_squares:', error);
         }
-        
-        if (Array.isArray(savedHealthSquares) && savedHealthSquares.length === 10) {
-          console.log('[YearZeroSheet] Health squares carregados:', savedHealthSquares);
-          setHealthSquares(savedHealthSquares);
-        } else {
-          console.log('[YearZeroSheet] Health squares inválidos, usando padrão');
-          setHealthSquares(Array(10).fill(false));
-        }
-      } catch (error) {
-        console.error('[YearZeroSheet] Erro ao carregar health_squares:', error);
-        setHealthSquares(Array(10).fill(false));
       }
-    } else {
       setHealthSquares(Array(10).fill(false));
-    }
-
+    };
+    
     // Carregar quadrados de radiação do banco
-    if (character?.radiation_squares) {
-      try {
-        let savedRadiationSquares = character.radiation_squares;
-        
-        if (typeof savedRadiationSquares === 'string') {
-          savedRadiationSquares = savedRadiationSquares.replace(/^"+|"+$/g, '');
-          savedRadiationSquares = JSON.parse(savedRadiationSquares);
+    const loadRadiationSquares = () => {
+      if (character?.radiation_squares) {
+        try {
+          let savedRadiationSquares = character.radiation_squares;
+          
+          if (typeof savedRadiationSquares === 'string') {
+            savedRadiationSquares = savedRadiationSquares.replace(/^"+|"+$/g, '');
+            savedRadiationSquares = JSON.parse(savedRadiationSquares);
+          }
+          
+          if (Array.isArray(savedRadiationSquares) && savedRadiationSquares.length === 10) {
+            console.log('[YearZeroSheet] Radiation squares carregados:', savedRadiationSquares);
+            setRadiationSquares(savedRadiationSquares);
+            return;
+          }
+        } catch (error) {
+          console.error('[YearZeroSheet] Erro ao carregar radiation_squares:', error);
         }
-        
-        if (Array.isArray(savedRadiationSquares) && savedRadiationSquares.length === 10) {
-          console.log('[YearZeroSheet] Radiation squares carregados:', savedRadiationSquares);
-          setRadiationSquares(savedRadiationSquares);
-        } else {
-          console.log('[YearZeroSheet] Radiation squares inválidos, usando padrão');
-          setRadiationSquares(Array(10).fill(false));
-        }
-      } catch (error) {
-        console.error('[YearZeroSheet] Erro ao carregar radiation_squares:', error);
-        setRadiationSquares(Array(10).fill(false));
       }
-    } else {
       setRadiationSquares(Array(10).fill(false));
-    }
+    };
+    
+    // Carregar quadrados de experiência do banco (agora como array)
+    const loadExperienceSquares = () => {
+      if (character?.experience_points !== undefined) {
+        try {
+          // Tenta carregar como array primeiro
+          if (Array.isArray(character.experience_points) && character.experience_points.length === 10) {
+            console.log('[YearZeroSheet] Experience squares carregados como array:', character.experience_points);
+            setExperienceSquares(character.experience_points);
+            return;
+          }
+          
+          // Se for número, converte para array
+          const expValue = parseInt(character.experience_points) || 0;
+          console.log('[YearZeroSheet] Experience points carregados como número:', expValue);
+          const squares = createSquaresFromValue(expValue, 10);
+          setExperienceSquares(squares);
+          return;
+          
+        } catch (error) {
+          console.error('[YearZeroSheet] Erro ao carregar experience_points:', error);
+        }
+      }
+      setExperienceSquares(Array(10).fill(false));
+    };
+    
+    // Carregar quadrados de história do banco (agora como array)
+    const loadHistorySquares = () => {
+      if (character?.history_points !== undefined) {
+        try {
+          // Tenta carregar como array primeiro
+          if (Array.isArray(character.history_points) && character.history_points.length === 3) {
+            console.log('[YearZeroSheet] History squares carregados como array:', character.history_points);
+            setHistorySquares(character.history_points);
+            return;
+          }
+          
+          // Se for número, converte para array
+          const histValue = parseInt(character.history_points) || 0;
+          console.log('[YearZeroSheet] History points carregados como número:', histValue);
+          const squares = createSquaresFromValue(histValue, 3);
+          setHistorySquares(squares);
+          return;
+          
+        } catch (error) {
+          console.error('[YearZeroSheet] Erro ao carregar history_points:', error);
+        }
+      }
+      setHistorySquares(Array(3).fill(false));
+    };
+    
+    // Executar todos os carregamentos
+    loadStressSquares();
+    loadHealthSquares();
+    loadRadiationSquares();
+    loadExperienceSquares();
+    loadHistorySquares();
     
     setInitialLoadDone(true);
     console.log('[YearZeroSheet] Carga inicial concluída');
     
-    // Este useEffect só roda na montagem inicial
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Memoizar handlers com useCallback para estabilizar referências
@@ -332,6 +391,30 @@ function YearZeroSheet({
     setRadiationSquares(newRadiationSquares);
     if (onUpdate) {
       onUpdate('radiation_squares', 'radiation_squares', newRadiationSquares);
+    }
+  }, [onUpdate]);
+
+  // Agora recebe arrays como o HealthStress
+  const handleExperienceUpdate = useCallback((newExperienceSquares) => {
+    console.log('[YearZeroSheet] Atualizando experience squares:', newExperienceSquares);
+    setExperienceSquares(newExperienceSquares);
+    if (onUpdate) {
+      // Calcula o valor numérico para salvar no banco também
+      const experienceValue = newExperienceSquares.filter(Boolean).length;
+      onUpdate('experience_squares', 'experience_squares', newExperienceSquares);
+      onUpdate('experience_points', 'experience_points', experienceValue);
+    }
+  }, [onUpdate]);
+
+  // Agora recebe arrays como o HealthStress
+  const handleHistoryUpdate = useCallback((newHistorySquares) => {
+    console.log('[YearZeroSheet] Atualizando history squares:', newHistorySquares);
+    setHistorySquares(newHistorySquares);
+    if (onUpdate) {
+      // Calcula o valor numérico para salvar no banco também
+      const historyValue = newHistorySquares.filter(Boolean).length;
+      onUpdate('history_squares', 'history_squares', newHistorySquares);
+      onUpdate('history_points', 'history_points', historyValue);
     }
   }, [onUpdate]);
 
@@ -385,29 +468,6 @@ function YearZeroSheet({
     [optimizedData.skills]
   );
 
-  // Valores padrão como arrays (para compatibilidade)
-  const defaultAttributesArray = [
-    { name: 'Força', year_zero_value: 0 },
-    { name: 'Agilidade', year_zero_value: 0 },
-    { name: 'Inteligência', year_zero_value: 0 },
-    { name: 'Empatia', year_zero_value: 0 }
-  ];
-
-  const defaultSkillsArray = [
-    { name: 'COMBATE CORPO A CORPO', year_zero_value: 0 },
-    { name: 'MAQUINÁRIO PESADO', year_zero_value: 0 },
-    { name: 'RESISTÊNCIA', year_zero_value: 0 },
-    { name: 'COMBATE À DISTÂNCIA', year_zero_value: 0 },
-    { name: 'MOBILIDADE', year_zero_value: 0 },
-    { name: 'PILOTAGEM', year_zero_value: 0 },
-    { name: 'OBSERVAÇÃO', year_zero_value: 0 },
-    { name: 'SOBREVIVÊNCIA', year_zero_value: 0 },
-    { name: 'TECNOLOGIA', year_zero_value: 0 },
-    { name: 'MANIPULAÇÃO', year_zero_value: 0 },
-    { name: 'COMANDO', year_zero_value: 0 },
-    { name: 'AJUDA MÉDICA', year_zero_value: 0 }
-  ];
-
   console.log('[YearZeroSheet] Renderizando layout simplificado');
 
   return (
@@ -431,8 +491,8 @@ function YearZeroSheet({
                 setLocalSkills={handleSetLocalSkills}
                 onAttributeRoll={handleAttributeRollWrapper}
                 onSkillRoll={handleSkillRollWrapper}
-                defaultAttributes={defaultAttributesArray}
-                defaultSkills={defaultSkillsArray}
+                defaultAttributes={[]}
+                defaultSkills={[]}
               />
             ))}
           </Box>
@@ -444,36 +504,37 @@ function YearZeroSheet({
         {/* Esta coluna fica vazia, serve apenas para criar espaço entre as outras */}
       </Box>
 
-      {/* Coluna direita - HealthStress, Radiation e Equipment empilhados em quadrados */}
+      {/* Coluna direita - HealthStress, Radiation, ExperienceHistory e Equipment empilhados */}
       <Box className={classes.rightColumn}>
-        {/* Fix: Box quadrado direto */}
-        <Box className={classes.squareBox}>
-          <HealthStressTracker 
-            classes={classes}
-            healthSquares={healthSquares}
-            stressSquares={stressSquares}
-            onHealthUpdate={handleHealthUpdate}
-            onStressUpdate={handleStressUpdate}
-          />
-        </Box>
+        {/* Cada componente já tem seu próprio container com width definido */}
+        <HealthStressTracker 
+          classes={classes}
+          healthSquares={healthSquares}
+          stressSquares={stressSquares}
+          onHealthUpdate={handleHealthUpdate}
+          onStressUpdate={handleStressUpdate}
+        />
         
-        {/* Fix: Box quadrado direto */}
-        <Box className={classes.squareBox}>
-          <RadiationTracker
-            classes={classes}
-            radiationSquares={radiationSquares}
-            onRadiationUpdate={handleRadiationUpdate}
-          />
-        </Box>
+        <RadiationTracker
+          classes={classes}
+          radiationSquares={radiationSquares}
+          onRadiationUpdate={handleRadiationUpdate}
+        />
         
-        {/* Fix: Box quadrado direto */}
-        <Box className={classes.squareBox}>
-          <EquipmentNotepad
-            classes={classes}
-            character={character}
-            onSave={handleEquipmentSave}
-          />
-        </Box>
+        {/* ExperienceHistoryTracker agora tem seus próprios styles importados */}
+        <ExperienceHistoryTracker
+          classes={classes}
+          experienceSquares={experienceSquares}
+          historySquares={historySquares}
+          onExperienceUpdate={handleExperienceUpdate}
+          onHistoryUpdate={handleHistoryUpdate}
+        />
+        
+        <EquipmentNotepad
+          classes={classes}
+          character={character}
+          onSave={handleEquipmentSave}
+        />
       </Box>
     </Box>
   );
