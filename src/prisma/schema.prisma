@@ -43,7 +43,7 @@ model Character {
   stress_squares   String? @default("[]")
   radiation_squares String? @default("[]")
   willpower        Int?    @default(0)
-  //Adicionei campos para experience e history
+  // Adicionei campos para experience e history
   experience_squares String? @default("[]")
   history_squares   String? @default("[]")
   experience_points Int?    @default(0)
@@ -75,6 +75,14 @@ model Character {
 
   // NEW: EQUIPMENT NOTES
   equipment_notes String? @db.Text
+
+  // PERSONAL META TALENTS FIELDS (NOVOS CAMPOS)
+  personal_goal String? @db.Text
+  camarada      String?
+  rival         String?
+  career        String?
+  appearance    String? @db.Text
+  talents       String? @default("[]") // Array JSON de talentos
 
   // META & CONFIGURATION
   derived_values_bonuses String? @default("{}")

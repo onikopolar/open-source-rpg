@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from 'react';
 import { Box, TextField, IconButton, Typography } from '@mui/material';
 import { Casino } from '@mui/icons-material';
 
-// Fix: AttributeComponents com estado sincronizado nos componentes visuais
-console.log('[AttributeComponents] Versão 1.4.1 - Fix: Estado sincronizado nos componentes visuais');
+// Versão 2.7.0 - FIX: Remoção de debugs poluentes e otimização geral
+console.log('[AttributeComponents] Versão 2.7.0 - FIX: Console limpo e performance otimizada');
 
-// Helper function para formatar nomes de skills
+// Eu formato nomes de skills com quebras de linha
 export const formatSkillDisplayName = (skillName) => {
   const nameMap = {
     'COMBATE CORPO A CORPO': 'CORPO A\nCORPO',
@@ -16,7 +16,7 @@ export const formatSkillDisplayName = (skillName) => {
   return nameMap[skillName] || skillName;
 };
 
-// Helper para obter valor de atributo com validação
+// Eu pego valor de atributo com validação de limites
 export const getAttributeValue = (attributes, attributeName, defaultAttributes = []) => {
   const validatedAttributes = attributes.length ? attributes : defaultAttributes;
   const attribute = validatedAttributes.find(a => a.name === attributeName);
@@ -24,7 +24,7 @@ export const getAttributeValue = (attributes, attributeName, defaultAttributes =
   return Math.max(0, Math.min(6, value));
 };
 
-// Helper para obter valor de skill com validação
+// Eu pego valor de skill com validação de limites
 export const getSkillValue = (skills, skillName, defaultSkills = []) => {
   const validatedSkills = skills.length ? skills : defaultSkills;
   const skill = validatedSkills.find(s => s.name === skillName);
@@ -32,9 +32,10 @@ export const getSkillValue = (skills, skillName, defaultSkills = []) => {
   return Math.max(0, Math.min(6, value));
 };
 
-// Helper para atualizar atributo
-export const updateAttribute = (attributeName, value, currentAttributes, onUpdate, setLocalAttributes) => {
+// Eu atualizo atributo com validação e callback
+export const updateAttribute = (attributeName, value, onUpdate) => {
   let numValue;
+  
   if (value === "" || value === null || value === undefined) {
     numValue = 0;
   } else {
@@ -43,10 +44,6 @@ export const updateAttribute = (attributeName, value, currentAttributes, onUpdat
   }
   
   numValue = Math.max(0, Math.min(6, numValue));
-  
-  setLocalAttributes(prev => prev.map(attr => 
-    attr.name === attributeName ? { ...attr, year_zero_value: numValue } : attr
-  ));
   
   if (onUpdate) {
     onUpdate('attribute', attributeName, numValue);
@@ -55,9 +52,10 @@ export const updateAttribute = (attributeName, value, currentAttributes, onUpdat
   return numValue;
 };
 
-// Helper para atualizar skill
-export const updateSkill = (skillName, value, currentSkills, onUpdate, setLocalSkills) => {
+// Eu atualizo skill com validação e callback
+export const updateSkill = (skillName, value, onUpdate) => {
   let numValue;
+  
   if (value === "" || value === null || value === undefined) {
     numValue = 0;
   } else {
@@ -67,10 +65,6 @@ export const updateSkill = (skillName, value, currentSkills, onUpdate, setLocalS
   
   numValue = Math.max(0, Math.min(6, numValue));
   
-  setLocalSkills(prev => prev.map(skill => 
-    skill.name === skillName ? { ...skill, year_zero_value: numValue } : skill
-  ));
-  
   if (onUpdate) {
     onUpdate('skill', skillName, numValue);
   }
@@ -78,65 +72,7 @@ export const updateSkill = (skillName, value, currentSkills, onUpdate, setLocalS
   return numValue;
 };
 
-// Helper para mudança de input
-export const handleInputChange = (e, callback, name, currentValue, setter, onUpdate) => {
-  const value = e.target.value;
-  
-  if (value === '') {
-    callback(name, '', currentValue, onUpdate, setter);
-    return;
-  }
-  
-  const numValue = parseInt(value);
-  if (!isNaN(numValue)) {
-    callback(name, numValue, currentValue, onUpdate, setter);
-  }
-};
-
-// Helper para blur
-export const handleBlur = (e, callback, name, currentValue, setter, onUpdate) => {
-  let value = e.target.value;
-  
-  if (value === '') {
-    value = '0';
-  }
-  
-  const numValue = parseInt(value);
-  if (isNaN(numValue) || numValue < 0) {
-    value = '0';
-  } else if (numValue > 6) {
-    value = '6';
-  }
-  
-  callback(name, value, currentValue, onUpdate, setter);
-};
-
-// Helper para teclas de seta
-export const handleKeyDown = (e, currentValue, callback, name, setter, onUpdate) => {
-  if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    const newValue = Math.min(6, currentValue + 1);
-    callback(name, newValue, setter, onUpdate);
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    const newValue = Math.max(0, currentValue - 1);
-    callback(name, newValue, setter, onUpdate);
-  }
-};
-
-// Helper para incrementar
-export const handleIncrement = (currentValue, callback, name, setter, onUpdate) => {
-  const newValue = Math.min(6, currentValue + 1);
-  callback(name, newValue, setter, onUpdate);
-};
-
-// Helper para decrementar
-export const handleDecrement = (currentValue, callback, name, setter, onUpdate) => {
-  const newValue = Math.max(0, currentValue - 1);
-  callback(name, newValue, setter, onUpdate);
-};
-
-// Configurações de mapeamento de atributos para skills
+// Eu mapeio atributos para suas skills correspondentes
 export const attributeSkillMap = {
   'Força': { 
     positionClass: 'positionTop', 
@@ -172,7 +108,7 @@ export const attributeSkillMap = {
   }
 };
 
-// Styles para os componentes - APENAS CORES MAIS VIBRANTES
+// Eu defino os estilos dos componentes
 export const attributeComponentsStyles = (theme) => ({
   attributePosition: {
     position: 'absolute',
@@ -211,7 +147,6 @@ export const attributeComponentsStyles = (theme) => ({
     justifyContent: 'center',
     alignItems: 'center'
   },
-  // ATRIBUTOS: Laranja MESMO, mas MAIS VIBRANTE
   attributeOctagonBorder: {
     position: 'absolute',
     top: '0',
@@ -317,7 +252,6 @@ export const attributeComponentsStyles = (theme) => ({
     justifyContent: 'center',
     alignItems: 'center'
   },
-  // SKILLS: Azul MESMO, mas MAIS VIBRANTE
   skillOctagonBorder: {
     position: 'absolute',
     top: '0',
@@ -496,40 +430,53 @@ export const attributeComponentsStyles = (theme) => ({
   }
 });
 
-// Componentes individuais COM ESTADO SINCRONIZADO
-export const AttributeOctagon = ({ 
+// Componente individual de atributo
+const AttributeOctagonComponent = ({ 
   classes, 
   attributeName, 
   attributeValue, 
   positionClass,
-  onInputChange,
-  onBlur,
-  onKeyDown,
-  onIncrement,
-  onDecrement,
-  onDiceClick
+  onUpdate,
+  onAttributeRoll
 }) => {
-  // Fix: Estado local sincronizado
   const [localValue, setLocalValue] = useState(attributeValue);
-  
-  // Fix: Sincroniza quando a prop muda
+  const inputRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
+  const lastSavedValueRef = useRef(attributeValue);
+
   useEffect(() => {
-    setLocalValue(attributeValue);
-  }, [attributeValue]);
-
-  const handleWheel = (e) => {
-    e.preventDefault();
-    if (e.deltaY < 0) {
-      onIncrement(localValue, attributeName);
-    } else {
-      onDecrement(localValue, attributeName);
+    if (lastSavedValueRef.current !== attributeValue) {
+      setLocalValue(attributeValue);
+      lastSavedValueRef.current = attributeValue;
     }
-  };
+  }, [attributeName, attributeValue]);
 
-  const handleInputChange = (e) => {
+  const saveAttribute = useCallback((value, isFinal = false) => {
+    let numValue;
+    
+    if (value === '' || value === null || value === undefined) {
+      numValue = 0;
+    } else {
+      numValue = parseInt(value);
+      if (isNaN(numValue)) numValue = 0;
+    }
+    
+    numValue = Math.max(0, Math.min(6, numValue));
+    
+    if (numValue === lastSavedValueRef.current) {
+      return;
+    }
+    
+    lastSavedValueRef.current = numValue;
+    
+    if (onUpdate) {
+      updateAttribute(attributeName, numValue, onUpdate);
+    }
+  }, [attributeName, onUpdate]);
+
+  const handleInputChange = useCallback((e) => {
     const value = e.target.value;
     
-    // Atualiza estado local primeiro para feedback imediato
     if (value === '') {
       setLocalValue('');
     } else {
@@ -540,9 +487,96 @@ export const AttributeOctagon = ({
       }
     }
     
-    // Depois chama o handler original
-    onInputChange(e, attributeName);
-  };
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      saveAttribute(value, true);
+    }, 600);
+  }, [saveAttribute]);
+
+  const handleBlur = useCallback((e) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    
+    saveAttribute(e.target.value, true);
+  }, [saveAttribute]);
+
+  const handleDiceClick = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    
+    // Eu salvo se necessário
+    if (localValue !== lastSavedValueRef.current) {
+      saveAttribute(localValue.toString(), true);
+    }
+    
+    // Eu passo o valor atual pro modal
+    const valueToRoll = lastSavedValueRef.current;
+    
+    if (onAttributeRoll) {
+      onAttributeRoll(attributeName, valueToRoll);
+    }
+  }, [attributeName, onAttributeRoll, localValue, saveAttribute]);
+
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    
+    let newValue;
+    
+    if (e.deltaY < 0) {
+      newValue = Math.min(6, localValue + 1);
+    } else {
+      newValue = Math.max(0, localValue - 1);
+    }
+    
+    setLocalValue(newValue);
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      saveAttribute(newValue.toString(), true);
+    }, 300);
+  }, [localValue, saveAttribute]);
+
+  const handleKeyDown = useCallback((e) => {
+    let newValue;
+    
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      newValue = Math.min(6, localValue + 1);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      newValue = Math.max(0, localValue - 1);
+    } else {
+      return;
+    }
+    
+    setLocalValue(newValue);
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      saveAttribute(newValue.toString(), true);
+    }, 200);
+  }, [localValue, saveAttribute]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <Box className={`${classes.attributePosition} ${positionClass}`}>
@@ -555,16 +589,17 @@ export const AttributeOctagon = ({
                 type="number"
                 value={localValue}
                 onChange={handleInputChange}
-                onBlur={(e) => onBlur(e, attributeName)}
-                onKeyDown={(e) => onKeyDown(e, localValue, attributeName)}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
                 onWheel={handleWheel}
                 inputProps={{ min: 0, max: 6 }}
                 className={classes.attributeInput}
                 size="small"
+                inputRef={inputRef}
               />
               <IconButton
                 className={classes.attributeDiceButton}
-                onClick={() => onDiceClick(attributeName)}
+                onClick={handleDiceClick}
                 size="small"
               >
                 <Casino />
@@ -580,39 +615,68 @@ export const AttributeOctagon = ({
   );
 };
 
-export const SkillComponent = ({ 
+// Função de comparação para AttributeOctagon
+const attributeOctagonPropsAreEqual = (prevProps, nextProps) => {
+  const attributeValueChanged = prevProps.attributeValue !== nextProps.attributeValue;
+  const callbacksChanged = prevProps.onUpdate !== nextProps.onUpdate || 
+                          prevProps.onAttributeRoll !== nextProps.onAttributeRoll;
+  
+  if (!attributeValueChanged && !callbacksChanged) {
+    return true;
+  }
+  
+  return false;
+};
+
+export const AttributeOctagon = memo(AttributeOctagonComponent, attributeOctagonPropsAreEqual);
+
+// Componente individual de skill
+const SkillComponentInternal = ({ 
   classes, 
   skillName, 
   skillValue, 
   positionClass,
-  onInputChange,
-  onBlur,
-  onKeyDown,
-  onIncrement,
-  onDecrement,
-  onDiceClick
+  onUpdate,
+  onSkillRoll
 }) => {
-  // Fix: Estado local sincronizado
   const [localValue, setLocalValue] = useState(skillValue);
-  
-  // Fix: Sincroniza quando a prop muda
+  const inputRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
+  const lastSavedValueRef = useRef(skillValue);
+
   useEffect(() => {
-    setLocalValue(skillValue);
-  }, [skillValue]);
-
-  const handleWheel = (e) => {
-    e.preventDefault();
-    if (e.deltaY < 0) {
-      onIncrement(localValue, skillName);
-    } else {
-      onDecrement(localValue, skillName);
+    if (lastSavedValueRef.current !== skillValue) {
+      setLocalValue(skillValue);
+      lastSavedValueRef.current = skillValue;
     }
-  };
+  }, [skillName, skillValue]);
 
-  const handleInputChange = (e) => {
+  const saveSkill = useCallback((value, isFinal = false) => {
+    let numValue;
+    
+    if (value === '' || value === null || value === undefined) {
+      numValue = 0;
+    } else {
+      numValue = parseInt(value);
+      if (isNaN(numValue)) numValue = 0;
+    }
+    
+    numValue = Math.max(0, Math.min(6, numValue));
+    
+    if (numValue === lastSavedValueRef.current) {
+      return;
+    }
+    
+    lastSavedValueRef.current = numValue;
+    
+    if (onUpdate) {
+      updateSkill(skillName, numValue, onUpdate);
+    }
+  }, [skillName, onUpdate]);
+
+  const handleInputChange = useCallback((e) => {
     const value = e.target.value;
     
-    // Atualiza estado local primeiro para feedback imediato
     if (value === '') {
       setLocalValue('');
     } else {
@@ -623,9 +687,99 @@ export const SkillComponent = ({
       }
     }
     
-    // Depois chama o handler original
-    onInputChange(e, skillName);
-  };
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      saveSkill(value, true);
+    }, 600);
+  }, [saveSkill]);
+
+  const handleBlur = useCallback((e) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    
+    saveSkill(e.target.value, true);
+  }, [saveSkill]);
+
+  const handleDiceClick = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    
+    // Eu salvo antes do roll
+    if (localValue !== lastSavedValueRef.current) {
+      saveSkill(localValue.toString(), true);
+    }
+    
+    // Eu passo o valor atual pro modal
+    const valueToRoll = lastSavedValueRef.current;
+    
+    // Eu dou um pequeno delay pra garantir que o save foi processado
+    setTimeout(() => {
+      if (onSkillRoll) {
+        onSkillRoll(skillName, valueToRoll);
+      }
+    }, 50);
+  }, [skillName, onSkillRoll, localValue, saveSkill]);
+
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    
+    let newValue;
+    
+    if (e.deltaY < 0) {
+      newValue = Math.min(6, localValue + 1);
+    } else {
+      newValue = Math.max(0, localValue - 1);
+    }
+    
+    setLocalValue(newValue);
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      saveSkill(newValue.toString(), true);
+    }, 300);
+  }, [localValue, saveSkill]);
+
+  const handleKeyDown = useCallback((e) => {
+    let newValue;
+    
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      newValue = Math.min(6, localValue + 1);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      newValue = Math.max(0, localValue - 1);
+    } else {
+      return;
+    }
+    
+    setLocalValue(newValue);
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      saveSkill(newValue.toString(), true);
+    }, 200);
+  }, [localValue, saveSkill]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <Box className={`${classes.skillGroup} ${positionClass}`}>
@@ -638,16 +792,17 @@ export const SkillComponent = ({
                 type="number"
                 value={localValue}
                 onChange={handleInputChange}
-                onBlur={(e) => onBlur(e, skillName)}
-                onKeyDown={(e) => onKeyDown(e, localValue, skillName)}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
                 onWheel={handleWheel}
                 inputProps={{ min: 0, max: 6 }}
                 className={classes.skillInput}
                 size="small"
+                inputRef={inputRef}
               />
               <IconButton
                 className={classes.skillDiceButton}
-                onClick={() => onDiceClick(skillName)}
+                onClick={handleDiceClick}
                 size="small"
               >
                 <Casino fontSize="small" />
@@ -663,23 +818,46 @@ export const SkillComponent = ({
   );
 };
 
-// Componente que agrupa atributo com suas skills
-export const AttributeWithSkills = ({ 
+// Função de comparação para SkillComponent
+const skillComponentPropsAreEqual = (prevProps, nextProps) => {
+  const skillValueChanged = prevProps.skillValue !== nextProps.skillValue;
+  const callbacksChanged = prevProps.onUpdate !== nextProps.onUpdate || 
+                          prevProps.onSkillRoll !== nextProps.onSkillRoll;
+  
+  if (!skillValueChanged && !callbacksChanged) {
+    return true;
+  }
+  
+  return false;
+};
+
+export const SkillComponent = memo(SkillComponentInternal, skillComponentPropsAreEqual);
+
+// Componente principal que agrupa atributo com suas skills
+const AttributeWithSkillsComponent = ({ 
   classes,
   attributeName,
   config,
   attributes,
   skills,
   onUpdate,
-  setLocalAttributes,
-  setLocalSkills,
   onAttributeRoll,
   onSkillRoll,
   defaultAttributes,
   defaultSkills
 }) => {
-  // Helpers adaptados para este componente
-  const getSkillPositions = () => {
+  const currentAttributeValue = useMemo(() => {
+    return getAttributeValue(attributes, attributeName, defaultAttributes);
+  }, [attributes, attributeName, defaultAttributes]);
+  
+  const attributeSkills = useMemo(() => {
+    return Object.values(config.skills).map(skillName => ({
+      name: skillName,
+      value: getSkillValue(skills, skillName, defaultSkills)
+    }));
+  }, [config.skills, skills, defaultSkills]);
+  
+  const skillPositions = useMemo(() => {
     const positionMap = {
       'Força': [classes.skillTopLeft, classes.skillTopCenter, classes.skillTopRight],
       'Agilidade': [classes.skillLeftTop, classes.skillLeftMiddle, classes.skillLeftBottom],
@@ -687,46 +865,71 @@ export const AttributeWithSkills = ({
       'Empatia': [classes.skillBottomLeft, classes.skillBottomCenter, classes.skillBottomRight]
     };
     return positionMap[attributeName] || [];
-  };
-
-  const currentAttributeValue = getAttributeValue(attributes, attributeName, defaultAttributes);
-  const skillValues = Object.values(config.skills).map(skillName => ({
-    name: skillName,
-    value: getSkillValue(skills, skillName, defaultSkills)
-  }));
-
-  const skillPositions = getSkillPositions();
-
-  // Handlers específicos para este componente
-  const handleAttributeInputChange = (e, name) => 
-    handleInputChange(e, updateAttribute, name, attributes, setLocalAttributes, onUpdate);
+  }, [attributeName, classes]);
   
-  const handleAttributeBlur = (e, name) => 
-    handleBlur(e, updateAttribute, name, attributes, setLocalAttributes, onUpdate);
+  const memoizedOnUpdate = useMemo(() => onUpdate, [onUpdate]);
+  const memoizedOnAttributeRoll = useMemo(() => onAttributeRoll, [onAttributeRoll]);
+  const memoizedOnSkillRoll = useMemo(() => onSkillRoll, [onSkillRoll]);
   
-  const handleAttributeKeyDown = (e, currentValue, name) => 
-    handleKeyDown(e, currentValue, updateAttribute, name, setLocalAttributes, onUpdate);
+  const handleAttributeUpdate = useCallback((type, name, value) => {
+    if (type === 'attribute' && name === attributeName) {
+      if (memoizedOnUpdate) {
+        memoizedOnUpdate(type, name, value);
+      }
+    }
+  }, [memoizedOnUpdate, attributeName]);
   
-  const handleAttributeIncrement = (currentValue, name) => 
-    handleIncrement(currentValue, updateAttribute, name, setLocalAttributes, onUpdate);
+  const handleAttributeRoll = useCallback((attributeNameParam, attributeValue) => {
+    if (memoizedOnAttributeRoll) {
+      memoizedOnAttributeRoll(attributeNameParam, attributeValue);
+    }
+  }, [memoizedOnAttributeRoll]);
   
-  const handleAttributeDecrement = (currentValue, name) => 
-    handleDecrement(currentValue, updateAttribute, name, setLocalAttributes, onUpdate);
-
-  const handleSkillInputChange = (e, name) => 
-    handleInputChange(e, updateSkill, name, skills, setLocalSkills, onUpdate);
+  const handleSkillRoll = useCallback((skillName, skillValue) => {
+    if (memoizedOnSkillRoll) {
+      memoizedOnSkillRoll(skillName, skillValue);
+    }
+  }, [memoizedOnSkillRoll]);
   
-  const handleSkillBlur = (e, name) => 
-    handleBlur(e, updateSkill, name, skills, setLocalSkills, onUpdate);
+  const skillUpdateHandlers = useMemo(() => {
+    const handlers = {};
+    
+    attributeSkills.forEach(skill => {
+      handlers[skill.name] = (type, name, value) => {
+        if (type === 'skill' && name === skill.name) {
+          if (memoizedOnUpdate) {
+            const numValue = typeof value === 'number' ? value : parseInt(value);
+            
+            if (isNaN(numValue)) {
+              return;
+            }
+            
+            memoizedOnUpdate(type, name, numValue);
+          }
+        }
+      };
+    });
+    
+    return handlers;
+  }, [attributeSkills, memoizedOnUpdate, attributeName]);
   
-  const handleSkillKeyDown = (e, currentValue, name) => 
-    handleKeyDown(e, currentValue, updateSkill, name, setLocalSkills, onUpdate);
-  
-  const handleSkillIncrement = (currentValue, name) => 
-    handleIncrement(currentValue, updateSkill, name, setLocalSkills, onUpdate);
-  
-  const handleSkillDecrement = (currentValue, name) => 
-    handleDecrement(currentValue, updateSkill, name, setLocalSkills, onUpdate);
+  const memoizedSkillComponents = useMemo(() => {
+    return attributeSkills.map((skill, index) => {
+      const skillUpdateHandler = skillUpdateHandlers[skill.name];
+      
+      return (
+        <SkillComponent
+          key={skill.name}
+          classes={classes}
+          skillName={skill.name}
+          skillValue={skill.value}
+          positionClass={skillPositions[index]}
+          onUpdate={skillUpdateHandler}
+          onSkillRoll={(skillNameParam, skillValueParam) => handleSkillRoll(skillNameParam, skillValueParam)}
+        />
+      );
+    });
+  }, [attributeSkills, classes, skillPositions, skillUpdateHandlers, handleSkillRoll]);
 
   return (
     <>
@@ -735,29 +938,93 @@ export const AttributeWithSkills = ({
         attributeName={attributeName}
         attributeValue={currentAttributeValue}
         positionClass={classes[config.positionClass]}
-        onInputChange={handleAttributeInputChange}
-        onBlur={handleAttributeBlur}
-        onKeyDown={handleAttributeKeyDown}
-        onIncrement={handleAttributeIncrement}
-        onDecrement={handleAttributeDecrement}
-        onDiceClick={onAttributeRoll}
+        onUpdate={handleAttributeUpdate}
+        onAttributeRoll={(attributeNameParam, attributeValueParam) => handleAttributeRoll(attributeNameParam, attributeValueParam)}
       />
 
-      {skillValues.map((skill, index) => (
-        <SkillComponent
-          key={skill.name}
-          classes={classes}
-          skillName={skill.name}
-          skillValue={skill.value}
-          positionClass={skillPositions[index]}
-          onInputChange={handleSkillInputChange}
-          onBlur={handleSkillBlur}
-          onKeyDown={handleSkillKeyDown}
-          onIncrement={handleSkillIncrement}
-          onDecrement={handleSkillDecrement}
-          onDiceClick={onSkillRoll}
-        />
-      ))}
+      {memoizedSkillComponents}
     </>
   );
+};
+
+// Função de comparação otimizada para AttributeWithSkills
+const attributeWithSkillsPropsAreEqual = (prevProps, nextProps) => {
+  const getAttributeValueLocal = (attrs, name, defaultAttrs) => {
+    const validatedAttributes = attrs.length ? attrs : defaultAttrs;
+    const attribute = validatedAttributes.find(a => a.name === name);
+    const value = attribute?.year_zero_value || 0;
+    return Math.max(0, Math.min(6, value));
+  };
+  
+  const getSkillValueLocal = (skillsList, skillName, defaultSkillsList) => {
+    const validatedSkills = skillsList.length ? skillsList : defaultSkillsList;
+    const skill = validatedSkills.find(s => s.name === skillName);
+    const value = skill?.year_zero_value || 0;
+    return Math.max(0, Math.min(6, value));
+  };
+  
+  const prevAttributeValue = getAttributeValueLocal(
+    prevProps.attributes, 
+    prevProps.attributeName, 
+    prevProps.defaultAttributes
+  );
+  
+  const nextAttributeValue = getAttributeValueLocal(
+    nextProps.attributes, 
+    nextProps.attributeName, 
+    nextProps.defaultAttributes
+  );
+  
+  const attributeValueChanged = prevAttributeValue !== nextAttributeValue;
+  
+  const skillNames = Object.values(prevProps.config.skills);
+  let anySkillChanged = false;
+  
+  for (const skillName of skillNames) {
+    const prevSkillValue = getSkillValueLocal(
+      prevProps.skills, 
+      skillName, 
+      prevProps.defaultSkills
+    );
+    
+    const nextSkillValue = getSkillValueLocal(
+      nextProps.skills, 
+      skillName, 
+      nextProps.defaultSkills
+    );
+    
+    if (prevSkillValue !== nextSkillValue) {
+      anySkillChanged = true;
+      break;
+    }
+  }
+  
+  const callbacksChanged = 
+    prevProps.onUpdate !== nextProps.onUpdate ||
+    prevProps.onAttributeRoll !== nextProps.onAttributeRoll ||
+    prevProps.onSkillRoll !== nextProps.onSkillRoll;
+  
+  const shouldUpdate = attributeValueChanged || anySkillChanged || callbacksChanged;
+  
+  if (!shouldUpdate) {
+    return true;
+  }
+  
+  return false;
+};
+
+export const AttributeWithSkills = memo(AttributeWithSkillsComponent, attributeWithSkillsPropsAreEqual);
+
+// Export default pra manter compatibilidade
+export default {
+  AttributeWithSkills,
+  AttributeOctagon,
+  SkillComponent,
+  attributeComponentsStyles,
+  attributeSkillMap,
+  formatSkillDisplayName,
+  getAttributeValue,
+  getSkillValue,
+  updateAttribute,
+  updateSkill
 };

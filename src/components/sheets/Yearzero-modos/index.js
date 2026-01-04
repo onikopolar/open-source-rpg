@@ -1,5 +1,5 @@
 // Exportar todos os componentes do Yearzero-modos
-// Versão 1.1.0 - Feat: Adicionado ExperienceHistoryTracker
+// Versão 1.2.0 - Feat: Adicionei PersonalMetaTalents para meta pessoal, talentos e relacionamentos
 
 import HealthStressTracker from './HealthStressTracker';
 import DiamondWeb from './DiamondWeb';
@@ -13,6 +13,7 @@ import EquipmentNotepad from './EquipmentNotepad';
 import RadiationTracker from './RadiationTracker';
 import ConditionsTracker from './ConditionsTracker';
 import ExperienceHistoryTracker from './ExperienceHistoryTracker';
+import PersonalMetaTalents from './PersonalMetaTalents';
 
 // Importar os objetos de estilos
 import { healthStressStyles } from './HealthStressTracker';
@@ -21,8 +22,9 @@ import { equipmentNotepadStyles } from './EquipmentNotepad';
 import { radiationStyles } from './RadiationTracker';
 import { conditionsStyles } from './ConditionsTracker';
 import { experienceHistoryStyles } from './ExperienceHistoryTracker';
+import { personalMetaTalentsStyles } from './PersonalMetaTalents';
 
-console.log('[Yearzero-modos/index] Versão 1.1.0 - Adicionei ExperienceHistoryTracker para pontos de experiência e história');
+console.log('[Yearzero-modos/index] Versão 1.2.0 - Adicionei PersonalMetaTalents para meta pessoal, talentos e relacionamentos');
 
 export {
   HealthStressTracker,
@@ -40,5 +42,7 @@ export {
   ConditionsTracker,
   conditionsStyles,
   ExperienceHistoryTracker,
-  experienceHistoryStyles
+  experienceHistoryStyles,
+  PersonalMetaTalents,
+  personalMetaTalentsStyles
 };

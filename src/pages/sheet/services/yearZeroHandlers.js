@@ -1,7 +1,8 @@
+// Arquivo: src/pages/sheet/services/yearZeroHandlers.js
 import { api } from '../../../utils';
 
-// Fix: Adicionei handler para experience/history squares
-console.log('[YearZero Handlers] Versão 1.5.0 - Fix: Adicionado endpoint experience-history');
+// FIX: Agora eu uso o callback handleYearZeroUpdate que recebo, que já tem os setters configurados
+console.log('[YearZero Handlers] Versão 1.6.1 - FIX: handleYearZeroPushRoll agora usa o callback recebido com setters reais');
 
 // Handlers para Year Zero
 export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, setYearZeroAttributeValues, setYearZeroSkillValues, type, name, value) => {
@@ -183,7 +184,6 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       }));
       
     } else if (type === 'experience_squares' || type === 'history_squares') {
-      // NOVO: Handler para experience e history squares
       console.log('[YearZero Handlers] Atualizando experience/history squares:', type, value);
       
       if (!Array.isArray(value)) {
@@ -191,7 +191,6 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
         throw new Error('Squares deve ser array');
       }
       
-      // Valida tamanho dos arrays
       if (type === 'experience_squares' && value.length !== 10) {
         console.error('[YearZero Handlers] Erro: Experience squares deve ter 10 elementos:', value.length);
         throw new Error('Experience squares deve ter 10 elementos');
@@ -202,11 +201,9 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
         throw new Error('History squares deve ter 3 elementos');
       }
       
-      // Busca valores atuais para enviar ambos
       let currentExperienceSquares = character.experience_squares;
       let currentHistorySquares = character.history_squares;
       
-      // Parse dos valores atuais se forem strings
       const parseSquares = (squares) => {
         if (!squares) return type === 'experience_squares' ? Array(10).fill(false) : Array(3).fill(false);
         
@@ -226,7 +223,6 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       currentExperienceSquares = parseSquares(currentExperienceSquares);
       currentHistorySquares = parseSquares(currentHistorySquares);
       
-      // Garante tamanho correto
       if (!Array.isArray(currentExperienceSquares) || currentExperienceSquares.length !== 10) {
         currentExperienceSquares = Array(10).fill(false);
       }
@@ -245,11 +241,9 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       
       await api.put('/yearzero/experience-history', payload);
       
-      // Atualiza o estado
       setCharacter(prev => ({
         ...prev,
         [type]: JSON.stringify(value),
-        // Também atualiza os valores numéricos para compatibilidade
         ...(type === 'experience_squares' && {
           experience_points: value.filter(Boolean).length
         }),
@@ -261,19 +255,16 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       console.log('[YearZero Handlers] Experience/history squares atualizados com sucesso');
       
     } else if (type === 'experience_points' || type === 'history_points') {
-      // Compatibilidade: converte valor numérico para array
       console.log('[YearZero Handlers] Convertendo pontos numéricos para squares:', type, value);
       
       const parsedValue = parseInt(value) || 0;
       const maxSquares = type === 'experience_points' ? 10 : 3;
       
-      // Cria array de squares baseado no valor
       const squares = Array(maxSquares).fill(false);
       for (let i = 0; i < Math.min(parsedValue, maxSquares); i++) {
         squares[i] = true;
       }
       
-      // Chama o handler de squares
       await handleYearZeroUpdate(
         character,
         rpgSystem,
@@ -297,8 +288,69 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
         equipment_notes: value
       }));
       
+    } else if (type === 'equipment' || type === 'notepad') {
+      console.log('[YearZero Handlers] Atualizando equipment/notepad:', type, value);
+      
+      await api.put(`/character/${character.id}`, {
+        [type]: value
+      });
+      
+      setCharacter(prev => ({
+        ...prev,
+        [type]: value
+      }));
+      
+    } else if (type === 'personal_goal' || type === 'camarada' || type === 'rival' || 
+               type === 'career' || type === 'appearance' || type === 'talents') {
+      // Handler para campos do PersonalMetaTalents
+      console.log('[YearZero Handlers] Atualizando personal meta:', type, value);
+      
+      // Validação específica para talents
+      if (type === 'talents') {
+        let talentsValue = value;
+        
+        try {
+          if (typeof talentsValue === 'string') {
+            talentsValue = talentsValue.replace(/^"+|"+$/g, '');
+            const parsed = JSON.parse(talentsValue);
+            
+            if (!Array.isArray(parsed)) {
+              console.error('[YearZero Handlers] Erro: Talents deve ser um array');
+              throw new Error('Talents deve ser um array');
+            }
+            
+            const limitedTalents = parsed.slice(0, 4);
+            talentsValue = JSON.stringify(limitedTalents);
+          } else if (Array.isArray(talentsValue)) {
+            const limitedTalents = talentsValue.slice(0, 4);
+            talentsValue = JSON.stringify(limitedTalents);
+          } else {
+            console.error('[YearZero Handlers] Erro: Formato inválido para talents');
+            throw new Error('Formato inválido para talents');
+          }
+        } catch (error) {
+          console.error('[YearZero Handlers] Erro ao processar talents:', error);
+          throw new Error('Erro ao processar talents: ' + error.message);
+        }
+      }
+      
+      console.log('[YearZero Handlers] Enviando para personal-meta API:', { type, value });
+      
+      await api.put('/yearzero/personal-meta', {
+        character_id: character.id,
+        field: type,
+        value: type === 'talents' ? value : String(value || '')
+      });
+      
+      setCharacter(prev => ({
+        ...prev,
+        [type]: type === 'talents' ? value : String(value || '')
+      }));
+      
+      console.log('[YearZero Handlers] Personal meta atualizado com sucesso');
+      
     } else {
-      console.warn('[YearZero Handlers] Tipo desconhecido:', type);
+      console.warn('[YearZero Handlers] Tipo desconhecido:', type, name);
     }
     
   } catch (error) {
@@ -312,10 +364,12 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
   }
 };
 
+// FIX: Agora eu uso o callback handleYearZeroUpdate que recebo
+// Ele já tem todos os setters configurados, então eu só chamo ele com os parâmetros corretos
 export const handleYearZeroPushRoll = (character, handleYearZeroUpdate) => {
   if (!character) return;
   
-  console.log('[YearZero Handlers] Iniciando push roll');
+  console.log('[YearZero Handlers] Iniciando push roll - agora com setters reais');
   
   let currentStressSquares = character?.stress_squares;
   
@@ -342,18 +396,14 @@ export const handleYearZeroPushRoll = (character, handleYearZeroUpdate) => {
       newStressSquares[i] = true;
     }
     
-    handleYearZeroUpdate(
-      character,
-      'year_zero',
-      () => {},
-      () => {},
-      () => {},
-      'stress_squares',
-      'stress_squares',
-      newStressSquares
-    );
+    // FIX CRÍTICO: Agora eu uso o callback que recebi
+    // Esse callback já está configurado com setCharacter, setYearZeroAttributeValues, setYearZeroSkillValues
+    console.log('[YearZero Handlers] Chamando handleYearZeroUpdate com novos stress squares');
+    console.log('[YearZero Handlers] Count atual:', currentStressCount, '-> novo:', newStressCount);
     
-    console.log('[YearZero Handlers] Push roll concluído');
+    handleYearZeroUpdate('stress_squares', 'stress_squares', newStressSquares);
+    
+    console.log('[YearZero Handlers] Push roll concluído com sucesso - stress atualizado no estado local');
     
   } catch (error) {
     console.error('[YearZero Handlers] Erro ao processar stress squares:', error);

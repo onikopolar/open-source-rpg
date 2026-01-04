@@ -1,57 +1,64 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// src/components/sheets/YearZeroSheet.jsx - VERSÃO 4.7.0 - FIX: Callbacks estabilizados com useRef
+import React, { useMemo, useCallback, useRef, useEffect } from 'react';
 import { withStyles } from '@mui/styles';
 import { Box } from '@mui/material';
 
-// Importar componentes refatorados
+// Importar componentes
 import HealthStressTracker, { healthStressStyles } from './Yearzero-modos/HealthStressTracker';
 import DiamondWeb, { diamondWebStyles } from './Yearzero-modos/DiamondWeb';
 import { 
   AttributeWithSkills,
   attributeSkillMap,
-  getAttributeValue,
-  getSkillValue,
   attributeComponentsStyles
 } from './Yearzero-modos/AttributeComponents';
 import EquipmentNotepad, { equipmentNotepadStyles } from './Yearzero-modos/EquipmentNotepad';
 import RadiationTracker, { radiationStyles } from './Yearzero-modos/RadiationTracker';
 import ExperienceHistoryTracker, { experienceHistoryStyles } from './Yearzero-modos/ExperienceHistoryTracker';
+import PersonalMetaTalents from './Yearzero-modos/PersonalMetaTalents';
 
-// Fix: Adicionei os styles do ExperienceHistoryTracker que estavam faltando
-console.log('[YearZeroSheet] Versão 2.4.0 - Fix: Importei experienceHistoryStyles e removi wrappers desnecessários');
+console.log('[YearZeroSheet] Versão 4.7.0 - FIX: Callbacks estabilizados com useRef');
 
-// Combinar todos os estilos
 const mainStyles = (theme) => ({
-  container: {
-    padding: '20px',
-    maxWidth: '1150px',
+  mainContainer: {
+    width: '100%',
+    maxWidth: '1550px',
     margin: '0 auto',
+    padding: theme.spacing(2),
     display: 'flex',
-    gap: '25px',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  columnsContainer: {
+    padding: theme.spacing(2),
+    width: '100%',
+    display: 'flex',
+    gap: theme.spacing(3),
     minHeight: '700px',
     background: 'transparent',
-    borderRadius: '8px',
+    borderRadius: theme.shape.borderRadius,
     position: 'relative',
     flexWrap: 'nowrap',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    marginTop: theme.spacing(2),
   },
   leftColumn: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '25px',
+    gap: theme.spacing(3),
     width: '320px',
     flexShrink: 0
   },
   centerColumn: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '25px',
+    gap: theme.spacing(3),
     width: '320px',
     flexShrink: 0
   },
   rightColumn: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '25px',
+    gap: theme.spacing(3),
     width: '320px',
     flexShrink: 0,
     alignItems: 'stretch'
@@ -60,9 +67,9 @@ const mainStyles = (theme) => ({
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: '6px',
+    borderRadius: theme.shape.borderRadius,
     position: 'relative',
-    padding: '10px',
+    padding: theme.spacing(1),
     minHeight: '480px',
   },
   diamondCore: {
@@ -72,69 +79,13 @@ const mainStyles = (theme) => ({
     margin: '0 auto',
     transform: 'scale(0.85)'
   },
-  // Importa os estilos dos componentes - AGORA COMPLETO
   ...healthStressStyles(theme),
   ...diamondWebStyles(theme),
   ...attributeComponentsStyles(theme),
   ...equipmentNotepadStyles(theme),
   ...radiationStyles(theme),
-  ...experienceHistoryStyles(theme) // ESTAVA FALTANDO ESTE
+  ...experienceHistoryStyles(theme)
 });
-
-// Helper para converter array em objeto indexado por nome
-const arrayToObject = (items, keyField = 'name') => {
-  const obj = {};
-  items.forEach(item => {
-    if (item && item[keyField]) {
-      obj[item[keyField]] = { ...item };
-    }
-  });
-  return obj;
-};
-
-// Helper para converter objeto em array
-const objectToArray = (obj) => {
-  return Object.values(obj);
-};
-
-// Função para converter valor numérico em array de booleanos
-const createSquaresFromValue = (value, max) => {
-  const squares = Array(max).fill(false);
-  const activeCount = Math.min(value, max);
-  for (let i = 0; i < activeCount; i++) {
-    squares[i] = true;
-  }
-  return squares;
-};
-
-// Helper para criar estrutura inicial otimizada
-const createOptimizedStructure = () => {
-  console.log('[YearZeroSheet] Criando estrutura otimizada');
-  
-  const attributes = {
-    'Força': { name: 'Força', year_zero_value: 0 },
-    'Agilidade': { name: 'Agilidade', year_zero_value: 0 },
-    'Inteligência': { name: 'Inteligência', year_zero_value: 0 },
-    'Empatia': { name: 'Empatia', year_zero_value: 0 }
-  };
-  
-  const skills = {
-    'COMBATE CORPO A CORPO': { name: 'COMBATE CORPO A CORPO', year_zero_value: 0 },
-    'MAQUINÁRIO PESADO': { name: 'MAQUINÁRIO PESADO', year_zero_value: 0 },
-    'RESISTÊNCIA': { name: 'RESISTÊNCIA', year_zero_value: 0 },
-    'COMBATE À DISTÂNCIA': { name: 'COMBATE À DISTÂNCIA', year_zero_value: 0 },
-    'MOBILIDADE': { name: 'MOBILIDADE', year_zero_value: 0 },
-    'PILOTAGEM': { name: 'PILOTAGEM', year_zero_value: 0 },
-    'OBSERVAÇÃO': { name: 'OBSERVAÇÃO', year_zero_value: 0 },
-    'SOBREVIVÊNCIA': { name: 'SOBREVIVÊNCIA', year_zero_value: 0 },
-    'TECNOLOGIA': { name: 'TECNOLOGIA', year_zero_value: 0 },
-    'MANIPULAÇÃO': { name: 'MANIPULAÇÃO', year_zero_value: 0 },
-    'COMANDO': { name: 'COMANDO', year_zero_value: 0 },
-    'AJUDA MÉDICA': { name: 'AJUDA MÉDICA', year_zero_value: 0 }
-  };
-  
-  return { attributes, skills };
-};
 
 function YearZeroSheet({
   classes,
@@ -145,387 +96,240 @@ function YearZeroSheet({
   onAttributeRoll,
   onSkillRoll
 }) {
-  // Estrutura otimizada: objetos em vez de arrays
-  const [optimizedData, setOptimizedData] = useState(() => createOptimizedStructure());
-  const [stressSquares, setStressSquares] = useState(Array(10).fill(false));
-  const [healthSquares, setHealthSquares] = useState(Array(10).fill(false));
-  const [radiationSquares, setRadiationSquares] = useState(Array(10).fill(false));
+  // Debug: eu verifico se os callbacks estao mudando
+  const prevOnSkillRollRef = useRef();
+  const prevOnAttributeRollRef = useRef();
   
-  // Agora são arrays como o HealthStress
-  const [experienceSquares, setExperienceSquares] = useState(Array(10).fill(false));
-  const [historySquares, setHistorySquares] = useState(Array(3).fill(false));
-
-  // Estado para controlar se já carregamos os dados iniciais
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
-
-  // Helper para atualizar um único atributo de forma otimizada
-  const updateSingleAttribute = useCallback((attributeName, value) => {
-    console.log('[YearZeroSheet] updateSingleAttribute:', attributeName, value);
-    
-    setOptimizedData(prev => ({
-      ...prev,
-      attributes: {
-        ...prev.attributes,
-        [attributeName]: {
-          ...prev.attributes[attributeName],
-          year_zero_value: Math.max(0, Math.min(6, value))
-        }
-      }
-    }));
-    
-    if (onUpdate) {
-      onUpdate('attribute', attributeName, value);
-    }
-  }, [onUpdate]);
-
-  // Helper para atualizar uma única skill de forma otimizada
-  const updateSingleSkill = useCallback((skillName, value) => {
-    console.log('[YearZeroSheet] updateSingleSkill:', skillName, value);
-    
-    setOptimizedData(prev => ({
-      ...prev,
-      skills: {
-        ...prev.skills,
-        [skillName]: {
-          ...prev.skills[skillName],
-          year_zero_value: Math.max(0, Math.min(6, value))
-        }
-      }
-    }));
-    
-    if (onUpdate) {
-      onUpdate('skill', skillName, value);
-    }
-  }, [onUpdate]);
-
-  // Carregar dados iniciais - só roda uma vez
   useEffect(() => {
-    if (initialLoadDone) return;
-    
-    console.log('[YearZeroSheet] Carregando dados iniciais do personagem');
-    
-    let finalAttributes = { ...createOptimizedStructure().attributes };
-    let finalSkills = { ...createOptimizedStructure().skills };
-    
-    // Carregar atributos do banco se existirem
-    if (attributes && attributes.length > 0) {
-      console.log('[YearZeroSheet] Convertendo atributos do banco para estrutura otimizada');
-      attributes.forEach(attr => {
-        if (attr.name && finalAttributes[attr.name]) {
-          finalAttributes[attr.name] = {
-            ...finalAttributes[attr.name],
-            year_zero_value: Math.max(0, Math.min(6, attr.year_zero_value || 0))
-          };
-        }
-      });
+    if (process.env.NODE_ENV === 'development') {
+      if (prevOnSkillRollRef.current !== onSkillRoll) {
+        console.log('[YearZeroSheet] onSkillRoll REFERENCIA mudou:', {
+          mesmoEndereco: prevOnSkillRollRef.current === onSkillRoll,
+          tinhaAntes: !!prevOnSkillRollRef.current,
+          temAgora: !!onSkillRoll
+        });
+      }
+      if (prevOnAttributeRollRef.current !== onAttributeRoll) {
+        console.log('[YearZeroSheet] onAttributeRoll REFERENCIA mudou:', {
+          mesmoEndereco: prevOnAttributeRollRef.current === onAttributeRoll,
+          tinhaAntes: !!prevOnAttributeRollRef.current,
+          temAgora: !!onAttributeRoll
+        });
+      }
     }
     
-    // Carregar skills do banco se existirem
-    if (skills && skills.length > 0) {
-      console.log('[YearZeroSheet] Convertendo skills do banco para estrutura otimizada');
-      skills.forEach(skill => {
-        if (skill.name && finalSkills[skill.name]) {
-          finalSkills[skill.name] = {
-            ...finalSkills[skill.name],
-            year_zero_value: Math.max(0, Math.min(6, skill.year_zero_value || 0))
-          };
-        }
-      });
-    }
-    
-    setOptimizedData({
-      attributes: finalAttributes,
-      skills: finalSkills
-    });
-    
-    // Carregar quadrados de stress do banco
-    const loadStressSquares = () => {
-      if (character?.stress_squares) {
-        try {
-          let savedStressSquares = character.stress_squares;
-          
-          if (typeof savedStressSquares === 'string') {
-            savedStressSquares = savedStressSquares.replace(/^"+|"+$/g, '');
-            savedStressSquares = JSON.parse(savedStressSquares);
-          }
-          
-          if (Array.isArray(savedStressSquares) && savedStressSquares.length === 10) {
-            console.log('[YearZeroSheet] Stress squares carregados:', savedStressSquares);
-            setStressSquares(savedStressSquares);
-            return;
-          }
-        } catch (error) {
-          console.error('[YearZeroSheet] Erro ao carregar stress_squares:', error);
-        }
-      }
-      setStressSquares(Array(10).fill(false));
-    };
-    
-    // Carregar quadrados de vida do banco
-    const loadHealthSquares = () => {
-      if (character?.health_squares) {
-        try {
-          let savedHealthSquares = character.health_squares;
-          
-          if (typeof savedHealthSquares === 'string') {
-            savedHealthSquares = savedHealthSquares.replace(/^"+|"+$/g, '');
-            savedHealthSquares = JSON.parse(savedHealthSquares);
-          }
-          
-          if (Array.isArray(savedHealthSquares) && savedHealthSquares.length === 10) {
-            console.log('[YearZeroSheet] Health squares carregados:', savedHealthSquares);
-            setHealthSquares(savedHealthSquares);
-            return;
-          }
-        } catch (error) {
-          console.error('[YearZeroSheet] Erro ao carregar health_squares:', error);
-        }
-      }
-      setHealthSquares(Array(10).fill(false));
-    };
-    
-    // Carregar quadrados de radiação do banco
-    const loadRadiationSquares = () => {
-      if (character?.radiation_squares) {
-        try {
-          let savedRadiationSquares = character.radiation_squares;
-          
-          if (typeof savedRadiationSquares === 'string') {
-            savedRadiationSquares = savedRadiationSquares.replace(/^"+|"+$/g, '');
-            savedRadiationSquares = JSON.parse(savedRadiationSquares);
-          }
-          
-          if (Array.isArray(savedRadiationSquares) && savedRadiationSquares.length === 10) {
-            console.log('[YearZeroSheet] Radiation squares carregados:', savedRadiationSquares);
-            setRadiationSquares(savedRadiationSquares);
-            return;
-          }
-        } catch (error) {
-          console.error('[YearZeroSheet] Erro ao carregar radiation_squares:', error);
-        }
-      }
-      setRadiationSquares(Array(10).fill(false));
-    };
-    
-    // Carregar quadrados de experiência do banco (agora como array)
-    const loadExperienceSquares = () => {
-      if (character?.experience_points !== undefined) {
-        try {
-          // Tenta carregar como array primeiro
-          if (Array.isArray(character.experience_points) && character.experience_points.length === 10) {
-            console.log('[YearZeroSheet] Experience squares carregados como array:', character.experience_points);
-            setExperienceSquares(character.experience_points);
-            return;
-          }
-          
-          // Se for número, converte para array
-          const expValue = parseInt(character.experience_points) || 0;
-          console.log('[YearZeroSheet] Experience points carregados como número:', expValue);
-          const squares = createSquaresFromValue(expValue, 10);
-          setExperienceSquares(squares);
-          return;
-          
-        } catch (error) {
-          console.error('[YearZeroSheet] Erro ao carregar experience_points:', error);
-        }
-      }
-      setExperienceSquares(Array(10).fill(false));
-    };
-    
-    // Carregar quadrados de história do banco (agora como array)
-    const loadHistorySquares = () => {
-      if (character?.history_points !== undefined) {
-        try {
-          // Tenta carregar como array primeiro
-          if (Array.isArray(character.history_points) && character.history_points.length === 3) {
-            console.log('[YearZeroSheet] History squares carregados como array:', character.history_points);
-            setHistorySquares(character.history_points);
-            return;
-          }
-          
-          // Se for número, converte para array
-          const histValue = parseInt(character.history_points) || 0;
-          console.log('[YearZeroSheet] History points carregados como número:', histValue);
-          const squares = createSquaresFromValue(histValue, 3);
-          setHistorySquares(squares);
-          return;
-          
-        } catch (error) {
-          console.error('[YearZeroSheet] Erro ao carregar history_points:', error);
-        }
-      }
-      setHistorySquares(Array(3).fill(false));
-    };
-    
-    // Executar todos os carregamentos
-    loadStressSquares();
-    loadHealthSquares();
-    loadRadiationSquares();
-    loadExperienceSquares();
-    loadHistorySquares();
-    
-    setInitialLoadDone(true);
-    console.log('[YearZeroSheet] Carga inicial concluída');
-    
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    prevOnSkillRollRef.current = onSkillRoll;
+    prevOnAttributeRollRef.current = onAttributeRoll;
+  }, [onSkillRoll, onAttributeRoll]);
 
-  // Memoizar handlers com useCallback para estabilizar referências
+  // CORREÇÃO CRÍTICA: eu uso ref para callbacks estáveis
+  const callbacksRef = useRef({
+    onAttributeRoll: null,
+    onSkillRoll: null
+  });
+
+  // Eu atualizo os callbacks do ref quando as props mudam
+  useEffect(() => {
+    callbacksRef.current = {
+      onAttributeRoll: (name, value) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[YearZeroSheet] Encaminhando onAttributeRoll: ${name}=${value}`);
+        }
+        
+        if (onAttributeRoll) {
+          // Eu calculo o stress dentro do callback para não precisar de dependência
+          const stressSquares = character?.stress_squares ? 
+            JSON.parse(character.stress_squares) : 
+            Array(10).fill(false);
+          const stressCount = stressSquares.filter(square => square).length;
+          
+          onAttributeRoll(name, value, stressCount, stressSquares);
+        } else {
+          console.warn(`[YearZeroSheet] onAttributeRoll não está definido para ${name}`);
+        }
+      },
+      
+      onSkillRoll: (name, value) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[YearZeroSheet] Encaminhando onSkillRoll: ${name}=${value}`);
+        }
+        
+        if (onSkillRoll) {
+          // Eu calculo o stress dentro do callback para não precisar de dependência
+          const stressSquares = character?.stress_squares ? 
+            JSON.parse(character.stress_squares) : 
+            Array(10).fill(false);
+          const stressCount = stressSquares.filter(square => square).length;
+          
+          onSkillRoll(name, value, stressCount, stressSquares);
+        } else {
+          console.warn(`[YearZeroSheet] onSkillRoll não está definido para ${name}`);
+        }
+      }
+    };
+  }, [onAttributeRoll, onSkillRoll, character?.stress_squares]);
+
+  // CORREÇÃO: eu crio wrappers estáveis que usam o ref
+  const handleAttributeRollWrapper = useCallback((name, value) => {
+    return callbacksRef.current.onAttributeRoll?.(name, value);
+  }, []); // Array vazio - nunca muda!
+
+  const handleSkillRollWrapper = useCallback((name, value) => {
+    return callbacksRef.current.onSkillRoll?.(name, value);
+  }, []); // Array vazio - nunca muda!
+
+  // CORREÇÃO: eu memoizo os componentes de atributos sem depender de callbacks instáveis
+  const attributeComponents = useMemo(() => {
+    console.log('[YearZeroSheet] Criando atributos com callbacks estáveis');
+    
+    return Object.entries(attributeSkillMap).map(([attributeName, config]) => {
+      return (
+        <AttributeWithSkills
+          key={`${attributeName}_${character?.id || 'nochar'}`}
+          classes={classes}
+          attributeName={attributeName}
+          config={config}
+          attributes={attributes}
+          skills={skills}
+          onUpdate={onUpdate}
+          // CORREÇÃO: eu uso os wrappers estáveis
+          onAttributeRoll={handleAttributeRollWrapper}
+          onSkillRoll={handleSkillRollWrapper}
+          defaultAttributes={[]}
+          defaultSkills={[]}
+        />
+      );
+    });
+  }, [
+    classes, 
+    character?.id, 
+    attributes, 
+    skills, 
+    onUpdate,
+    handleAttributeRollWrapper, // Agora estáveis
+    handleSkillRollWrapper // Agora estáveis
+  ]);
+
+  // Eu parseio todos os dados do character de uma vez só
+  const parsedCharacterData = useMemo(() => {
+    console.log('[YearZeroSheet] Parseando dados do character');
+    
+    return {
+      healthSquares: character?.health_squares ? JSON.parse(character.health_squares) : Array(10).fill(false),
+      stressSquares: character?.stress_squares ? JSON.parse(character.stress_squares) : Array(10).fill(false),
+      radiationSquares: character?.radiation_squares ? JSON.parse(character.radiation_squares) : Array(10).fill(false),
+      experienceSquares: character?.experience_squares ? JSON.parse(character.experience_squares) : Array(10).fill(false),
+      historySquares: character?.history_squares ? JSON.parse(character.history_squares) : Array(3).fill(false)
+    };
+  }, [
+    character?.health_squares,
+    character?.stress_squares,
+    character?.radiation_squares,
+    character?.experience_squares,
+    character?.history_squares
+  ]);
+
+  // CORREÇÃO: eu estabilizo os handlers da coluna direita também
   const handleHealthUpdate = useCallback((newHealthSquares) => {
-    console.log('[YearZeroSheet] Atualizando health squares:', newHealthSquares);
-    setHealthSquares(newHealthSquares);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[YearZeroSheet] handleHealthUpdate chamado:', newHealthSquares);
+    }
+    
     if (onUpdate) {
-      onUpdate('health_squares', 'health_squares', newHealthSquares);
+      onUpdate('health_squares', 'health', newHealthSquares);
+    } else {
+      console.warn('[YearZeroSheet] onUpdate não está definido para health');
     }
   }, [onUpdate]);
 
   const handleStressUpdate = useCallback((newStressSquares) => {
-    console.log('[YearZeroSheet] Atualizando stress squares:', newStressSquares);
-    setStressSquares(newStressSquares);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[YearZeroSheet] handleStressUpdate chamado:', newStressSquares);
+    }
+    
     if (onUpdate) {
-      onUpdate('stress_squares', 'stress_squares', newStressSquares);
+      onUpdate('stress_squares', 'stress', newStressSquares);
+    } else {
+      console.warn('[YearZeroSheet] onUpdate não está definido para stress');
     }
   }, [onUpdate]);
 
   const handleRadiationUpdate = useCallback((newRadiationSquares) => {
-    console.log('[YearZeroSheet] Atualizando radiation squares:', newRadiationSquares);
-    setRadiationSquares(newRadiationSquares);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[YearZeroSheet] handleRadiationUpdate chamado:', newRadiationSquares);
+    }
+    
     if (onUpdate) {
-      onUpdate('radiation_squares', 'radiation_squares', newRadiationSquares);
+      onUpdate('radiation_squares', 'radiation', newRadiationSquares);
+    } else {
+      console.warn('[YearZeroSheet] onUpdate não está definido para radiation');
     }
   }, [onUpdate]);
 
-  // Agora recebe arrays como o HealthStress
   const handleExperienceUpdate = useCallback((newExperienceSquares) => {
-    console.log('[YearZeroSheet] Atualizando experience squares:', newExperienceSquares);
-    setExperienceSquares(newExperienceSquares);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[YearZeroSheet] handleExperienceUpdate chamado:', newExperienceSquares);
+    }
+    
     if (onUpdate) {
-      // Calcula o valor numérico para salvar no banco também
-      const experienceValue = newExperienceSquares.filter(Boolean).length;
-      onUpdate('experience_squares', 'experience_squares', newExperienceSquares);
-      onUpdate('experience_points', 'experience_points', experienceValue);
+      onUpdate('experience_squares', 'experience', newExperienceSquares);
+    } else {
+      console.warn('[YearZeroSheet] onUpdate não está definido para experience');
     }
   }, [onUpdate]);
 
-  // Agora recebe arrays como o HealthStress
   const handleHistoryUpdate = useCallback((newHistorySquares) => {
-    console.log('[YearZeroSheet] Atualizando history squares:', newHistorySquares);
-    setHistorySquares(newHistorySquares);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[YearZeroSheet] handleHistoryUpdate chamado:', newHistorySquares);
+    }
+    
     if (onUpdate) {
-      // Calcula o valor numérico para salvar no banco também
-      const historyValue = newHistorySquares.filter(Boolean).length;
-      onUpdate('history_squares', 'history_squares', newHistorySquares);
-      onUpdate('history_points', 'history_points', historyValue);
+      onUpdate('history_squares', 'history', newHistorySquares);
+    } else {
+      console.warn('[YearZeroSheet] onUpdate não está definido para history');
     }
   }, [onUpdate]);
 
-  const handleEquipmentSave = useCallback(async (type, value) => {
-    console.log('[YearZeroSheet] Salvando equipment:', type, value);
+  const handleEquipmentSave = useCallback((type, value) => {
     if (onUpdate) {
-      await onUpdate(type, type, value);
+      onUpdate(type, 'equipment', value);
     }
   }, [onUpdate]);
 
-  const handleAttributeRollWrapper = useCallback((attributeName) => {
-    console.log('[YearZeroSheet] Rolando atributo:', attributeName);
-    if (onAttributeRoll) {
-      const attribute = optimizedData.attributes[attributeName];
-      const value = attribute ? attribute.year_zero_value : 0;
-      const stressCount = stressSquares.filter(Boolean).length;
-      onAttributeRoll(attributeName, value, stressCount, stressSquares);
+  // Eu memoizo os componentes da coluna direita
+  const rightColumnComponents = useMemo(() => {
+    console.log('[YearZeroSheet] Renderizando coluna direita com dados parseados');
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[YearZeroSheet] Valores dos trackers:', {
+        healthSquares: parsedCharacterData.healthSquares,
+        stressSquares: parsedCharacterData.stressSquares,
+        radiationSquares: parsedCharacterData.radiationSquares,
+        experienceSquares: parsedCharacterData.experienceSquares,
+        historySquares: parsedCharacterData.historySquares
+      });
     }
-  }, [optimizedData.attributes, stressSquares, onAttributeRoll]);
-
-  const handleSkillRollWrapper = useCallback((skillName) => {
-    console.log('[YearZeroSheet] Rolando skill:', skillName);
-    if (onSkillRoll) {
-      const skill = optimizedData.skills[skillName];
-      const value = skill ? skill.year_zero_value : 0;
-      const stressCount = stressSquares.filter(Boolean).length;
-      onSkillRoll(skillName, value, stressCount, stressSquares);
-    }
-  }, [optimizedData.skills, stressSquares, onSkillRoll]);
-
-  // Handler para setLocalAttributes - agora atualiza objeto otimizado
-  const handleSetLocalAttributes = useCallback((attributeName, value) => {
-    console.log('[YearZeroSheet] handleSetLocalAttributes chamado para:', attributeName);
-    updateSingleAttribute(attributeName, value);
-  }, [updateSingleAttribute]);
-
-  // Handler para setLocalSkills - agora atualiza objeto otimizado
-  const handleSetLocalSkills = useCallback((skillName, value) => {
-    console.log('[YearZeroSheet] handleSetLocalSkills chamado para:', skillName);
-    updateSingleSkill(skillName, value);
-  }, [updateSingleSkill]);
-
-  // Converter objetos otimizados para arrays para compatibilidade com componentes existentes
-  const attributesArray = React.useMemo(() => 
-    objectToArray(optimizedData.attributes),
-    [optimizedData.attributes]
-  );
-
-  const skillsArray = React.useMemo(() => 
-    objectToArray(optimizedData.skills),
-    [optimizedData.skills]
-  );
-
-  console.log('[YearZeroSheet] Renderizando layout simplificado');
-
-  return (
-    <Box className={classes.container}>
-      {/* Coluna esquerda - Apenas Atributos */}
-      <Box className={classes.leftColumn}>
-        <Box className={classes.attributesContainer}>
-          <Box className={classes.diamondCore}>
-            <DiamondWeb classes={classes} />
-            
-            {Object.entries(attributeSkillMap).map(([attributeName, config]) => (
-              <AttributeWithSkills
-                key={attributeName}
-                classes={classes}
-                attributeName={attributeName}
-                config={config}
-                attributes={attributesArray}
-                skills={skillsArray}
-                onUpdate={onUpdate}
-                setLocalAttributes={handleSetLocalAttributes}
-                setLocalSkills={handleSetLocalSkills}
-                onAttributeRoll={handleAttributeRollWrapper}
-                onSkillRoll={handleSkillRollWrapper}
-                defaultAttributes={[]}
-                defaultSkills={[]}
-              />
-            ))}
-          </Box>
-        </Box>
-      </Box>
-
-      {/* Coluna central - Espaço vazio para separação */}
-      <Box className={classes.centerColumn}>
-        {/* Esta coluna fica vazia, serve apenas para criar espaço entre as outras */}
-      </Box>
-
-      {/* Coluna direita - HealthStress, Radiation, ExperienceHistory e Equipment empilhados */}
-      <Box className={classes.rightColumn}>
-        {/* Cada componente já tem seu próprio container com width definido */}
+    
+    return (
+      <>
         <HealthStressTracker 
           classes={classes}
-          healthSquares={healthSquares}
-          stressSquares={stressSquares}
+          healthSquares={parsedCharacterData.healthSquares}
+          stressSquares={parsedCharacterData.stressSquares}
           onHealthUpdate={handleHealthUpdate}
           onStressUpdate={handleStressUpdate}
         />
         
         <RadiationTracker
           classes={classes}
-          radiationSquares={radiationSquares}
+          radiationSquares={parsedCharacterData.radiationSquares}
           onRadiationUpdate={handleRadiationUpdate}
         />
         
-        {/* ExperienceHistoryTracker agora tem seus próprios styles importados */}
         <ExperienceHistoryTracker
           classes={classes}
-          experienceSquares={experienceSquares}
-          historySquares={historySquares}
+          experienceSquares={parsedCharacterData.experienceSquares}
+          historySquares={parsedCharacterData.historySquares}
           onExperienceUpdate={handleExperienceUpdate}
           onHistoryUpdate={handleHistoryUpdate}
         />
@@ -535,9 +339,85 @@ function YearZeroSheet({
           character={character}
           onSave={handleEquipmentSave}
         />
+      </>
+    );
+  }, [
+    classes,
+    character,
+    parsedCharacterData,
+    handleHealthUpdate,
+    handleStressUpdate,
+    handleRadiationUpdate,
+    handleExperienceUpdate,
+    handleHistoryUpdate,
+    handleEquipmentSave
+  ]);
+
+  return (
+    <>
+      <PersonalMetaTalents
+        character={character}
+        onSave={useCallback((type, value) => onUpdate?.(type, 'personal_meta', value), [onUpdate])}
+      />
+      
+      <Box className={classes.mainContainer}>
+        <Box className={classes.columnsContainer}>
+          <Box className={classes.leftColumn}>
+            <Box className={classes.attributesContainer}>
+              <Box className={classes.diamondCore}>
+                <DiamondWeb classes={classes} />
+                {attributeComponents}
+              </Box>
+            </Box>
+          </Box>
+
+          <Box className={classes.centerColumn} />
+
+          <Box className={classes.rightColumn}>
+            {rightColumnComponents}
+          </Box>
+        </Box>
       </Box>
-    </Box>
+    </>
   );
 }
 
-export default withStyles(mainStyles)(YearZeroSheet);
+// Componente memoizado com comparação otimizada
+const YearZeroSheetMemoized = React.memo(
+  withStyles(mainStyles)(YearZeroSheet),
+  (prevProps, nextProps) => {
+    // Comparação otimizada para evitar re-renders desnecessários
+    const callbacksChanged = 
+      prevProps.onSkillRoll !== nextProps.onSkillRoll ||
+      prevProps.onAttributeRoll !== nextProps.onAttributeRoll ||
+      prevProps.onUpdate !== nextProps.onUpdate;
+    
+    const characterChanged = prevProps.character !== nextProps.character;
+    const dataChanged = 
+      JSON.stringify(prevProps.attributes) !== JSON.stringify(nextProps.attributes) ||
+      JSON.stringify(prevProps.skills) !== JSON.stringify(nextProps.skills);
+    
+    // CORREÇÃO: eu registro mudanças apenas em desenvolvimento
+    if (process.env.NODE_ENV === 'development' && callbacksChanged) {
+      console.log('[YearZeroSheet] Memo comparação: callbacks mudaram', {
+        onSkillRoll: prevProps.onSkillRoll !== nextProps.onSkillRoll,
+        onAttributeRoll: prevProps.onAttributeRoll !== nextProps.onAttributeRoll,
+        onUpdate: prevProps.onUpdate !== nextProps.onUpdate
+      });
+    }
+    
+    // CORREÇÃO: eu só faço re-render se dados importantes mudarem
+    // Callbacks mudando não é razão suficiente para re-render
+    // porque eu uso refs internamente
+    const shouldRerender = characterChanged || dataChanged;
+    
+    if (process.env.NODE_ENV === 'development' && callbacksChanged && !shouldRerender) {
+      console.log('[YearZeroSheet] Callbacks mudaram, mas dados não - mantendo render atual');
+    }
+    
+    // Retorno true para pular re-render, false para fazer re-render
+    return !shouldRerender;
+  }
+);
+
+export default YearZeroSheetMemoized;
