@@ -21,6 +21,7 @@ const Header = ({
                 alt="Open Source RPG"
                 width="150"
                 height="55"
+                priority={true}
             />
             <h1
                 className={classes.title}

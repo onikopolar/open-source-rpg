@@ -1,4 +1,9 @@
-// useCharacterSheet.js - VERSÃO 3.0.0 - MAJOR: Reescrevi completamente para máximo desempenho
+// useCharacterSheet.js - VERSÃO 3.2.0 - FIX: Removido refreshData desnecessário após mudança de sistema
+// Data: 2024-01-16
+// Autor: Sistema RPG
+// Versão: 3.2.0 - FIX: Removido refreshData desnecessário após mudança de sistema
+// Descrição: Correção crítica que remove a chamada de refreshData após mudança de sistema, preservando scroll
+
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
 // Hook minimalista para verificar se estou no cliente
@@ -10,12 +15,12 @@ const useIsClient = () => {
   return isClient;
 };
 
-// Hook personalizado pra gerenciar o estado da ficha do personagem
-// Versão 3.0.0 - MAJOR: Reescrevi completamente para desempenho máximo
+// Hook personalizado para gerenciar o estado da ficha do personagem
+// Versão 3.2.0 - FIX: Removido refreshData desnecessário
 export const useCharacterSheet = (rawCharacter, refreshData) => {
-  console.log('[useCharacterSheet] Versão 3.0.0 - Desempenho máximo');
+  console.log('[useCharacterSheet] Versão 3.2.0 - Removido refreshData desnecessário após mudança de sistema');
 
-  // CORREÇÃO: eu uso useRef para o character inicial para evitar múltiplas execuções
+  // Uso useRef para o character inicial para evitar múltiplas execuções
   const initialCharacterRef = useRef(rawCharacter);
   const [character, setCharacter] = useState(null);
   
@@ -40,13 +45,15 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
 
   const isClient = useIsClient();
 
-  // Ref para refreshData do pai
+  // Ref para refreshData do pai - agora com controle melhor
   const refreshDataRef = useRef(refreshData);
+  const shouldRefreshAfterSystemChangeRef = useRef(false);
+  
   useEffect(() => {
     refreshDataRef.current = refreshData;
   }, [refreshData]);
 
-  // CORREÇÃO: inicialização otimizada - executa apenas uma vez
+  // Inicialização otimizada - executa apenas uma vez
   useEffect(() => {
     if (!isClient) {
       console.log('[useCharacterSheet] Aguardando cliente...');
@@ -102,9 +109,9 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
       console.error('[useCharacterSheet] Erro na inicialização otimizada:', error);
       setIsInitialized(true);
     }
-  }, [isClient, isInitialized]); // Apenas essas dependências
+  }, [isClient, isInitialized]);
 
-  // CORREÇÃO: eu processso valores apenas quando character muda de null para objeto
+  // Processo valores apenas quando character muda de null para objeto
   useEffect(() => {
     if (!character) {
       return;
@@ -160,7 +167,7 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
     
   }, [character]);
 
-  // CORREÇÃO: funções de gerenciamento otimizadas com useRef
+  // Funções de gerenciamento otimizadas com useRef
   const managementFunctionsRef = useRef({
     setLoading: (key, isLoading) => {
       setLoadingStates(prev => {
@@ -204,7 +211,7 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
     }
   });
 
-  // CORREÇÃO CRÍTICA: Callbacks absolutamente estáveis com useRef
+  // Callbacks absolutamente estáveis com useRef
   const callbacksRef = useRef({
     onUpdate: (type, name, value) => {
       console.log(`[useCharacterSheet] onUpdate: ${type}, ${name}=${value}`);
@@ -243,7 +250,7 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
     }
   });
 
-  // Mudança de sistema RPG otimizada
+  // Mudança de sistema RPG otimizada - VERSÃO CORRIGIDA SEM REFRESHDATA AUTOMÁTICO
   const handleSystemChange = useCallback(async (newSystem, api) => {
     console.log(`[useCharacterSheet] Mudando sistema para: ${newSystem}`);
     
@@ -273,10 +280,12 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
     try {
       console.log(`[useCharacterSheet] Salvando sistema ${newSystem}`);
       
+      // Atualizar estados primeiro para feedback imediato
       setIsSelectorExpanded(false);
       setIsSheetExpanded(true);
       setRpgSystem(newSystem);
       
+      // Marcar como visitado se for primeira vez
       if (isFirstTime) {
         try {
           const visitedSheets = JSON.parse(localStorage.getItem('visited_character_sheets') || '[]');
@@ -290,49 +299,57 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
         }
       }
       
+      // Salvar o sistema no banco de dados
+      console.log(`[useCharacterSheet] Salvando sistema ${newSystem} no banco`);
       await api.put(`/character/${currentCharacterId}`, {
         rpg_system: newSystem
       });
       
-      // Setup automático se necessário
+      // Setup automático apenas se necessário - com tratamento adequado
       if (newSystem === "year_zero") {
         try {
+          console.log('[useCharacterSheet] Tentando setup Year Zero');
           await api.post("/yearzero/setup", {
             character_id: currentCharacterId
           });
-          
-          if (refreshDataRef.current) {
-            await refreshDataRef.current();
-          }
+          console.log('[useCharacterSheet] Setup Year Zero concluído');
         } catch (error) {
-          console.error("[useCharacterSheet] Erro no setup Year Zero:", error);
+          // Tratamento específico para erro 404 - apenas log, não marca como erro
+          if (error.response?.status === 404) {
+            console.log('[useCharacterSheet] Endpoint /yearzero/setup não existe, ignorando setup');
+          } else {
+            console.error('[useCharacterSheet] Erro no setup Year Zero:', error);
+            managementFunctionsRef.current.handleApiError(error, 'yearZeroSetup');
+          }
         }
       }
       
+      // Sistema Feiticeiros selecionado - sem setup automático
       if (newSystem === "feiticeiros") {
-        try {
-          await api.post("/feiticeiros/setup", {
-            character_id: currentCharacterId
-          });
-          
-          if (refreshDataRef.current) {
-            await refreshDataRef.current();
-          }
-        } catch (error) {
-          console.error("[useCharacterSheet] Erro no setup Feiticeiros:", error);
-        }
+        console.log('[useCharacterSheet] Sistema Feiticeiros selecionado - sem setup automático');
       }
 
       setIsChangingSystem(false);
-      console.log(`[useCharacterSheet] Sistema ${newSystem} configurado`);
+      console.log(`[useCharacterSheet] Sistema ${newSystem} configurado com sucesso`);
       
-      if (refreshDataRef.current) {
-        await refreshDataRef.current();
+      // CORREÇÃO CRÍTICA: NÃO chamar refreshData após mudança de sistema
+      // Isso preserva a posição do scroll e evita recarregamento desnecessário
+      console.log('[useCharacterSheet] Skip refreshData para preservar scroll');
+      
+      // Em vez de refreshData, atualizar o character localmente se necessário
+      if (character) {
+        const updatedCharacter = {
+          ...character,
+          rpg_system: newSystem
+        };
+        setCharacter(updatedCharacter);
+        console.log('[useCharacterSheet] Character atualizado localmente com novo sistema');
       }
       
     } catch (error) {
       console.error(`[useCharacterSheet] Erro ao mudar sistema:`, error);
       
+      // Reverter estados em caso de erro
       setIsSelectorExpanded(true);
       setIsSheetExpanded(false);
       setRpgSystem(rpgSystem);
@@ -346,17 +363,17 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
     isFirstTime
   ]);
 
-  // Getter otimizado pra attributes
+  // Getter otimizado para attributes
   const getAttributes = useCallback(() => {
     return character?.attributes || [];
   }, [character?.attributes]);
 
-  // Getter otimizado pra skills
+  // Getter otimizado para skills
   const getSkills = useCallback(() => {
     return character?.skills || [];
   }, [character?.skills]);
 
-  // Helper pra arrays
+  // Helper para arrays
   const arraysAreEqual = useCallback((arr1, arr2) => {
     if (arr1 === arr2) return true;
     if (!arr1 || !arr2) return false;
@@ -383,7 +400,7 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
     }
   }, [character?.id]);
 
-  // CORREÇÃO FINAL: objeto de retorno ultra-otimizado
+  // Objeto de retorno otimizado
   const api = useMemo(() => {
     console.log('[useCharacterSheet] Criando API otimizada');
     
@@ -437,7 +454,6 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
     isSheetExpanded,
     isFirstTime,
     isInitialized
-    // Nota: NÃO incluo funções porque estão em refs estáveis
   ]);
 
   return api;

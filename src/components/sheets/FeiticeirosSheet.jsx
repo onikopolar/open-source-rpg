@@ -50,8 +50,8 @@ console.error = (...args) => {
   originalError.apply(console, args);
 };
 
-// Versionamento Semântico: 3.6.0 - FIX: HealthSection horizontal em mobile
-console.log('[FeiticeirosSheet] Versão 3.6.0 - HealthSection horizontal em mobile');
+// Versionamento Semântico: 3.8.0 - FIX: Adicionado priority em imagem do logo para LCP
+console.log('[FeiticeirosSheet] Versão 3.8.0 - Adicionado priority em imagem do logo para LCP');
 
 const mainStyles = (theme) => {
   const originalStyles = styles(theme);
@@ -181,6 +181,7 @@ function FeiticeirosSheet({
   errors = {}
 }) {
   console.log('[FeiticeirosSheet] Iniciando com character ID:', character?.id);
+  console.log('[FeiticeirosSheet] Versão 3.8.0 - Callbacks estáveis via refs e priority no logo');
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -202,6 +203,20 @@ function FeiticeirosSheet({
       zIndex: 10000
     });
   }, { defaultZIndex: 10000 });
+
+  // Callback estável via ref para evitar mudanças de referência
+  const onUpdateRef = useRef(onUpdate);
+  
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
+
+  // Wrapper estável para onUpdate
+  const stableOnUpdate = useCallback((type, name, value) => {
+    if (onUpdateRef.current) {
+      onUpdateRef.current(type, name, value);
+    }
+  }, []);
 
   const {
     localAttributes = {
@@ -262,19 +277,7 @@ function FeiticeirosSheet({
     handleBlur = () => {},
     handleKeyDown = () => {},
     canConfirm = false
-  } = useFeiticeirosSheet(character, onUpdate, diceRollModal);
-
-  const prevOnUpdateRef = useRef();
-  
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      if (prevOnUpdateRef.current !== onUpdate) {
-        console.log('[FeiticeirosSheet] onUpdate referência atualizada');
-      }
-    }
-    
-    prevOnUpdateRef.current = onUpdate;
-  }, [onUpdate]);
+  } = useFeiticeirosSheet(character, stableOnUpdate, diceRollModal);
 
   const modalsContent = useMemo(() => {
     return (
@@ -623,4 +626,8 @@ function FeiticeirosSheet({
   );
 }
 
-export default withStyles(mainStyles)(FeiticeirosSheet);
+// Componente memoizado sem função de comparação personalizada
+// Deixa o React fazer a comparação padrão
+const FeiticeirosSheetMemoized = React.memo(withStyles(mainStyles)(FeiticeirosSheet));
+
+export default FeiticeirosSheetMemoized;

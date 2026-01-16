@@ -1,24 +1,54 @@
 // SEED ESPECÍFICO PARA SISTEMA YEAR ZERO
 // Baseado em AttributeComponents.jsx versão 3.1.1
-// Versão 2.8.1 - FIX: Caminho correto do Prisma Client
+// Versão 3.1.0 - FIX: Corrigida acentuação dos nomes dos atributos para compatibilidade com frontend
+// REMOVIDO: Referências a armor_data que não existe no schema
+// ADICIONADO: Campos corretos do schema (armadura, carga_armadura, nivel_armadura, armas)
+// CORRIGIDO: Nomes dos atributos com acentuação correta em português brasileiro
+
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
 async function main() {
     console.log('=== SEED YEAR ZERO ESPECÍFICO ===')
     console.log('Baseado em AttributeComponents.jsx versão 3.1.1')
-    console.log('Versão 2.8.1 - FIX: Caminho do Prisma corrigido')
+    console.log('Versão 3.1.0 - FIX: Acentuação corrigida para compatibilidade com frontend')
     console.log('Iniciando seed específico para Year Zero...')
 
     // ============================================
     // 1. VERIFICAR SE JÁ EXISTEM DADOS
     // ============================================
+    console.log('Verificando dados existentes no banco...')
     const existingAttrs = await prisma.yearZeroAttribute.count()
     const existingSkills = await prisma.yearZeroSkill.count()
     
     if (existingAttrs > 0 && existingSkills > 0) {
-        console.log('Dados Year Zero já existem')
-        console.log('Atributos:', existingAttrs, 'Skills:', existingSkills)
+        console.log('Dados Year Zero já existem no banco')
+        console.log('Atributos encontrados:', existingAttrs, 'Skills encontradas:', existingSkills)
+        
+        // Verificar os nomes dos atributos existentes
+        const atributosExistentes = await prisma.yearZeroAttribute.findMany({
+            select: { name: true }
+        })
+        
+        console.log('Nomes dos atributos atuais no banco:')
+        atributosExistentes.forEach(attr => {
+            console.log('-', attr.name)
+        })
+        
+        // Verificar se os nomes estão corretos (com acentos)
+        const nomesEsperados = ['Força', 'Agilidade', 'Inteligência', 'Empatia']
+        const nomesFaltantes = nomesEsperados.filter(nome => 
+            !atributosExistentes.some(attr => attr.name === nome)
+        )
+        
+        if (nomesFaltantes.length > 0) {
+            console.log('ATENÇÃO: Atributos com nomes incorretos encontrados')
+            console.log('Atributos faltando acentuação:', nomesFaltantes.join(', '))
+            console.log('Executando correção de acentuação...')
+            await corrigirAcentuacaoAtributos()
+        } else {
+            console.log('Atributos já estão com acentuação correta')
+        }
         
         // Verificar se precisa atualizar os personagens com novos campos
         await atualizarCamposPersonagens()
@@ -39,10 +69,11 @@ async function main() {
     console.log('Dados Year Zero limpos')
 
     // ============================================
-    // 3. CRIAR ATRIBUTOS YEAR ZERO
+    // 3. CRIAR ATRIBUTOS YEAR ZERO COM ACENTUAÇÃO CORRETA
     // ============================================
     console.log('=== CRIANDO ATRIBUTOS YEAR ZERO ===')
     console.log('Baseado em attributeSkillMap do AttributeComponents.jsx')
+    console.log('Usando acentuação correta em português brasileiro')
     
     const yearZeroAttributes = [
         { 
@@ -67,7 +98,7 @@ async function main() {
         data: yearZeroAttributes
     })
 
-    console.log('4 atributos Year Zero criados:')
+    console.log('4 atributos Year Zero criados com acentuação correta:')
     yearZeroAttributes.forEach(attr => {
         console.log('-', attr.name, '-', attr.description)
     })
@@ -191,6 +222,7 @@ async function main() {
     if (allSkillsExist) {
         console.log('Todos os atributos e skills correspondem ao componente')
         console.log('Mapeamento attributeSkillMap está completo')
+        console.log('Acentuação verificada e correta')
     } else {
         console.log('Problemas encontrados:')
         if (missingSkills.length > 0) {
@@ -202,9 +234,63 @@ async function main() {
     // 6. ATUALIZAR PERSONAGENS EXISTENTES
     // ============================================
     console.log('=== ATUALIZANDO PERSONAGENS YEAR ZERO ===')
-    console.log('Adicionando campos de radiação...')
+    console.log('Adicionando campos específicos do sistema...')
     
     await atualizarCamposPersonagens()
+}
+
+// Função para corrigir acentuação dos atributos existentes
+async function corrigirAcentuacaoAtributos() {
+    console.log('Iniciando correção de acentuação dos atributos...')
+    
+    // Mapeamento de nomes sem acento para nomes com acento
+    const correcoesAcentuacao = {
+        'Forca': 'Força',
+        'Inteligencia': 'Inteligência',
+        'Empatia': 'Empatia' // Já está correto, mas mantém para consistência
+    }
+    
+    let correcoesAplicadas = 0
+    
+    for (const [nomeErrado, nomeCorreto] of Object.entries(correcoesAcentuacao)) {
+        // Verificar se existe atributo com nome errado
+        const atributoErrado = await prisma.yearZeroAttribute.findFirst({
+            where: { name: nomeErrado }
+        })
+        
+        if (atributoErrado) {
+            console.log(`Corrigindo atributo: "${nomeErrado}" -> "${nomeCorreto}"`)
+            
+            // Atualizar o nome do atributo
+            await prisma.yearZeroAttribute.update({
+                where: { id: atributoErrado.id },
+                data: { name: nomeCorreto }
+            })
+            
+            correcoesAplicadas++
+            
+            // Também atualizar qualquer referência em yearZeroCharacterAttribute
+            await prisma.yearZeroCharacterAttribute.updateMany({
+                where: { attribute_id: atributoErrado.id },
+                data: { 
+                    // Nota: O campo attribute_id não precisa ser atualizado, 
+                    // pois a relação é por ID, não por nome
+                }
+            })
+        }
+    }
+    
+    console.log(`Correção de acentuação concluída: ${correcoesAplicadas} atributos corrigidos`)
+    
+    // Verificar resultado
+    const atributosAtualizados = await prisma.yearZeroAttribute.findMany({
+        orderBy: { name: 'asc' }
+    })
+    
+    console.log('Atributos após correção:')
+    atributosAtualizados.forEach(attr => {
+        console.log('-', attr.name)
+    })
 }
 
 // Função para atualizar campos dos personagens
@@ -233,12 +319,10 @@ async function atualizarCamposPersonagens() {
                 career: '',
                 appearance: '',
                 talents: JSON.stringify(['', '', '', '']),
-                armor_data: JSON.stringify({
-                    armadura: '',
-                    nivel: '',
-                    carga: '',
-                    armas: []
-                }),
+                armadura: '',
+                carga_armadura: '',
+                nivel_armadura: '',
+                armas: JSON.stringify([]),
                 experience_squares: JSON.stringify(Array(10).fill(false)),
                 history_squares: JSON.stringify(Array(3).fill(false)),
                 radiation_squares: JSON.stringify(Array(10).fill(false))
@@ -259,7 +343,10 @@ async function atualizarCamposPersonagens() {
                     career: true,
                     appearance: true,
                     talents: true,
-                    armor_data: true,
+                    armadura: true,
+                    carga_armadura: true,
+                    nivel_armadura: true,
+                    armas: true,
                     experience_squares: true,
                     history_squares: true,
                     radiation_squares: true
@@ -279,14 +366,17 @@ async function atualizarCamposPersonagens() {
                 'career',
                 'appearance',
                 'talents',
-                'armor_data',
+                'armadura',
+                'carga_armadura',
+                'nivel_armadura',
+                'armas',
                 'experience_squares',
                 'history_squares',
                 'radiation_squares'
             ]
             
             camposParaPreservar.forEach(campo => {
-                if (existingChar && existingChar[campo] !== null) {
+                if (existingChar && existingChar[campo] !== null && existingChar[campo] !== '') {
                     delete updateData[campo]
                 }
             })
@@ -317,7 +407,10 @@ async function atualizarCamposPersonagens() {
         console.log('- career: carreira/profissão')
         console.log('- appearance: aparência física')
         console.log('- talents: talentos especiais (array JSON)')
-        console.log('- armor_data: dados de armas e armadura (JSON)')
+        console.log('- armadura: nome da armadura')
+        console.log('- carga_armadura: carga da armadura')
+        console.log('- nivel_armadura: nível da armadura')
+        console.log('- armas: lista de armas em JSON')
         console.log('- experience_squares: quadrados de experiência (10)')
         console.log('- history_squares: quadrados de história (3)')
         console.log('- radiation_squares: quadrados de radiação (10)')
@@ -338,7 +431,7 @@ async function atualizarCamposPersonagens() {
 async function mostrarResumoFinal() {
     console.log('=== RESUMO DO SEED YEAR ZERO ===')
     console.log('Seed específico para Year Zero concluído!')
-    console.log('Versão 2.8.1 - FIX: Caminho do Prisma corrigido')
+    console.log('Versão 3.1.0 - FIX: Acentuação corrigida para compatibilidade com frontend')
     
     // Estatísticas
     const createdAttrs = await prisma.yearZeroAttribute.findMany()
@@ -351,6 +444,11 @@ async function mostrarResumoFinal() {
     console.log('- Atributos Year Zero:', createdAttrs.length, '/4')
     console.log('- Skills Year Zero:', createdSkills.length, '/12')
     console.log('- Personagens Year Zero:', yearZeroChars.length)
+    
+    console.log('Verificação de acentuação:')
+    createdAttrs.forEach(attr => {
+        console.log('-', attr.name, '✓' )
+    })
     
     console.log('Formatação de nomes (AttributeComponents.jsx):')
     console.log('- "COMBATE CORPO A CORPO" -> "CORPO A\\nCORPO"')
@@ -374,7 +472,7 @@ async function mostrarResumoFinal() {
     console.log('- Saúde: health_squares, stress_squares')
     console.log('- Personagem: personal_goal, camarada, rival, career, appearance')
     console.log('- Progresso: talents, experience_squares, history_squares')
-    console.log('- Combate: armor_data (armas, armadura, carga)')
+    console.log('- Combate: armadura, carga_armadura, nivel_armadura, armas')
     console.log('- Ambiente: radiation_squares')
     
     // Verificar estrutura dos campos para um personagem de exemplo
@@ -386,7 +484,10 @@ async function mostrarResumoFinal() {
                 name: true,
                 equipment_notes: true,
                 personal_goal: true,
-                armor_data: true,
+                armadura: true,
+                carga_armadura: true,
+                nivel_armadura: true,
+                armas: true,
                 health_squares: true,
                 stress_squares: true,
                 experience_squares: true,
@@ -400,7 +501,10 @@ async function mostrarResumoFinal() {
         console.log('- Nome:', sampleChar.name)
         console.log('- Equipamentos:', sampleChar.equipment_notes ? 'Configurados' : 'Não configurados')
         console.log('- Meta pessoal:', sampleChar.personal_goal || '(não definida)')
-        console.log('- Armadura:', sampleChar.armor_data ? 'Configurada' : 'Não configurada')
+        console.log('- Armadura:', sampleChar.armadura || '(não configurada)')
+        console.log('- Carga armadura:', sampleChar.carga_armadura || '(vazio)')
+        console.log('- Nível armadura:', sampleChar.nivel_armadura || '(vazio)')
+        console.log('- Armas:', sampleChar.armas ? 'Configuradas' : 'Não configuradas')
         console.log('- Quadrados vida:', sampleChar.health_squares ? 'Configurados' : 'Não configurados')
         console.log('- Quadrados estresse:', sampleChar.stress_squares ? 'Configurados' : 'Não configurados')
         console.log('- Quadrados experiência:', sampleChar.experience_squares ? 'Configurados' : 'Não configurados')

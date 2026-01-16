@@ -1,5 +1,7 @@
-// src/pages/sheet/[id].jsx - VERSÃO REFATORADA CORRIGIDA (SEM STATUSBAR DUPLICADO)
-import React, { useState, useEffect, useCallback } from 'react';
+// Versão: 3.3.0 - FIX: Removido refreshData desnecessário após mudança de sistema
+console.log('[id.jsx] Versão 3.3.0 - FIX: Removido refreshData desnecessário após mudança de sistema');
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 
@@ -166,17 +168,50 @@ export const getServerSideProps = async ({ params }) => {
   }
 };
 
-// Componente principal da ficha do personagem (REFATORADO)
+// Componente principal da ficha do personagem (REFATORADO COM SCROLL FIX COMPLETO)
 function CharacterSheet({ rawCharacter, error: serverError }) {
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // Refs para controle de scroll
+  const scrollPositionRef = useRef(0);
+  const hasRestoredScrollRef = useRef(false);
+  const pendingSystemChangeRef = useRef(null);
+  const lastSystemChangeRef = useRef(Date.now());
 
+  // refreshData otimizado - só atualiza dados, não força recarregamento completo
   const refreshData = useCallback(() => {
-    return router.replace(router.asPath);
+    console.log('[id.jsx] refreshData otimizado chamado');
+    // Usar replace apenas se realmente necessário
+    return router.replace(router.asPath, undefined, { scroll: false });
   }, [router]);
 
-  // Usar hook refatorado
+  // Salvar posição do scroll continuamente
+  useEffect(() => {
+    const saveScrollPosition = () => {
+      const currentScroll = window.scrollY || document.documentElement.scrollTop;
+      if (currentScroll !== scrollPositionRef.current) {
+        scrollPositionRef.current = currentScroll;
+      }
+    };
+
+    // Salvar sempre que o usuário rolar (debounced)
+    let timeoutId;
+    const handleScroll = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(saveScrollPosition, 100);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []);
+
+  // Hook useCharacterSheet modificado para evitar refreshData automático
   const {
     character,
     setCharacter,
@@ -201,11 +236,59 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     isInitialized,
     handleSystemChange: originalHandleSystemChange
   } = useCharacterSheet(rawCharacter, refreshData);
-  
-  // Wrapper para handleSystemChange que inclui o api
-  const handleSystemChange = useCallback((newSystem) => {
-    return originalHandleSystemChange(newSystem, api);
+
+  // Função personalizada para mudar sistema SEM refreshData desnecessário
+  const handleSystemChange = useCallback(async (newSystem) => {
+    console.log('[id.jsx] handleSystemChange otimizado chamado para:', newSystem);
+    
+    // Salvar posição atual
+    const currentScroll = window.scrollY || document.documentElement.scrollTop;
+    scrollPositionRef.current = currentScroll;
+    pendingSystemChangeRef.current = newSystem;
+    hasRestoredScrollRef.current = false;
+    lastSystemChangeRef.current = Date.now();
+    
+    console.log('[id.jsx] Scroll salvo antes da mudança:', currentScroll);
+    
+    try {
+      // Chamar a mudança original
+      const result = await originalHandleSystemChange(newSystem, api);
+      
+      // Não chamar refreshData automaticamente - o hook já atualiza o estado
+      console.log('[id.jsx] Mudança de sistema concluída sem refreshData automático');
+      return result;
+    } catch (error) {
+      console.error('[id.jsx] Erro na mudança de sistema:', error);
+      throw error;
+    }
   }, [originalHandleSystemChange]);
+
+  // Restaurar scroll após mudança de sistema - AGUARDAR MAIS TEMPO
+  useEffect(() => {
+    if (isSheetExpanded && scrollPositionRef.current > 0 && !hasRestoredScrollRef.current) {
+      console.log('[id.jsx] Condição para restaurar scroll:', {
+        isSheetExpanded,
+        scrollPosition: scrollPositionRef.current,
+        hasRestored: hasRestoredScrollRef.current,
+        timeSinceChange: Date.now() - lastSystemChangeRef.current
+      });
+      
+      // Aguardar mais tempo para garantir que tudo está renderizado
+      const timer = setTimeout(() => {
+        if (scrollPositionRef.current > 0) {
+          console.log('[id.jsx] Restaurando scroll para:', scrollPositionRef.current);
+          window.scrollTo({
+            top: scrollPositionRef.current,
+            behavior: 'auto'
+          });
+          hasRestoredScrollRef.current = true;
+          console.log('[id.jsx] Scroll restaurado com sucesso após delay');
+        }
+      }, 300); // Aumentado para 300ms
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isSheetExpanded, rpgSystem]);
 
   // Criar handlers
   const handlers = createHandlers({
@@ -291,8 +374,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
 
     const handleCharacterUpdated = (data) => {
       if (data.id === character.id) {
-        console.log('Character atualizado via socket');
-        refreshData();
+        console.log('[id.jsx] Character atualizado via socket - atualizando dados');
+        // Atualizar apenas dados, não recarregar página
+        setCharacter(prev => ({ ...prev, ...data }));
       }
     };
 
@@ -301,7 +385,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     return () => {
       socket.off('characterUpdated', handleCharacterUpdated);
     };
-  }, [character, refreshData]);
+  }, [character, setCharacter]);
 
   // Estados de carregamento
   if (!isInitialized) {
@@ -347,7 +431,15 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
 
       <Header />
 
-      <Container maxWidth="lg" sx={{ py: 2, px: { xs: 1, sm: 2, md: 3 } }}>
+      <Container 
+        maxWidth="lg" 
+        sx={{ 
+          py: 2, 
+          px: { xs: 1, sm: 2, md: 3 },
+          minHeight: '100vh'
+        }}
+        id="character-sheet-container"
+      >
         {/* Alertas de erro */}
         {Object.keys(errors).map(errorKey => (
           <Alert 
@@ -385,8 +477,8 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           isMobile={isMobile}
         />
 
-        {/* Ficha do sistema selecionado */}
-        <Collapse in={isSheetExpanded} timeout="auto" unmountOnExit>
+        {/* Ficha do sistema selecionado - REMOVIDO COLLAPSE QUE RESETA SCROLL */}
+        {isSheetExpanded && (
           <Box sx={{ mt: 3 }}>
             <Box sx={{ 
               display: 'flex', 
@@ -441,7 +533,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
                 isMobile={isMobile}
               />
             ) : (
-              // Sistema clássico - APENAS ClassicSystem (sem StatusBar duplicado)
               <ClassicSystem
                 character={character}
                 attributeDiceModal={modals.attributeDiceModal}
@@ -463,7 +554,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
               />
             )}
           </Box>
-        </Collapse>
+        )}
 
         {/* Botão de rolagem de dados */}
         <Box sx={{ textAlign: 'center', mt: 4, mb: 2 }}>

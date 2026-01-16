@@ -1,6 +1,6 @@
 // Arquivo: src/pages/sheet/YearZeroSheet.js
-// Versão: 5.12.2 - FIX: Ajuste de escala dos componentes no layout mobile
-console.log('[YearZeroSheet] Versão 5.12.2 - FIX: Ajuste de escala dos componentes no layout mobile');
+// Versão: 5.14.0 - FIX: Correção de renderização de atributos e preservação de scroll
+console.log('[YearZeroSheet] Versão 5.14.0 - FIX: Correção de renderização de atributos e preservação de scroll');
 
 import React, { useMemo, useCallback, useRef, useEffect } from 'react';
 import { withStyles } from '@mui/styles';
@@ -21,7 +21,6 @@ import ArmasArmadura from './Yearzero-modos/ArmasArmadura';
 import ConditionsConsumablesTracker from './Yearzero-modos/ConditionsConsumablesTracker';
 
 const mainStyles = (theme) => ({
-  // ESTILOS DESKTOP (mantidos da versão 5.12.1)
   mainContainer: {
     width: '100%',
     maxWidth: '1600px',
@@ -145,8 +144,6 @@ const mainStyles = (theme) => ({
       background: theme.palette.grey[500],
     },
   },
-  
-  // ESTILOS PARA MOBILE - ATUALIZADOS
   mobileMainContainer: {
     width: '100%',
     maxWidth: '430px',
@@ -155,13 +152,12 @@ const mainStyles = (theme) => ({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    // REMOVIDO: gap - vamos controlar individualmente
   },
   mobilePersonalMetaContainer: {
     width: '100%',
     transform: 'scale(0.85)',
     transformOrigin: 'top center',
-    marginBottom: '-150px', // ESPAÇO CONTROLADO: 4px abaixo
+    marginBottom: '-150px',
   },
   mobileTrackersRow: {
     width: '100%',
@@ -170,7 +166,7 @@ const mainStyles = (theme) => ({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: theme.spacing(0.5),
-    marginBottom: '4px', // ESPAÇO CONTROLADO: 4px abaixo
+    marginBottom: '4px',
   },
   mobileTrackerItem: {
     flex: 1,
@@ -189,7 +185,7 @@ const mainStyles = (theme) => ({
     justifyContent: 'center',
     position: 'relative',
     minHeight: '280px',
-    marginBottom: '20px', // ESPAÇO CONTROLADO: 4px abaixo
+    marginBottom: '20px',
   },
   mobileDiamondWrapper: {
     position: 'absolute',
@@ -214,19 +210,18 @@ const mainStyles = (theme) => ({
     width: '100%',
     transform: 'scale(0.9)',
     transformOrigin: 'top center',
-    marginBottom: '4px', // ESPAÇO CONTROLADO: 4px abaixo
+    marginBottom: '4px',
   },
   mobileBottomSection: {
     width: '100%',
     display: 'flex',
     flexDirection: 'column',
-    // gap removido - vamos controlar individualmente
   },
   mobileConditionsContainer: {
     width: '100%',
     overflowY: 'auto',
     maxHeight: '220px',
-    marginBottom: '20px', // ESPAÇO CONTROLADO: 4px abaixo do Conditions
+    marginBottom: '20px',
     '&::-webkit-scrollbar': {
       width: '4px',
     },
@@ -243,9 +238,7 @@ const mainStyles = (theme) => ({
     width: '100%',
     transform: 'scale(0.9)',
     transformOrigin: 'top center',
-    // Sem margin bottom - último elemento
   },
-  
   ...healthStressStyles(theme),
   ...diamondWebStyles(theme),
   ...attributeComponentsStyles(theme),
@@ -263,33 +256,56 @@ function YearZeroSheet({
   onSkillRoll
 }) {
   console.log('[YearZeroSheet] Iniciando com character ID:', character?.id);
-  console.log('[YearZeroSheet] Versão 5.12.2 - Ajuste de escala mobile aplicado');
+  console.log('[YearZeroSheet] Versão 5.14.0 - FIX: Correção de renderização de atributos e preservação de scroll');
 
-  // DETECÇÃO DE MOBILE - DEVE SER EXECUTADO SEMPRE
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // ========== TODOS OS HOOKS DEVEM VIR AQUI ==========
-  const prevOnSkillRollRef = useRef();
-  const prevOnAttributeRollRef = useRef();
-  
+  // Ref para manter posição do scroll
+  const scrollPositionRef = useRef({ x: 0, y: 0 });
+  const hasRestoredScrollRef = useRef(false);
+
+  // Salvar posição do scroll antes de desmontar
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      if (prevOnSkillRollRef.current !== onSkillRoll) {
-        console.log('[YearZeroSheet] onSkillRoll referência atualizada');
-      }
-      if (prevOnAttributeRollRef.current !== onAttributeRoll) {
-        console.log('[YearZeroSheet] onAttributeRoll referência atualizada');
-      }
-    }
+    const handleBeforeUnload = () => {
+      scrollPositionRef.current = {
+        x: window.scrollX,
+        y: window.scrollY
+      };
+    };
+
+    window.addEventListener('scroll', handleBeforeUnload);
     
-    prevOnSkillRollRef.current = onSkillRoll;
-    prevOnAttributeRollRef.current = onAttributeRoll;
-  }, [onSkillRoll, onAttributeRoll]);
+    return () => {
+      window.removeEventListener('scroll', handleBeforeUnload);
+      scrollPositionRef.current = {
+        x: window.scrollX,
+        y: window.scrollY
+      };
+    };
+  }, []);
+
+  // Restaurar posição do scroll após renderização
+  useEffect(() => {
+    if (!hasRestoredScrollRef.current && (scrollPositionRef.current.x > 0 || scrollPositionRef.current.y > 0)) {
+      const timer = setTimeout(() => {
+        window.scrollTo({
+          left: scrollPositionRef.current.x,
+          top: scrollPositionRef.current.y,
+          behavior: 'auto'
+        });
+        hasRestoredScrollRef.current = true;
+        console.log('[YearZeroSheet] Scroll restaurado para:', scrollPositionRef.current);
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [character?.id]);
 
   const callbacksRef = useRef({
     onAttributeRoll: null,
-    onSkillRoll: null
+    onSkillRoll: null,
+    onUpdate: null
   });
 
   useEffect(() => {
@@ -314,9 +330,15 @@ function YearZeroSheet({
           
           onSkillRoll(name, value, stressCount, stressSquares);
         }
+      },
+      
+      onUpdate: (type, name, value) => {
+        if (onUpdate) {
+          onUpdate(type, name, value);
+        }
       }
     };
-  }, [onAttributeRoll, onSkillRoll, character?.stress_squares]);
+  }, [onAttributeRoll, onSkillRoll, onUpdate, character?.stress_squares]);
 
   const handleAttributeRollWrapper = useCallback((name, value) => {
     return callbacksRef.current.onAttributeRoll?.(name, value);
@@ -326,7 +348,13 @@ function YearZeroSheet({
     return callbacksRef.current.onSkillRoll?.(name, value);
   }, []);
 
+  const handleUpdateWrapper = useCallback((type, name, value) => {
+    return callbacksRef.current.onUpdate?.(type, name, value);
+  }, []);
+
   const attributeComponents = useMemo(() => {
+    console.log('[YearZeroSheet] Criando atributos components');
+    
     return Object.entries(attributeSkillMap).map(([attributeName, config]) => {
       return (
         <AttributeWithSkills
@@ -336,7 +364,7 @@ function YearZeroSheet({
           config={config}
           attributes={attributes}
           skills={skills}
-          onUpdate={onUpdate}
+          onUpdate={handleUpdateWrapper}
           onAttributeRoll={handleAttributeRollWrapper}
           onSkillRoll={handleSkillRollWrapper}
           defaultAttributes={[]}
@@ -349,7 +377,7 @@ function YearZeroSheet({
     character?.id, 
     attributes, 
     skills, 
-    onUpdate,
+    handleUpdateWrapper,
     handleAttributeRollWrapper,
     handleSkillRollWrapper
   ]);
@@ -386,7 +414,7 @@ function YearZeroSheet({
           }
         }
       } catch (error) {
-        console.warn('[YearZeroSheet] Erro ao processar squares, usando padrão:', error);
+        console.warn('[YearZeroSheet] Erro ao processar squares, usando padrao:', error);
       }
       
       return Array(defaultLength).fill(false);
@@ -408,51 +436,51 @@ function YearZeroSheet({
   ]);
 
   const handleHealthUpdate = useCallback((newHealthSquares) => {
-    if (onUpdate) {
-      onUpdate('health_squares', 'health', newHealthSquares);
+    if (handleUpdateWrapper) {
+      handleUpdateWrapper('health_squares', 'health', newHealthSquares);
     }
-  }, [onUpdate]);
+  }, [handleUpdateWrapper]);
 
   const handleStressUpdate = useCallback((newStressSquares) => {
-    if (onUpdate) {
-      onUpdate('stress_squares', 'stress', newStressSquares);
+    if (handleUpdateWrapper) {
+      handleUpdateWrapper('stress_squares', 'stress', newStressSquares);
     }
-  }, [onUpdate]);
+  }, [handleUpdateWrapper]);
 
   const handleRadiationUpdate = useCallback((newRadiationSquares) => {
-    if (onUpdate) {
-      onUpdate('radiation_squares', 'radiation', newRadiationSquares);
+    if (handleUpdateWrapper) {
+      handleUpdateWrapper('radiation_squares', 'radiation', newRadiationSquares);
     }
-  }, [onUpdate]);
+  }, [handleUpdateWrapper]);
 
   const handleExperienceUpdate = useCallback((newExperienceSquares) => {
-    if (onUpdate) {
-      onUpdate('experience_squares', 'experience', newExperienceSquares);
+    if (handleUpdateWrapper) {
+      handleUpdateWrapper('experience_squares', 'experience', newExperienceSquares);
     }
-  }, [onUpdate]);
+  }, [handleUpdateWrapper]);
 
   const handleHistoryUpdate = useCallback((newHistorySquares) => {
-    if (onUpdate) {
-      onUpdate('history_squares', 'history', newHistorySquares);
+    if (handleUpdateWrapper) {
+      handleUpdateWrapper('history_squares', 'history', newHistorySquares);
     }
-  }, [onUpdate]);
+  }, [handleUpdateWrapper]);
 
   const handleEquipmentSave = useCallback((type, value) => {
-    if (onUpdate) {
-      onUpdate(type, 'equipment', value);
+    if (handleUpdateWrapper) {
+      handleUpdateWrapper(type, 'equipment', value);
     }
-  }, [onUpdate]);
+  }, [handleUpdateWrapper]);
 
   const handleArmasArmaduraSave = useCallback((dados) => {
-    if (onUpdate && character?.id) {
-      onUpdate('armas_armaduras_batch', 'armas_armadura', {
+    if (handleUpdateWrapper && character?.id) {
+      handleUpdateWrapper('armas_armaduras_batch', 'armas_armadura', {
         armadura: dados.armadura || '',
         nivel: dados.nivel || '',
         carga: dados.carga || '',
         armas: dados.armas || []
       });
     }
-  }, [onUpdate, character?.id]);
+  }, [handleUpdateWrapper, character?.id]);
 
   const initialConditionsData = useMemo(() => {
     if (!character) return {};
@@ -479,26 +507,25 @@ function YearZeroSheet({
   ]);
 
   const handleConditionsUpdate = useCallback((data) => {
-    if (onUpdate) {
+    if (handleUpdateWrapper) {
       if (data.condicoes) {
-        onUpdate('conditions', 'conditions', data.condicoes);
+        handleUpdateWrapper('conditions', 'conditions', data.condicoes);
       }
       if (data.consumiveis) {
-        onUpdate('consumables', 'consumables', data.consumiveis);
+        handleUpdateWrapper('consumables', 'consumables', data.consumiveis);
       }
       if (data.lesoes) {
-        onUpdate('injuries', 'injuries', data.lesoes);
+        handleUpdateWrapper('injuries', 'injuries', data.lesoes);
       }
     }
-  }, [onUpdate]);
+  }, [handleUpdateWrapper]);
 
   const handlePersonalMetaSave = useCallback((type, value) => {
-    if (onUpdate) {
-      onUpdate(type, 'personal_meta', value);
+    if (handleUpdateWrapper) {
+      handleUpdateWrapper(type, 'personal_meta', value);
     }
-  }, [onUpdate]);
+  }, [handleUpdateWrapper]);
 
-  // ========== HOOKS ESPECÍFICOS PARA MOBILE ==========
   const mobileTrackersContent = useMemo(() => {
     return (
       <Box className={classes.mobileTrackersRow}>
@@ -544,7 +571,6 @@ function YearZeroSheet({
     handleHistoryUpdate
   ]);
 
-  // ========== HOOKS ESPECÍFICOS PARA DESKTOP ==========
   const leftColumnContent = useMemo(() => {
     return (
       <>
@@ -617,9 +643,6 @@ function YearZeroSheet({
     handleArmasArmaduraSave
   ]);
 
-  // ========== RENDERIZAÇÃO CONDICIONAL ==========
-  // AGORA podemos ter retorno condicional porque TODOS os hooks já foram executados
-  
   if (isMobile) {
     console.log('[YearZeroSheet] Renderizando layout mobile com escala ajustada');
     
@@ -677,7 +700,6 @@ function YearZeroSheet({
     );
   }
 
-  // RENDERIZAÇÃO DESKTOP
   console.log('[YearZeroSheet] Renderizando layout desktop');
   
   return (
@@ -720,26 +742,38 @@ function YearZeroSheet({
   );
 }
 
-// Função de comparação otimizada (mantida da versão 5.12.1)
 const YearZeroSheetMemoized = React.memo(
   withStyles(mainStyles)(YearZeroSheet),
   (prevProps, nextProps) => {
+    // Função auxiliar para comparar valores
     const compararCampo = (prevVal, nextVal) => {
       if (prevVal === nextVal) return true;
       if (!prevVal && !nextVal) return true;
       if (!prevVal || !nextVal) return false;
+      
+      // Para arrays vazios ou nulos, considerar iguais
+      if (Array.isArray(prevVal) && Array.isArray(nextVal)) {
+        if (prevVal.length === 0 && nextVal.length === 0) return true;
+        return JSON.stringify(prevVal) === JSON.stringify(nextVal);
+      }
+      
       return JSON.stringify(prevVal) === JSON.stringify(nextVal);
     };
     
+    // Verificar se o character relevante mudou
     const characterRelevanteMudou = () => {
       const prevChar = prevProps.character;
       const nextChar = nextProps.character;
       
+      // Ambos nulos = não mudou
       if (!prevChar && !nextChar) return false;
+      // Um é nulo e outro não = mudou
       if (!prevChar || !nextChar) return true;
       
+      // ID diferente = character diferente
       if (prevChar.id !== nextChar.id) return true;
       
+      // Lista de campos críticos que disparam re-render
       const camposCriticos = [
         'armadura',
         'nivel_armadura',
@@ -752,12 +786,14 @@ const YearZeroSheetMemoized = React.memo(
         'history_squares'
       ];
       
+      // Verificar cada campo crítico
       for (const campo of camposCriticos) {
         if (!compararCampo(prevChar[campo], nextChar[campo])) {
           return true;
         }
       }
       
+      // Verificar condições, consumíveis e lesões
       if (!compararCampo(prevChar.conditions, nextChar.conditions)) return true;
       if (!compararCampo(prevChar.consumables, nextChar.consumables)) return true;
       if (!compararCampo(prevChar.injuries, nextChar.injuries)) return true;
@@ -765,17 +801,28 @@ const YearZeroSheetMemoized = React.memo(
       return false;
     };
     
-    const attributesChanged = 
-      JSON.stringify(prevProps.attributes) !== JSON.stringify(nextProps.attributes);
-    const skillsChanged = 
-      JSON.stringify(prevProps.skills) !== JSON.stringify(nextProps.skills);
-    const callbacksChanged = 
-      prevProps.onUpdate !== nextProps.onUpdate ||
-      prevProps.onAttributeRoll !== nextProps.onAttributeRoll ||
-      prevProps.onSkillRoll !== nextProps.onSkillRoll;
+    // Verificar mudanças em attributes e skills
+    // IMPORTANTE: Só considerar como mudança se já tivermos dados
+    const prevAttributes = prevProps.attributes || [];
+    const nextAttributes = nextProps.attributes || [];
+    const prevSkills = prevProps.skills || [];
+    const nextSkills = nextProps.skills || [];
     
-    const shouldRerender = characterRelevanteMudou() || attributesChanged || skillsChanged || callbacksChanged;
+    // Attributes mudou? Só considerar se já tínhamos dados
+    const attributesChanged = prevAttributes.length > 0 && 
+                             JSON.stringify(prevAttributes) !== JSON.stringify(nextAttributes);
     
+    // Skills mudou? Só considerar se já tínhamos dados
+    const skillsChanged = prevSkills.length > 0 && 
+                         JSON.stringify(prevSkills) !== JSON.stringify(nextSkills);
+    
+    // Callbacks nunca disparam re-render (já estável via refs)
+    const callbacksChanged = false;
+    
+    // Decisão final: re-renderizar?
+    const shouldRerender = characterRelevanteMudou() || attributesChanged || skillsChanged;
+    
+    // Log apenas em desenvolvimento
     if (shouldRerender && process.env.NODE_ENV === 'development') {
       console.log('[YearZeroSheet] Re-renderizando devido a:', {
         characterRelevanteMudou: characterRelevanteMudou(),
@@ -785,6 +832,8 @@ const YearZeroSheetMemoized = React.memo(
       });
     }
     
+    // Retornar true para SKIP re-render (React.memo funciona ao contrário)
+    // Queremos skip se NÃO deve re-renderizar
     return !shouldRerender;
   }
 );
