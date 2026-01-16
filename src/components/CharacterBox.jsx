@@ -1,5 +1,5 @@
 // Arquivo: src/components/CharacterBox.jsx
-// Versão: 5.13.4 - FIX: Suporte para atualização de imagem
+// Versão: 6.0.0 - MAJOR: Suporte completo para base64 e URLs, prioridade correta
 
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
@@ -19,6 +19,8 @@ import useModal from '../hooks/useModal';
 import GeneratePortraitModal from './modals/GeneratePortraitModal';
 import ChangePictureModal from './modals/ChangePictureModal';
 
+console.log('[CharacterBox] Versão 6.0.0 - MAJOR: Suporte completo para base64 e URLs, prioridade correta');
+
 function CharacterBox({ 
   character, 
   deleteCharacter, 
@@ -35,37 +37,62 @@ function CharacterBox({
       return null;
     }
 
-    // Debug das URLs disponíveis
-    console.log('[CharacterBox] URLs do character:', {
+    console.log('[CharacterBox] DEBUG - Campos disponíveis:', {
       id: character.id,
-      standard: character.standard_character_picture_url,
-      injured: character.injured_character_picture_url,
-      hasStandard: !!character.standard_character_picture_url,
-      hasInjured: !!character.injured_character_picture_url
+      // Base64 COM PREFIXO (novo sistema)
+      hasStandardBase64: !!character.standard_character_image,
+      base64Length: character.standard_character_image?.length,
+      base64Preview: character.standard_character_image?.substring(0, 50),
+      // URLs antigas (sistema anterior)
+      hasStandardURL: !!character.standard_character_picture_url,
+      hasInjuredURL: !!character.injured_character_picture_url,
+      standardURL: character.standard_character_picture_url,
+      injuredURL: character.injured_character_picture_url,
+      // Dados de vida para lógica ferido/saudável
+      currentHP: character.current_hit_points,
+      maxHP: character.max_hit_points,
+      isInjured: character.current_hit_points <= (character.max_hit_points / 2)
     });
 
-    // MODIFICAÇÃO: Mostrar imagem personalizada mesmo se só tiver uma URL
+    // PRIORIDADE 1: Base64 direto do banco (novo sistema)
+    if (character.standard_character_image) {
+      console.log('[CharacterBox] Usando Base64 do banco (prioridade máxima)');
+      return character.standard_character_image; // Já é data URL completa
+    }
+
+    // PRIORIDADE 2: URLs antigas (backward compatibility)
     if(character.standard_character_picture_url || character.injured_character_picture_url) {
-      // Se tem pontos de vida acima da metade OU não tem URL ferida, usar padrão
-      if(character.current_hit_points > (character.max_hit_points / 2) || !character.injured_character_picture_url) {
+      const isInjured = character.current_hit_points <= (character.max_hit_points / 2);
+      const hasInjuredURL = !!character.injured_character_picture_url;
+      
+      if (isInjured && hasInjuredURL) {
+        console.log('[CharacterBox] Personagem ferido, usando URL ferida:', character.injured_character_picture_url);
+        return character.injured_character_picture_url;
+      } else {
         const url = character.standard_character_picture_url || character.injured_character_picture_url;
-        console.log('[CharacterBox] Usando URL padrão/fallback:', url);
+        console.log('[CharacterBox] Usando URL padrão:', url);
         return url;
       }
-      else {
-        console.log('[CharacterBox] Usando URL ferida:', character.injured_character_picture_url);
-        return character.injured_character_picture_url;
-      }
-    } else {
-      console.log('[CharacterBox] Nenhuma URL personalizada, usando padrão');
-      return `/assets/user.png`;
     }
+
+    // PRIORIDADE 3: Fallback padrão
+    console.log('[CharacterBox] Nenhuma imagem personalizada, usando fallback padrão');
+    return '/assets/user.png';
   }
 
   const characterImageUrl = getCharacterPictureURL();
   
-  // Verifica se é a imagem padrão
   const isDefaultImage = characterImageUrl === '/assets/user.png';
+  const isBase64 = characterImageUrl?.startsWith('data:image/');
+  const isExternalURL = characterImageUrl?.startsWith('http');
+
+  console.log('[CharacterBox] Resultado final:', {
+    imageUrl: characterImageUrl ? `${characterImageUrl.substring(0, 60)}...` : 'null',
+    isDefaultImage,
+    isBase64,
+    isExternalURL,
+    type: isBase64 ? 'base64' : isExternalURL ? 'external-url' : isDefaultImage ? 'default' : 'unknown'
+  });
 
   const generatePortraitModal = useModal(({ close, custom }) => (
     <GeneratePortraitModal
@@ -97,23 +124,48 @@ function CharacterBox({
     });
   };
 
+  const renderImage = () => {
+    if (!characterImageUrl) return null;
+
+    if (isBase64) {
+      // Usar <img> normal para base64
+      return (
+        <img
+          src={characterImageUrl}
+          alt={`${character.name} Portrait`}
+          className={classes.image}
+          style={{
+            width: '75px',
+            height: '75px',
+            borderRadius: '50%',
+            objectFit: 'cover'
+          }}
+        />
+      );
+    }
+
+    // Usar Next.js Image para URLs externas e fallback
+    return (
+      <Image
+        src={characterImageUrl}
+        alt={`${character.name} Portrait`}
+        className={classes.image}
+        width={75}
+        height={75}
+        // Prioridade apenas para URLs externas, não para fallback padrão
+        priority={isExternalURL}
+        loading={isDefaultImage ? "lazy" : "eager"}
+      />
+    );
+  };
+
   return (
     <Box
       className={classes.root}
       {...rest}
     >
-      {characterImageUrl && (
-        <Image
-          src={characterImageUrl}
-          alt={`${character.name} Portrait`}
-          className={classes.image}
-          width={70}
-          height={100}
-          // SOLUÇÃO: Desabilita preload para imagens padrão
-          priority={!isDefaultImage} // Apenas prioriza imagens customizadas
-          loading={isDefaultImage ? "lazy" : "eager"} // Lazy para padrão, eager para custom
-        />
-      )}
+      {renderImage()}
+      
       <Box className={classes.content}>
         <Typography className={classes.name} title={`${character.name} (ID: ${character.id})`}>
           {character.name} (ID: {character.id})
