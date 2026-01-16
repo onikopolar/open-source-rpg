@@ -1,5 +1,5 @@
-// Versão: 3.3.0 - FIX: Removido refreshData desnecessário após mudança de sistema
-console.log('[id.jsx] Versão 3.3.0 - FIX: Removido refreshData desnecessário após mudança de sistema');
+// Versão: 3.3.1 - FIX: Correção do SSR para incluir campos de imagem base64
+console.log('[id.jsx] Versão 3.3.1 - FIX: SSR corrigido para incluir campos de imagem base64');
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Head from 'next/head';
@@ -46,7 +46,7 @@ import {
   createModals
 } from '../../index[id]';
 
-// SSR (mantido igual)
+// SSR com correção para campos de imagem
 export const getServerSideProps = async ({ params }) => {
   try {
     const characterId = validateCharacterId(params?.id);
@@ -96,6 +96,20 @@ export const getServerSideProps = async ({ params }) => {
         feiticeiros_resistencias: true,
         feiticeiros_ataques: true
       }
+    });
+
+    // DEBUG: Verificar se os campos de imagem estão sendo retornados
+    console.log('[id.jsx] DEBUG SSR - Campos do personagem retornados:', {
+      id: character?.id,
+      name: character?.name,
+      temStandardImage: !!character?.standard_character_image,
+      tamanhoStandardImage: character?.standard_character_image?.length,
+      inicioStandardImage: character?.standard_character_image?.substring(0, 30) + '...',
+      temInjuredImage: !!character?.injured_character_image,
+      tamanhoInjuredImage: character?.injured_character_image?.length,
+      standardImageMime: character?.standard_image_mime,
+      injuredImageMime: character?.injured_image_mime,
+      camposTotais: character ? Object.keys(character).length : 0
     });
 
     // Auto-setup para Year Zero se necessário
@@ -168,7 +182,7 @@ export const getServerSideProps = async ({ params }) => {
   }
 };
 
-// Componente principal da ficha do personagem (REFATORADO COM SCROLL FIX COMPLETO)
+// Componente principal da ficha do personagem
 function CharacterSheet({ rawCharacter, error: serverError }) {
   const router = useRouter();
   const theme = useTheme();
@@ -180,10 +194,9 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
   const pendingSystemChangeRef = useRef(null);
   const lastSystemChangeRef = useRef(Date.now());
 
-  // refreshData otimizado - só atualiza dados, não força recarregamento completo
+  // refreshData otimizado
   const refreshData = useCallback(() => {
     console.log('[id.jsx] refreshData otimizado chamado');
-    // Usar replace apenas se realmente necessário
     return router.replace(router.asPath, undefined, { scroll: false });
   }, [router]);
 
@@ -196,7 +209,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
       }
     };
 
-    // Salvar sempre que o usuário rolar (debounced)
     let timeoutId;
     const handleScroll = () => {
       if (timeoutId) clearTimeout(timeoutId);
@@ -211,7 +223,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     };
   }, []);
 
-  // Hook useCharacterSheet modificado para evitar refreshData automático
+  // Hook useCharacterSheet
   const {
     character,
     setCharacter,
@@ -237,11 +249,22 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     handleSystemChange: originalHandleSystemChange
   } = useCharacterSheet(rawCharacter, refreshData);
 
-  // Função personalizada para mudar sistema SEM refreshData desnecessário
+  // DEBUG: Monitorar quando os dados da imagem mudam
+  useEffect(() => {
+    console.log('[id.jsx] DEBUG - Dados da imagem atualizados:', {
+      characterId: character?.id,
+      temStandardImage: !!character?.standard_character_image,
+      tamanhoStandardImage: character?.standard_character_image?.length,
+      inicioStandardImage: character?.standard_character_image?.substring(0, 30) + '...',
+      temInjuredImage: !!character?.injured_character_image,
+      standardImageMime: character?.standard_image_mime
+    });
+  }, [character?.standard_character_image, character?.injured_character_image]);
+
+  // Função personalizada para mudar sistema
   const handleSystemChange = useCallback(async (newSystem) => {
     console.log('[id.jsx] handleSystemChange otimizado chamado para:', newSystem);
     
-    // Salvar posição atual
     const currentScroll = window.scrollY || document.documentElement.scrollTop;
     scrollPositionRef.current = currentScroll;
     pendingSystemChangeRef.current = newSystem;
@@ -251,10 +274,8 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     console.log('[id.jsx] Scroll salvo antes da mudança:', currentScroll);
     
     try {
-      // Chamar a mudança original
       const result = await originalHandleSystemChange(newSystem, api);
       
-      // Não chamar refreshData automaticamente - o hook já atualiza o estado
       console.log('[id.jsx] Mudança de sistema concluída sem refreshData automático');
       return result;
     } catch (error) {
@@ -263,7 +284,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     }
   }, [originalHandleSystemChange]);
 
-  // Restaurar scroll após mudança de sistema - AGUARDAR MAIS TEMPO
+  // Restaurar scroll após mudança de sistema
   useEffect(() => {
     if (isSheetExpanded && scrollPositionRef.current > 0 && !hasRestoredScrollRef.current) {
       console.log('[id.jsx] Condição para restaurar scroll:', {
@@ -273,7 +294,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
         timeSinceChange: Date.now() - lastSystemChangeRef.current
       });
       
-      // Aguardar mais tempo para garantir que tudo está renderizado
       const timer = setTimeout(() => {
         if (scrollPositionRef.current > 0) {
           console.log('[id.jsx] Restaurando scroll para:', scrollPositionRef.current);
@@ -284,7 +304,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           hasRestoredScrollRef.current = true;
           console.log('[id.jsx] Scroll restaurado com sucesso após delay');
         }
-      }, 300); // Aumentado para 300ms
+      }, 300);
       
       return () => clearTimeout(timer);
     }
@@ -375,7 +395,6 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     const handleCharacterUpdated = (data) => {
       if (data.id === character.id) {
         console.log('[id.jsx] Character atualizado via socket - atualizando dados');
-        // Atualizar apenas dados, não recarregar página
         setCharacter(prev => ({ ...prev, ...data }));
       }
     };
@@ -477,7 +496,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
           isMobile={isMobile}
         />
 
-        {/* Ficha do sistema selecionado - REMOVIDO COLLAPSE QUE RESETA SCROLL */}
+        {/* Ficha do sistema selecionado */}
         {isSheetExpanded && (
           <Box sx={{ mt: 3 }}>
             <Box sx={{ 

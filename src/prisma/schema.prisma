@@ -1,6 +1,6 @@
-// schema.prisma - Versão 2.1.0 - ADD: Suporte para upload local de imagens
-// Versão: 2.1.0 - Suporte para upload local de imagens de personagem
-// Data: 2024-01-15
+// schema.prisma - Versão 2.2.1 - FIX: Correção do tipo LongText para PostgreSQL
+// Versão: 2.2.1 - Correção do tipo de dados para PostgreSQL
+// Data: 2024-01-16
 // Autor: Sistema RPG
 
 generator client {
@@ -24,9 +24,16 @@ model Character {
   current_picture                    Int                             @default(1)
   is_dead                            Boolean                         @default(false)
   
-  // ATUALIZADO: Campos de URL de imagem com tamanho maior para uploads locais
+  // Campos de URL de imagem para links externos (Imgur, Discord)
   standard_character_picture_url     String?                         @db.Text
   injured_character_picture_url      String?                         @db.Text
+  
+  // CAMPOS CORRIGIDOS: Imagens em base64 salvas diretamente no banco
+  // PostgreSQL usa @db.Text (não @db.LongText)
+  standard_character_image           String?                         @db.Text  // data:image/png;base64,...
+  injured_character_image            String?                         @db.Text  // data:image/png;base64,...
+  standard_image_mime                String?                         // "image/png", "image/jpeg", etc
+  injured_image_mime                 String?                         // "image/png", "image/jpeg", etc
   
   stress_level                       Int?                            @default(0)
   trauma_level                       Int?                            @default(0)

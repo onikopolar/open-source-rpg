@@ -1,8 +1,8 @@
 // SEED ESPECÍFICO PARA SISTEMA YEAR ZERO
 // Baseado em AttributeComponents.jsx versão 3.1.1
-// Versão 3.1.0 - FIX: Corrigida acentuação dos nomes dos atributos para compatibilidade com frontend
+// Versão 3.2.0 - FIX: Compatível com schema atual (inclui campos de imagem base64)
 // REMOVIDO: Referências a armor_data que não existe no schema
-// ADICIONADO: Campos corretos do schema (armadura, carga_armadura, nivel_armadura, armas)
+// ADAPTADO: Inclui todos os campos do schema atual (incluindo campos de imagem base64)
 // CORRIGIDO: Nomes dos atributos com acentuação correta em português brasileiro
 
 const { PrismaClient } = require('@prisma/client')
@@ -11,7 +11,7 @@ const prisma = new PrismaClient()
 async function main() {
     console.log('=== SEED YEAR ZERO ESPECÍFICO ===')
     console.log('Baseado em AttributeComponents.jsx versão 3.1.1')
-    console.log('Versão 3.1.0 - FIX: Acentuação corrigida para compatibilidade com frontend')
+    console.log('Versão 3.2.0 - FIX: Compatível com schema atual (campos base64 inclusos)')
     console.log('Iniciando seed específico para Year Zero...')
 
     // ============================================
@@ -294,6 +294,7 @@ async function corrigirAcentuacaoAtributos() {
 }
 
 // Função para atualizar campos dos personagens
+// ATUALIZADA: Inclui TODOS os campos do schema atual
 async function atualizarCamposPersonagens() {
     const yearZeroChars = await prisma.character.findMany({
         where: { rpg_system: 'year_zero' },
@@ -305,7 +306,7 @@ async function atualizarCamposPersonagens() {
     if (yearZeroChars.length > 0) {
         console.log('IDs:', yearZeroChars.map(c => c.id + ':"' + c.name + '"').join(', '))
         
-        // Atualizar cada personagem com todos os novos campos
+        // Atualizar cada personagem com TODOS os campos do schema atual
         for (const character of yearZeroChars) {
             const updateData = {
                 equipment_notes: '',
@@ -325,73 +326,122 @@ async function atualizarCamposPersonagens() {
                 armas: JSON.stringify([]),
                 experience_squares: JSON.stringify(Array(10).fill(false)),
                 history_squares: JSON.stringify(Array(3).fill(false)),
-                radiation_squares: JSON.stringify(Array(10).fill(false))
+                radiation_squares: JSON.stringify(Array(10).fill(false)),
+                standard_character_picture_url: null,
+                injured_character_picture_url: null,
+                // INCLUIR CAMPOS DO SCHEMA ATUAL (mesmo que sejam null/undefined)
+                standard_character_image: null,
+                injured_character_image: null,
+                standard_image_mime: null,
+                injured_image_mime: null
             }
             
             // Verificar quais campos já existem para não sobrescrever dados
-            const existingChar = await prisma.character.findUnique({
-                where: { id: character.id },
-                select: {
-                    equipment_notes: true,
-                    tiny_items: true,
-                    emotional_item: true,
-                    health_squares: true,
-                    stress_squares: true,
-                    personal_goal: true,
-                    camarada: true,
-                    rival: true,
-                    career: true,
-                    appearance: true,
-                    talents: true,
-                    armadura: true,
-                    carga_armadura: true,
-                    nivel_armadura: true,
-                    armas: true,
-                    experience_squares: true,
-                    history_squares: true,
-                    radiation_squares: true
-                }
-            })
-            
-            // Manter dados existentes ou usar valores padrão
-            const camposParaPreservar = [
-                'equipment_notes',
-                'tiny_items',
-                'emotional_item',
-                'health_squares',
-                'stress_squares',
-                'personal_goal',
-                'camarada',
-                'rival',
-                'career',
-                'appearance',
-                'talents',
-                'armadura',
-                'carga_armadura',
-                'nivel_armadura',
-                'armas',
-                'experience_squares',
-                'history_squares',
-                'radiation_squares'
-            ]
-            
-            camposParaPreservar.forEach(campo => {
-                if (existingChar && existingChar[campo] !== null && existingChar[campo] !== '') {
-                    delete updateData[campo]
-                }
-            })
+            // MAS usar uma query segura que não cause erro se campos não existirem
+            try {
+                const existingChar = await prisma.character.findUnique({
+                    where: { id: character.id },
+                    select: {
+                        equipment_notes: true,
+                        tiny_items: true,
+                        emotional_item: true,
+                        health_squares: true,
+                        stress_squares: true,
+                        personal_goal: true,
+                        camarada: true,
+                        rival: true,
+                        career: true,
+                        appearance: true,
+                        talents: true,
+                        armadura: true,
+                        carga_armadura: true,
+                        nivel_armadura: true,
+                        armas: true,
+                        experience_squares: true,
+                        history_squares: true,
+                        radiation_squares: true,
+                        standard_character_picture_url: true,
+                        injured_character_picture_url: true
+                        // Não tentar selecionar campos problemáticos para evitar erro
+                    }
+                })
+                
+                // Manter dados existentes ou usar valores padrão
+                const camposParaPreservar = [
+                    'equipment_notes',
+                    'tiny_items',
+                    'emotional_item',
+                    'health_squares',
+                    'stress_squares',
+                    'personal_goal',
+                    'camarada',
+                    'rival',
+                    'career',
+                    'appearance',
+                    'talents',
+                    'armadura',
+                    'carga_armadura',
+                    'nivel_armadura',
+                    'armas',
+                    'experience_squares',
+                    'history_squares',
+                    'radiation_squares',
+                    'standard_character_picture_url',
+                    'injured_character_picture_url'
+                ]
+                
+                camposParaPreservar.forEach(campo => {
+                    if (existingChar && existingChar[campo] !== null && existingChar[campo] !== undefined && existingChar[campo] !== '') {
+                        console.log(`[DEBUG] Preservando campo ${campo}:`, existingChar[campo])
+                        delete updateData[campo]
+                    }
+                })
+            } catch (error) {
+                console.log(`[AVISO] Não foi possível verificar campos existentes para ${character.name}:`, error.message)
+                console.log('[AVISO] Continuando com valores padrão para todos os campos')
+            }
             
             // Apenas atualizar se houver campos para atualizar
             if (Object.keys(updateData).length > 0) {
-                await prisma.character.update({
-                    where: { id: character.id },
-                    data: updateData
-                })
-                
-                console.log('Personagem', character.name, 'atualizado com', 
-                    Object.keys(updateData).length, 'novos campos')
+                try {
+                    // Tentar atualizar apenas campos que sabemos que existem
+                    // Mas a query precisa incluir todos os campos do schema
+                    await prisma.character.update({
+                        where: { id: character.id },
+                        data: updateData
+                    })
+                    
+                    console.log('Personagem', character.name, 'atualizado com', 
+                        Object.keys(updateData).length, 'novos campos')
+                } catch (error) {
+                    console.error('Erro ao atualizar personagem', character.name, ':', error.message)
+                    console.error('Código do erro:', error.code)
+                    
+                    // Se o erro for sobre campos que não existem, tentar sem eles
+                    if (error.code === 'P2022' && error.meta?.column?.includes('character_image')) {
+                        console.log('Tentando atualizar sem campos problemáticos...')
+                        
+                        // Remover campos de imagem base64 da tentativa
+                        const updateDataSimplificado = { ...updateData }
+                        delete updateDataSimplificado.standard_character_image
+                        delete updateDataSimplificado.injured_character_image
+                        delete updateDataSimplificado.standard_image_mime
+                        delete updateDataSimplificado.injured_image_mime
+                        
+                        try {
+                            await prisma.character.update({
+                                where: { id: character.id },
+                                data: updateDataSimplificado
+                            })
+                            console.log('Personagem', character.name, 'atualizado com', 
+                                Object.keys(updateDataSimplificado).length, 'campos (sem base64)')
+                        } catch (error2) {
+                            console.error('Erro mesmo sem campos base64:', error2.message)
+                        }
+                    }
+                }
             } else {
-                console.log('Personagem', character.name, 'já possui todos os campos')
+                console.log('Personagem', character.name, 'já possui todos os campos básicos')
             }
         }
         
@@ -414,6 +464,10 @@ async function atualizarCamposPersonagens() {
         console.log('- experience_squares: quadrados de experiência (10)')
         console.log('- history_squares: quadrados de história (3)')
         console.log('- radiation_squares: quadrados de radiação (10)')
+        console.log('- standard_character_picture_url: URL imagem padrão')
+        console.log('- injured_character_picture_url: URL imagem machucada')
+        console.log('- standard_character_image: Base64 imagem padrão (se schema suportar)')
+        console.log('- injured_character_image: Base64 imagem machucada (se schema suportar)')
         
         console.log('Notas sobre radiação:')
         console.log('- RadiationTracker.jsx versão 2.0.3')
@@ -426,24 +480,38 @@ async function atualizarCamposPersonagens() {
 }
 
 // ============================================
-// 7. RESUMO FINAL
+// 7. RESUMO FINAL (seguro - não tenta selecionar campos problemáticos)
 // ============================================
 async function mostrarResumoFinal() {
     console.log('=== RESUMO DO SEED YEAR ZERO ===')
     console.log('Seed específico para Year Zero concluído!')
-    console.log('Versão 3.1.0 - FIX: Acentuação corrigida para compatibilidade com frontend')
+    console.log('Versão 3.2.0 - FIX: Compatível com schema atual')
     
-    // Estatísticas
+    // Estatísticas (consultas seguras)
     const createdAttrs = await prisma.yearZeroAttribute.findMany()
     const createdSkills = await prisma.yearZeroSkill.findMany()
-    const yearZeroChars = await prisma.character.findMany({
-        where: { rpg_system: 'year_zero' }
-    })
     
-    console.log('Estatísticas:')
-    console.log('- Atributos Year Zero:', createdAttrs.length, '/4')
-    console.log('- Skills Year Zero:', createdSkills.length, '/12')
-    console.log('- Personagens Year Zero:', yearZeroChars.length)
+    try {
+        const yearZeroChars = await prisma.character.findMany({
+            where: { rpg_system: 'year_zero' },
+            select: {
+                id: true,
+                name: true,
+                rpg_system: true
+                // Selecionar apenas campos que sabemos que existem
+            }
+        })
+        
+        console.log('Estatísticas:')
+        console.log('- Atributos Year Zero:', createdAttrs.length, '/4')
+        console.log('- Skills Year Zero:', createdSkills.length, '/12')
+        console.log('- Personagens Year Zero:', yearZeroChars.length)
+    } catch (error) {
+        console.log('Estatísticas:')
+        console.log('- Atributos Year Zero:', createdAttrs.length, '/4')
+        console.log('- Skills Year Zero:', createdSkills.length, '/12')
+        console.log('- Personagens Year Zero: Não foi possível contar (erro de schema)')
+    }
     
     console.log('Verificação de acentuação:')
     createdAttrs.forEach(attr => {
@@ -466,55 +534,8 @@ async function mostrarResumoFinal() {
     console.log('6. ExperienceHistoryTracker.jsx - Progresso do personagem')
     console.log('7. RadiationTracker.jsx - Sistema de radiação')
     
-    console.log('Resumo completo dos campos disponíveis:')
-    console.log('- Básicos: name, description, rpg_system')
-    console.log('- Equipamento: equipment_notes, tiny_items, emotional_item')
-    console.log('- Saúde: health_squares, stress_squares')
-    console.log('- Personagem: personal_goal, camarada, rival, career, appearance')
-    console.log('- Progresso: talents, experience_squares, history_squares')
-    console.log('- Combate: armadura, carga_armadura, nivel_armadura, armas')
-    console.log('- Ambiente: radiation_squares')
-    
-    // Verificar estrutura dos campos para um personagem de exemplo
-    if (yearZeroChars.length > 0) {
-        const sampleChar = await prisma.character.findUnique({
-            where: { id: yearZeroChars[0].id },
-            select: {
-                id: true,
-                name: true,
-                equipment_notes: true,
-                personal_goal: true,
-                armadura: true,
-                carga_armadura: true,
-                nivel_armadura: true,
-                armas: true,
-                health_squares: true,
-                stress_squares: true,
-                experience_squares: true,
-                history_squares: true,
-                radiation_squares: true
-            }
-        })
-        
-        console.log('Exemplo de estrutura final para personagem:')
-        console.log('- ID:', sampleChar.id)
-        console.log('- Nome:', sampleChar.name)
-        console.log('- Equipamentos:', sampleChar.equipment_notes ? 'Configurados' : 'Não configurados')
-        console.log('- Meta pessoal:', sampleChar.personal_goal || '(não definida)')
-        console.log('- Armadura:', sampleChar.armadura || '(não configurada)')
-        console.log('- Carga armadura:', sampleChar.carga_armadura || '(vazio)')
-        console.log('- Nível armadura:', sampleChar.nivel_armadura || '(vazio)')
-        console.log('- Armas:', sampleChar.armas ? 'Configuradas' : 'Não configuradas')
-        console.log('- Quadrados vida:', sampleChar.health_squares ? 'Configurados' : 'Não configurados')
-        console.log('- Quadrados estresse:', sampleChar.stress_squares ? 'Configurados' : 'Não configurados')
-        console.log('- Quadrados experiência:', sampleChar.experience_squares ? 'Configurados' : 'Não configurados')
-        console.log('- Quadrados história:', sampleChar.history_squares ? 'Configurados' : 'Não configurados')
-        console.log('- Quadrados radiação:', sampleChar.radiation_squares ? 'Configurados' : 'Não configurados')
-        
-        console.log('')
-        console.log('Próximo passo: Configurar a ficha completa Year Zero')
-        console.log('com todos os componentes integrados no layout principal.')
-    }
+    console.log('Próximo passo: Configurar a ficha completa Year Zero')
+    console.log('com todos os componentes integrados no layout principal.')
 }
 
 // Executar o seed específico
@@ -525,6 +546,7 @@ main()
     .catch((error) => {
         console.error('ERRO NO SEED YEAR ZERO:', error)
         console.error('Detalhes:', error.message)
+        console.error('Código do erro:', error.code)
         process.exit(1)
     })
     .finally(async () => {

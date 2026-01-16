@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from '
 import { Box, TextField, IconButton, Typography } from '@mui/material';
 import { Casino } from '@mui/icons-material';
 
-// Versão 3.1.1 - FIX: Correção definitiva dos callbacks
-console.log('[AttributeComponents] Versão 3.1.1 - FIX: Callbacks corrigidos, interface simplificada');
+// Versão 3.1.2 - FIX: Removido bloqueio de digitação manual
+console.log('[AttributeComponents] Versão 3.1.2 - FIX: Digitação manual liberada');
 
 // Gerenciador global de sessão de cliques
 let globalClickSession = {
@@ -83,7 +83,7 @@ const calculateAdaptiveThreshold = () => {
   return Math.max(300, Math.min(800, average * 2.5));
 };
 
-// Processa clique na seta nativa - VERSÃO SIMPLIFICADA
+// Processa clique na seta nativa
 const processArrowClick = (fieldId, currentValue, direction, onSaveCallback) => {
   const now = Date.now();
   const isNewSession = !globalClickSession.active || 
@@ -146,7 +146,7 @@ export const getSkillValue = (skills, skillName, defaultSkills = []) => {
   return Math.max(0, Math.min(6, value));
 };
 
-// Atualiza atributo - VERSÃO SIMPLIFICADA
+// Atualiza atributo
 export const updateAttribute = (attributeName, value, onUpdate) => {
   const numValue = Math.max(0, Math.min(6, parseInt(value) || 0));
   
@@ -157,7 +157,7 @@ export const updateAttribute = (attributeName, value, onUpdate) => {
   return numValue;
 };
 
-// Atualiza skill - VERSÃO SIMPLIFICADA
+// Atualiza skill
 export const updateSkill = (skillName, value, onUpdate) => {
   const numValue = Math.max(0, Math.min(6, parseInt(value) || 0));
   
@@ -325,9 +325,9 @@ export const attributeComponentsStyles = (theme) => ({
       padding: '6px 4px',
       height: '28px',
       fontFamily: '"Roboto", "Arial", sans-serif',
-      cursor: 'default',
-      caretColor: 'transparent',
-      userSelect: 'none',
+      cursor: 'text',
+      caretColor: 'auto',
+      userSelect: 'auto',
       MozAppearance: 'textfield',
       '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
         WebkitAppearance: 'auto',
@@ -450,9 +450,9 @@ export const attributeComponentsStyles = (theme) => ({
       padding: '6px 4px',
       height: '28px',
       fontFamily: '"Roboto", "Arial", sans-serif',
-      cursor: 'default',
-      caretColor: 'transparent',
-      userSelect: 'none',
+      cursor: 'text',
+      caretColor: 'auto',
+      userSelect: 'auto',
       MozAppearance: 'textfield',
       '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
         WebkitAppearance: 'auto',
@@ -548,7 +548,7 @@ export const attributeComponentsStyles = (theme) => ({
   }
 });
 
-// Componente individual de atributo - VERSÃO CORRIGIDA
+// Componente individual de atributo
 const AttributeOctagonComponent = ({ 
   classes, 
   attributeName, 
@@ -566,7 +566,7 @@ const AttributeOctagonComponent = ({
     setLocalValue(attributeValue);
   }, [attributeValue]);
 
-  // Handler para mudanças no input (setas nativas)
+  // Handler para mudanças no input (setas nativas e digitação)
   const handleInputChange = useCallback((e) => {
     const newValue = parseInt(e.target.value);
     
@@ -625,9 +625,8 @@ const AttributeOctagonComponent = ({
       if (onAttributeRoll) {
         onAttributeRoll(attributeName, localValue);
       }
-    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
     }
+    // REMOVIDO: Bloqueio de digitação manual
   }, [attributeName, localValue, onUpdate, onAttributeRoll]);
 
   // Handler para clique no dado
@@ -653,15 +652,6 @@ const AttributeOctagonComponent = ({
     e.target.select();
   }, []);
 
-  // Handler para prevenir digitação
-  const handlePaste = useCallback((e) => {
-    e.preventDefault();
-  }, []);
-
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
-  }, []);
-
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
@@ -681,14 +671,12 @@ const AttributeOctagonComponent = ({
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 onFocus={handleFocus}
-                onPaste={handlePaste}
-                onDrop={handleDrop}
                 inputProps={{ 
                   min: 0, 
                   max: 6,
                   style: { 
-                    cursor: 'default',
-                    caretColor: 'transparent'
+                    cursor: 'text',
+                    caretColor: 'auto'
                   }
                 }}
                 className={classes.attributeInput}
@@ -721,7 +709,7 @@ const attributeOctagonPropsAreEqual = (prevProps, nextProps) => {
 
 export const AttributeOctagon = memo(AttributeOctagonComponent, attributeOctagonPropsAreEqual);
 
-// Componente individual de skill - VERSÃO CORRIGIDA
+// Componente individual de skill
 const SkillComponentInternal = ({ 
   classes, 
   skillName, 
@@ -795,9 +783,8 @@ const SkillComponentInternal = ({
       if (onSkillRoll) {
         onSkillRoll(skillName, localValue);
       }
-    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
     }
+    // REMOVIDO: Bloqueio de digitação manual
   }, [skillName, localValue, onUpdate, onSkillRoll]);
 
   const handleDiceClick = useCallback(() => {
@@ -821,14 +808,6 @@ const SkillComponentInternal = ({
     e.target.select();
   }, []);
 
-  const handlePaste = useCallback((e) => {
-    e.preventDefault();
-  }, []);
-
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
-  }, []);
-
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
@@ -848,14 +827,12 @@ const SkillComponentInternal = ({
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 onFocus={handleFocus}
-                onPaste={handlePaste}
-                onDrop={handleDrop}
                 inputProps={{ 
                   min: 0, 
                   max: 6,
                   style: { 
-                    cursor: 'default',
-                    caretColor: 'transparent'
+                    cursor: 'text',
+                    caretColor: 'auto'
                   }
                 }}
                 className={classes.skillInput}
@@ -888,7 +865,7 @@ const skillComponentPropsAreEqual = (prevProps, nextProps) => {
 
 export const SkillComponent = memo(SkillComponentInternal, skillComponentPropsAreEqual);
 
-// Componente principal que agrupa atributo com suas skills - VERSÃO SIMPLIFICADA
+// Componente principal que agrupa atributo com suas skills
 const AttributeWithSkillsComponent = ({ 
   classes,
   attributeName,
@@ -922,7 +899,6 @@ const AttributeWithSkillsComponent = ({
     return positionMap[attributeName] || [];
   }, [attributeName, classes]);
   
-  // Callbacks simplificados - passam direto para o pai
   const handleAttributeUpdate = useCallback((type, name, value) => {
     if (onUpdate) {
       onUpdate(type, name, value);
@@ -949,7 +925,7 @@ const AttributeWithSkillsComponent = ({
         skillName={skill.name}
         skillValue={skill.value}
         positionClass={skillPositions[index]}
-        onUpdate={handleAttributeUpdate} // Usa o mesmo callback do atributo
+        onUpdate={handleAttributeUpdate}
         onSkillRoll={handleSkillRoll}
       />
     ));

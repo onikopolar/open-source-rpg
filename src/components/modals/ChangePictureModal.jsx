@@ -1,16 +1,16 @@
 // Arquivo: src/components/modals/ChangePictureModal.jsx
-// Versão: 5.13.2 - FIX: Debug do FormData e timestamp para cache
-console.log('[ChangePictureModal] Versão 5.13.2 - Fix: Debug do FormData e timestamp para cache');
+// Versão: 6.2.1 - FIX: Removido fundo branco do preview, ajustes visuais menores
+console.log('[ChangePictureModal] Versão 6.2.1 - FIX: Fundo branco removido, ajustes de layout');
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { withStyles } from '@mui/styles';
 import {
     TextField, Dialog, DialogActions, DialogContent,
     DialogTitle, Button, Grid, Link, Tabs, Tab,
-    Box, IconButton
+    Box, IconButton, Typography
 } from '@mui/material';
 import Cropper from 'react-easy-crop';
-import { Close as CloseIcon, CloudUpload as UploadIcon } from '@mui/icons-material';
+import { Close as CloseIcon, CloudUpload as UploadIcon, Check as CheckIcon } from '@mui/icons-material';
 
 import { api } from '../../utils';
 
@@ -53,15 +53,50 @@ const styles = theme => ({
     previewContainer: {
         display: 'flex',
         justifyContent: 'center',
-        marginTop: 15,
+        marginTop: 8,
+        marginBottom: 16,
     },
     previewImage: {
         maxWidth: '100%',
         maxHeight: 200,
         borderRadius: 4,
+        border: '2px solid #696969ff',
     },
     tabPanel: {
         paddingTop: 15,
+    },
+    sectionHeader: {
+        display: 'flex',
+        alignItems: 'center',
+        marginBottom: 8,
+        paddingBottom: 4,
+        borderBottom: '1px solid #e0e0e0',
+    },
+    previewBadge: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        marginLeft: 10,
+        padding: '2px 8px',
+        backgroundColor: '#4caf50',
+        color: 'white',
+        borderRadius: 12,
+        fontSize: '0.75rem',
+        fontWeight: 'bold',
+    },
+    previewLabel: {
+        fontSize: '0.85rem',
+        color: '#ffffffff',
+        marginBottom: 4,
+        textAlign: 'center',
+        fontWeight: '500',
+    },
+    uploadPreviewLabel: {
+        fontSize: '0.85rem',
+        color: '#666',
+        marginBottom: 8,
+        textAlign: 'center',
+        fontWeight: '500',
+        fontStyle: 'italic',
     },
 });
 
@@ -80,6 +115,11 @@ function ChangePictureModal({
         injured_character_picture_url: ''
     });
     
+    const [base64Images, setBase64Images] = useState({
+        standard_base64: null,
+        injured_base64: null
+    });
+    
     const [imageSrc, setImageSrc] = useState(null);
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
@@ -90,15 +130,31 @@ function ChangePictureModal({
         console.log('[ChangePictureModal] useEffect - character atual:', character);
         
         if (character) {
-            console.log('[ChangePictureModal] Carregando URLs do character:', {
-                standard: character.standard_character_picture_url,
-                injured: character.injured_character_picture_url
+            console.log('[ChangePictureModal] Carregando dados do character:', {
+                standardURL: character.standard_character_picture_url,
+                injuredURL: character.injured_character_picture_url,
+                temStandardBase64: !!character.standard_character_image,
+                temInjuredBase64: !!character.injured_character_image
             });
             
             setPictureURLs({
                 standard_character_picture_url: character.standard_character_picture_url || '',
                 injured_character_picture_url: character.injured_character_picture_url || ''
             });
+            
+            if (character.standard_character_image) {
+                setBase64Images(prev => ({
+                    ...prev,
+                    standard_base64: character.standard_character_image
+                }));
+            }
+            
+            if (character.injured_character_image) {
+                setBase64Images(prev => ({
+                    ...prev,
+                    injured_base64: character.injured_character_image
+                }));
+            }
         } else {
             console.warn('[ChangePictureModal] character é undefined ou null');
         }
@@ -161,7 +217,7 @@ function ChangePictureModal({
     };
 
     const handleUploadImage = async (type) => {
-        console.log('[ChangePictureModal] Iniciando upload para:', type);
+        console.log('[ChangePictureModal] Iniciando upload para:', type, 'usando endpoint de uploads');
         
         if (!imageSrc || !croppedAreaPixels) {
             console.warn('[ChangePictureModal] Imagem ou crop não selecionado');
@@ -181,57 +237,72 @@ function ChangePictureModal({
             return;
         }
 
-        console.log('[ChangePictureModal] Character ID válido:', character.id, '(tipo:', typeof character.id, ')');
+        console.log('[ChangePictureModal] Character ID válido:', character.id);
 
         setUploading(true);
         try {
             const blob = await getCroppedImg(imageSrc, croppedAreaPixels);
             
-            const formData = new FormData();
-            formData.append('image', blob, `${character.id}-${type}.png`);
-            formData.append('type', type);
-            formData.append('characterId', character.id.toString()); // Garantir que seja string
+            console.log('[ChangePictureModal] Preparando FormData para envio');
             
-            // DEBUG: Verificar conteúdo do FormData
-            console.log('[ChangePictureModal] Conteúdo do FormData antes do envio:');
-            for (let [key, value] of formData.entries()) {
-                if (value instanceof Blob) {
-                    console.log(`  ${key}: [Blob] tamanho=${value.size}, tipo=${value.type}`);
-                } else {
-                    console.log(`  ${key}: ${value} (tipo: ${typeof value})`);
-                }
-            }
+            const formData = new FormData();
+            formData.append('image', blob, 'character-image.png');
+            formData.append('characterId', character.id.toString());
+            formData.append('type', type);
 
-            console.log('[ChangePictureModal] Enviando para API...');
+            console.log('[ChangePictureModal] Enviando para /api/uploads/character-image');
             
             const response = await api.post('/uploads/character-image', formData, {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
+                    'Content-Type': 'multipart/form-data'
+                }
             });
 
-            console.log('[ChangePictureModal] Resposta da API:', response.data);
+            console.log('[ChangePictureModal] Upload concluído:', response.data);
 
-            setPictureURLs(prev => ({
-                ...prev,
-                [type === 'standard' ? 'standard_character_picture_url' : 'injured_character_picture_url']: response.data.url
-            }));
+            const dataURL = response.data.url;
+            
+            if (type === 'standard') {
+                setBase64Images(prev => ({
+                    ...prev,
+                    standard_base64: dataURL
+                }));
+                setPictureURLs(prev => ({
+                    ...prev,
+                    standard_character_picture_url: ''
+                }));
+            } else {
+                setBase64Images(prev => ({
+                    ...prev,
+                    injured_base64: dataURL
+                }));
+                setPictureURLs(prev => ({
+                    ...prev,
+                    injured_character_picture_url: ''
+                }));
+            }
 
-            // CHAMAR CALLBACK PARA ATUALIZAR DADOS NO COMPONENTE PAI
             if (onPictureChange && typeof onPictureChange === 'function') {
                 console.log('[ChangePictureModal] Chamando onPictureChange callback');
                 onPictureChange();
+                
+                console.log('[ChangePictureModal] DEBUG: onPictureChange chamado. Preparando reload...');
+                
+                setTimeout(() => {
+                    console.log('[ChangePictureModal] DEBUG: Forçando reload da página para atualizar imagem');
+                    window.location.reload();
+                }, 2000);
             } else {
                 console.warn('[ChangePictureModal] onPictureChange não disponível ou não é função');
             }
 
-            window.alert('Imagem enviada com sucesso! A página será atualizada.');
+            window.alert('Imagem salva com sucesso no banco de dados! A página será recarregada em 2 segundos.');
             setImageSrc(null);
             
         } catch (error) {
             console.error('[ChangePictureModal] Erro no upload:', error);
             console.error('[ChangePictureModal] Detalhes do erro:', error.response?.data || error.message);
-            window.alert('Erro ao enviar imagem: ' + (error.message || 'Erro desconhecido. Verifique o console.'));
+            window.alert('Erro ao salvar imagem: ' + (error.message || 'Erro desconhecido. Verifique o console.'));
         } finally {
             setUploading(false);
         }
@@ -240,26 +311,28 @@ function ChangePictureModal({
     const submit = () => {
         console.log('[ChangePictureModal] Submetendo alterações...');
         
-        if(!pictureURLs.injured_character_picture_url || !pictureURLs.standard_character_picture_url) {
-            window.alert('Preencha as duas artes!');
+        const hasStandardImage = base64Images.standard_base64 || pictureURLs.standard_character_picture_url;
+        const hasInjuredImage = base64Images.injured_base64 || pictureURLs.injured_character_picture_url;
+        
+        if(!hasStandardImage || !hasInjuredImage) {
+            window.alert('Preencha as duas artes! Você pode usar upload ou URL.');
             return;
         }
 
-        const allowedWebsites = ['discord', 'imgur'];
-
-        if(!allowedWebsites.some(website => pictureURLs.injured_character_picture_url.includes(website))) {
-            window.alert('Preencha as duas artes com URLs válidas!');
-            return;
-        }
-
-        if(!allowedWebsites.some(website => pictureURLs.standard_character_picture_url.includes(website))) {
-            window.alert('Preencha as duas artes com URLs válidas!');
-            return;
-        }
-
-        if(!pictureURLs.injured_character_picture_url.endsWith('.png') || !pictureURLs.standard_character_picture_url.endsWith('.png')) {
-            window.alert('As artes precisam estar em formato PNG.');
-            return;
+        if (pictureURLs.standard_character_picture_url || pictureURLs.injured_character_picture_url) {
+            const allowedWebsites = ['discord', 'imgur'];
+            
+            if (pictureURLs.standard_character_picture_url && 
+                !allowedWebsites.some(website => pictureURLs.standard_character_picture_url.includes(website))) {
+                window.alert('URL da imagem padrão inválida! Use apenas Imgur ou Discord.');
+                return;
+            }
+            
+            if (pictureURLs.injured_character_picture_url && 
+                !allowedWebsites.some(website => pictureURLs.injured_character_picture_url.includes(website))) {
+                window.alert('URL da imagem machucada inválida! Use apenas Imgur ou Discord.');
+                return;
+            }
         }
 
         if (!character || !character.id) {
@@ -268,16 +341,17 @@ function ChangePictureModal({
             return;
         }
 
-        console.log('[ChangePictureModal] Enviando para API PUT...');
+        console.log('[ChangePictureModal] Enviando todas as alterações para API...');
 
-        api.put(`/character/${character.id}`, {
-            injured_character_picture_url: pictureURLs.injured_character_picture_url,
-            standard_character_picture_url: pictureURLs.standard_character_picture_url
-        })
+        const updateData = {
+            injured_character_picture_url: pictureURLs.injured_character_picture_url || null,
+            standard_character_picture_url: pictureURLs.standard_character_picture_url || null
+        };
+
+        api.put(`/character/${character.id}`, updateData)
             .then(() => {
                 console.log('[ChangePictureModal] Alterações salvas com sucesso');
                 
-                // CHAMAR CALLBACK APÓS SALVAR ALTERAÇÕES DE URL TAMBÉM
                 if (onPictureChange && typeof onPictureChange === 'function') {
                     console.log('[ChangePictureModal] Chamando onPictureChange após salvar URLs');
                     onPictureChange();
@@ -289,6 +363,18 @@ function ChangePictureModal({
                 console.error('[ChangePictureModal] Erro ao salvar:', error);
                 window.alert('Erro ao salvar! Verifique o console para detalhes.');
             });
+    };
+
+    const getPreviewUrl = (type) => {
+        if (type === 'standard') {
+            return base64Images.standard_base64 || pictureURLs.standard_character_picture_url;
+        } else {
+            return base64Images.injured_base64 || pictureURLs.injured_character_picture_url;
+        }
+    };
+
+    const hasPreview = (type) => {
+        return !!(base64Images[`${type}_base64`] || pictureURLs[`${type === 'standard' ? 'standard' : 'injured'}_character_picture_url`]);
     };
 
     return (
@@ -317,29 +403,64 @@ function ChangePictureModal({
                     console.log('[ChangePictureModal] Mudando para aba:', newValue);
                     setActiveTab(newValue);
                 }}>
-                    <Tab label="Por URL" />
-                    <Tab label="Upload + Crop" />
+                    <Tab label="Por URL (Imgur/Discord)" />
+                    <Tab label="Upload + Crop (Salva no Banco)" />
                 </Tabs>
 
                 <Box className={classes.tabPanel}>
                     {activeTab === 0 ? (
-                        <Grid container>
+                        <Grid container spacing={3}>
                             <Grid item xs={12}>
-                                <p>
-                                    As artes dos personagens devem estar <strong>obrigatoriamente</strong> no tamanho <strong>420x600</strong> e em formato <strong>PNG</strong>.
-                                </p>
-                                <p>
-                                    Apenas são aceitos links de imagens upadas no site <Link href="https://imgur.com/" target="_blank">Imgur</Link> ou no Discord.
-                                </p>
+                                <Typography variant="body2" paragraph>
+                                    <strong>Modo URL:</strong> Cole URLs do Imgur ou Discord.
+                                </Typography>
+                                <Typography variant="body2" paragraph>
+                                    As artes devem estar no tamanho <strong>420x600</strong> e em formato <strong>PNG</strong>.
+                                </Typography>
+                                <Typography variant="body2" paragraph>
+                                    URLs aceitas: <Link href="https://imgur.com/" target="_blank">Imgur</Link> ou Discord.
+                                </Typography>
+                                <Typography variant="body2" color="primary" fontStyle="italic">
+                                    Dica: Use esse modo pra links externos que já existem.
+                                </Typography>
                             </Grid>
+
+                            {/* Seção da Imagem Padrão */}
                             <Grid item xs={12}>
+                                <div className={classes.sectionHeader}>
+                                    <Typography variant="h6">
+                                        Imagem Padrão
+                                    </Typography>
+                                    {hasPreview('standard') && (
+                                        <span className={classes.previewBadge}>
+                                            <CheckIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                                            Preview disponível
+                                        </span>
+                                    )}
+                                </div>
+
+                                {hasPreview('standard') && (
+                                    <div>
+                                        <div className={classes.previewLabel}>
+                                            Pré-visualização atual:
+                                        </div>
+                                        <div className={classes.previewContainer}>
+                                            <img 
+                                                src={getPreviewUrl('standard')} 
+                                                alt="Preview Padrão"
+                                                className={classes.previewImage}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
                                 <TextField
-                                    style={{ marginTop: '15px' }}
                                     autoFocus
-                                    label="Imagem padrão"
+                                    label="URL da Imagem Padrão"
                                     type="text"
                                     fullWidth
-                                    variant="standard"
+                                    variant="outlined"
+                                    size="small"
                                     value={pictureURLs.standard_character_picture_url}
                                     onChange={({ target }) => {
                                         setPictureURLs(prevState => ({
@@ -347,15 +468,46 @@ function ChangePictureModal({
                                             standard_character_picture_url: target.value
                                         }));
                                     }}
+                                    helperText="Cole uma URL do Imgur ou Discord. Deixe vazio se já fez upload acima."
+                                    placeholder="https://i.imgur.com/..."
                                 />
                             </Grid>
+
+                            {/* Seção da Imagem Machucada */}
                             <Grid item xs={12}>
+                                <div className={classes.sectionHeader}>
+                                    <Typography variant="h6">
+                                        Imagem Machucada
+                                    </Typography>
+                                    {hasPreview('injured') && (
+                                        <span className={classes.previewBadge}>
+                                            <CheckIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                                            Preview disponível
+                                        </span>
+                                    )}
+                                </div>
+
+                                {hasPreview('injured') && (
+                                    <div>
+                                        <div className={classes.previewLabel}>
+                                            Pré-visualização atual:
+                                        </div>
+                                        <div className={classes.previewContainer}>
+                                            <img 
+                                                src={getPreviewUrl('injured')} 
+                                                alt="Preview Machucado"
+                                                className={classes.previewImage}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
                                 <TextField
-                                    style={{ marginTop: '15px' }}
-                                    label="Imagem machucada"
+                                    label="URL da Imagem Machucada"
                                     type="text"
                                     fullWidth
-                                    variant="standard"
+                                    variant="outlined"
+                                    size="small"
                                     value={pictureURLs.injured_character_picture_url}
                                     onChange={({ target }) => {
                                         setPictureURLs(prevState => ({
@@ -363,15 +515,23 @@ function ChangePictureModal({
                                             injured_character_picture_url: target.value
                                         }));
                                     }}
+                                    helperText="Cole uma URL do Imgur ou Discord. Deixe vazio se já fez upload acima."
+                                    placeholder="https://i.imgur.com/..."
                                 />
                             </Grid>
                         </Grid>
                     ) : (
                         <Grid container spacing={2}>
                             <Grid item xs={12}>
-                                <p>
-                                    Selecione uma imagem, ajuste o crop para 420x600 e faça upload separadamente para cada tipo.
-                                </p>
+                                <Typography variant="body2" paragraph>
+                                    <strong>Modo Upload:</strong> A imagem é  salva diretamente no banco de dados (melhor opção).
+                                </Typography>
+                                <Typography variant="body2" paragraph>
+                                    <strong>Vantagem:</strong> Funciona sem depender de serviços externos.
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#ff4d4dff', fontWeight: 'bold' }}>
+                                    Importante: Imagens grandes podem dar problema. Use o crop abaixo pra otimizar.
+                                </Typography>
                             </Grid>
                             
                             <Grid item xs={12}>
@@ -386,7 +546,7 @@ function ChangePictureModal({
                                     <div className={classes.uploadArea}>
                                         <UploadIcon style={{ fontSize: 40, color: '#666' }} />
                                         <p>Clique para selecionar uma imagem</p>
-                                        <p><small>Formatos: JPG, PNG, GIF</small></p>
+                                        <p><small>Formatos: JPG, PNG, GIF (será convertido para PNG 420x600)</small></p>
                                     </div>
                                 </label>
                             </Grid>
@@ -422,43 +582,77 @@ function ChangePictureModal({
                                     </Grid>
 
                                     <Grid item xs={6}>
-                                        <Button
-                                            fullWidth
-                                            variant="outlined"
-                                            onClick={() => handleUploadImage('standard')}
-                                            disabled={uploading}
-                                        >
-                                            {uploading ? 'Enviando...' : 'Usar como Imagem Padrão'}
-                                        </Button>
-                                        {pictureURLs.standard_character_picture_url && (
-                                            <div className={classes.previewContainer}>
-                                                <img 
-                                                    src={pictureURLs.standard_character_picture_url} 
-                                                    alt="Preview Padrão"
-                                                    className={classes.previewImage}
-                                                />
+                                        <div className={classes.sectionHeader}>
+                                            <Typography variant="h6">
+                                                Imagem Padrão
+                                            </Typography>
+                                        </div>
+                                        
+                                        {hasPreview('standard') && (
+                                            <div>
+                                                <div className={classes.uploadPreviewLabel}>
+                                                    Imagem já salva:
+                                                </div>
+                                                <div className={classes.previewContainer}>
+                                                    <img 
+                                                        src={getPreviewUrl('standard')} 
+                                                        alt="Preview Padrão"
+                                                        className={classes.previewImage}
+                                                    />
+                                                </div>
                                             </div>
                                         )}
+
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            color="primary"
+                                            onClick={() => handleUploadImage('standard')}
+                                            disabled={uploading}
+                                            sx={{ mt: 1 }}
+                                        >
+                                            {uploading ? 'Salvando...' : 'Salvar como Imagem Padrão'}
+                                        </Button>
+                                        <Typography variant="caption" display="block" textAlign="center" mt={0.5}>
+                                            (Salva direto no banco via endpoint de uploads)
+                                        </Typography>
                                     </Grid>
 
                                     <Grid item xs={6}>
-                                        <Button
-                                            fullWidth
-                                            variant="outlined"
-                                            onClick={() => handleUploadImage('injured')}
-                                            disabled={uploading}
-                                        >
-                                            {uploading ? 'Enviando...' : 'Usar como Imagem Machucada'}
-                                        </Button>
-                                        {pictureURLs.injured_character_picture_url && (
-                                            <div className={classes.previewContainer}>
-                                                <img 
-                                                    src={pictureURLs.injured_character_picture_url} 
-                                                    alt="Preview Machucado"
-                                                    className={classes.previewImage}
-                                                />
+                                        <div className={classes.sectionHeader}>
+                                            <Typography variant="h6">
+                                                Imagem Machucada
+                                            </Typography>
+                                        </div>
+                                        
+                                        {hasPreview('injured') && (
+                                            <div>
+                                                <div className={classes.uploadPreviewLabel}>
+                                                    Imagem já salva:
+                                                </div>
+                                                <div className={classes.previewContainer}>
+                                                    <img 
+                                                        src={getPreviewUrl('injured')} 
+                                                        alt="Preview Machucado"
+                                                        className={classes.previewImage}
+                                                    />
+                                                </div>
                                             </div>
                                         )}
+
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            color="primary"
+                                            onClick={() => handleUploadImage('injured')}
+                                            disabled={uploading}
+                                            sx={{ mt: 1 }}
+                                        >
+                                            {uploading ? 'Salvando...' : 'Salvar como Imagem Machucada'}
+                                        </Button>
+                                        <Typography variant="caption" display="block" textAlign="center" mt={0.5}>
+                                            (Salva direto no banco via endpoint de uploads)
+                                        </Typography>
                                     </Grid>
                                 </>
                             )}
@@ -471,7 +665,7 @@ function ChangePictureModal({
                     Cancelar
                 </Button>
                 <Button onClick={submit} variant="contained" color="primary">
-                    Salvar Alterações
+                    Salvar Todas as Alterações
                 </Button>
             </DialogActions>
         </Dialog>

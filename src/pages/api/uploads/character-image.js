@@ -1,23 +1,13 @@
+// Arquivo: src/pages/api/uploads/character-image.js
+// Versão: 2.0.0 - MAJOR: Conversão para base64 e salvamento direto no banco
+console.log('[API Upload] Versão 2.0.0 - MAJOR: Conversão para base64 e salvamento direto no banco');
+
 import multer from 'multer';
-import path from 'path';
-import { promises as fs } from 'fs';
 import { prisma } from '../../../../database';
 
-// Configurar multer para upload COM DADOS DO FORM
+// Configurar multer apenas para processar multipart (não salvar em disco)
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: './public/uploads/characters',
-    filename: (req, file, cb) => {
-      console.log('[Multer] Dados do body:', req.body);
-      console.log('[Multer] Arquivo:', file.originalname);
-      
-      // Os dados vêm do req.body (characterId e type)
-      const characterId = req.body.characterId || 'unknown';
-      const type = req.body.type || 'unknown';
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, `${characterId}-${type}-${uniqueSuffix}${path.extname(file.originalname)}`);
-    }
-  }),
+  storage: multer.memoryStorage(), // Usar memoryStorage em vez de diskStorage
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
   },
@@ -30,29 +20,16 @@ export const config = {
   },
 };
 
-// Criar diretório se não existir
-const ensureUploadDir = async () => {
-  const uploadDir = './public/uploads/characters';
-  try {
-    await fs.access(uploadDir);
-  } catch {
-    await fs.mkdir(uploadDir, { recursive: true });
-  }
-};
-
 // Função handler principal
 export default async function handler(req, res) {
-  console.log('[API Upload] Recebendo requisição de upload');
-  
-  // Garantir que o diretório existe
-  await ensureUploadDir();
+  console.log('[API Upload] Recebendo requisição de upload - Modo base64');
 
   if (req.method !== 'POST') {
     console.log('[API Upload] Método não permitido:', req.method);
     return res.status(405).json({ error: 'Método não permitido' });
   }
 
-  // IMPORTANTE: Configurar o multer para processar campos normais E arquivos
+  // Configurar o multer para processar campos normais E arquivos
   const uploadMiddleware = upload.single('image');
   
   uploadMiddleware(req, res, async (err) => {
@@ -63,7 +40,8 @@ export default async function handler(req, res) {
 
     try {
       console.log('[API Upload] Upload concluído:', {
-        file: req.file?.filename,
+        fileSize: req.file?.size,
+        fileType: req.file?.mimetype,
         body: req.body,
         characterId: req.body?.characterId,
         type: req.body?.type
@@ -88,30 +66,51 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Tipo deve ser "standard" ou "injured"' });
       }
 
-      // Construir URL da imagem
-      const imageUrl = `/uploads/characters/${req.file.filename}`;
+      // Converter buffer para base64
+      const base64Image = req.file.buffer.toString('base64');
+      const mimeType = req.file.mimetype;
+      const dataURL = `data:${mimeType};base64,${base64Image}`;
+      
+      console.log('[API Upload] Imagem convertida:', {
+        base64Length: base64Image.length,
+        mimeType: mimeType,
+        dataURLLength: dataURL.length
+      });
 
-      console.log('[API Upload] Atualizando personagem:', { characterId, type, imageUrl });
+      // Determinar campos para atualização
+      const imageField = type === 'standard' ? 'standard_character_image' : 'injured_character_image';
+      const mimeField = type === 'standard' ? 'standard_image_mime' : 'injured_image_mime';
+      const urlField = type === 'standard' ? 'standard_character_picture_url' : 'injured_character_picture_url';
+
+      console.log('[API Upload] Atualizando personagem no banco:', { 
+        characterId, 
+        type,
+        imageField,
+        mimeField
+      });
 
       // Atualizar o personagem no banco de dados
-      const updateData = {};
-      if (type === 'standard') {
-        updateData.standard_character_picture_url = imageUrl;
-      } else if (type === 'injured') {
-        updateData.injured_character_picture_url = imageUrl;
-      }
+      const updateData = {
+        [imageField]: dataURL,
+        [mimeField]: mimeType,
+        [urlField]: null // Limpar URL externa se existir
+      };
 
       await prisma.character.update({
         where: { id: parseInt(characterId) },
         data: updateData
       });
 
-      console.log(`[API Upload] Imagem ${type} atualizada para personagem ${characterId}: ${imageUrl}`);
+      console.log(`[API Upload] Imagem ${type} salva como base64 no banco para personagem ${characterId}`);
+      console.log(`[API Upload] Tamanho do base64: ${base64Image.length} caracteres`);
 
+      // Retornar sucesso com a URL de dados (data URL)
       res.status(200).json({ 
         success: true, 
-        url: imageUrl,
-        message: 'Imagem atualizada com sucesso'
+        url: dataURL, // Retorna a data URL completa
+        message: 'Imagem convertida para base64 e salva no banco de dados',
+        base64Length: base64Image.length,
+        mimeType: mimeType
       });
 
     } catch (error) {
