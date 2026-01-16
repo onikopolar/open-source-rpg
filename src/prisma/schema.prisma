@@ -1,3 +1,8 @@
+// schema.prisma - Versão 2.1.0 - ADD: Suporte para upload local de imagens
+// Versão: 2.1.0 - Suporte para upload local de imagens de personagem
+// Data: 2024-01-15
+// Autor: Sistema RPG
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,98 +12,82 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// CORE CHARACTER MODEL
-// ============================================
 model Character {
-  id Int @id @default(autoincrement())
-
-  // BASIC INFORMATION
-  name        String
-  age         Int?
-  gender      String?
-  player_name String?
-  rpg_system  String?   // MODIFICADO: Agora permite null
-  level       Int?     @default(1)
-  experience  Int?     @default(0)
-  is_dead     Boolean  @default(false)
-  created_at  DateTime @default(now())
-
-  // VISUAL APPEARANCE
-  current_picture                Int     @default(1)
-  standard_character_picture_url String?
-  injured_character_picture_url  String?
-
-  // HEALTH & RESOURCES
-  current_hit_points     Int  @default(0)
-  max_hit_points         Int  @default(0)
-  current_energy_points  Int? @default(0)
-  max_energy_points      Int? @default(0)
-  current_soul_integrity Int? @default(0)
-
-  // YEAR ZERO SYSTEM FIELDS
-  stress_level     Int?    @default(0)
-  trauma_level     Int?    @default(0)
-  health_squares   String? @default("[]")
-  stress_squares   String? @default("[]")
-  radiation_squares String? @default("[]")
-  willpower        Int?    @default(0)
-  // Adicionei campos para experience e history
-  experience_squares String? @default("[]")
-  history_squares   String? @default("[]")
-  experience_points Int?    @default(0)
-  history_points    Int?    @default(0)
-
-  // FEITICEIROS SYSTEM FIELDS
-  feiticeiros_metodo_criacao         String? @default("FIXOS")
-  feiticeiros_distribution_completed Boolean @default(false)
-
-  // DEFENSE & COMBAT STATS
-  atencao_bonus        Int? @default(0)
-  atencao_calculado    Int? @default(10)
-  defesa_bonus         Int? @default(0)
-  defesa_calculada     Int? @default(10)
-  iniciativa_bonus     Int? @default(0)
-  iniciativa_calculada Int? @default(0)
-
-  // MOVEMENT
-  deslocamento_bonus     Int? @default(0)
-  deslocamento_calculado Int? @default(9)
-
-  // CHARACTER BACKGROUND & PROGRESSION
-  especializacao String?
-  grau           String?
-  multiclasse    String?
-  origem         String?
-  tecnica        String?
-  treino         String?
-
-  // NEW: EQUIPMENT NOTES
-  equipment_notes String? @db.Text
-
-  // PERSONAL META TALENTS FIELDS (NOVOS CAMPOS)
-  personal_goal String? @db.Text
-  camarada      String?
-  rival         String?
-  career        String?
-  appearance    String? @db.Text
-  talents       String? @default("[]") // Array JSON de talentos
-
-  // META & CONFIGURATION
-  derived_values_bonuses String? @default("{}")
-  experiencia            Int?    @default(0)
-
-  // RELATIONS
-  attributes               CharacterAttribute[]
-  skills                   CharacterSkill[]
-  rolls                    Roll[]
-  yearzero_attributes      YearZeroCharacterAttribute[]
-  yearzero_skills          YearZeroCharacterSkill[]
-  feiticeiros_attributes   FeiticeirosCharacterAttribute[]
-  feiticeiros_pericias     FeiticeirosPericia[]
-  feiticeiros_oficios      FeiticeirosOficio[]
-  feiticeiros_resistencias FeiticeirosResistencia[]
-  feiticeiros_ataques      FeiticeirosAtaque[]
+  id                                 Int                             @id @default(autoincrement())
+  name                               String
+  age                                Int?
+  gender                             String?
+  player_name                        String?
+  rpg_system                         String?
+  current_hit_points                 Int                             @default(0)
+  max_hit_points                     Int                             @default(0)
+  current_picture                    Int                             @default(1)
+  is_dead                            Boolean                         @default(false)
+  
+  // ATUALIZADO: Campos de URL de imagem com tamanho maior para uploads locais
+  standard_character_picture_url     String?                         @db.Text
+  injured_character_picture_url      String?                         @db.Text
+  
+  stress_level                       Int?                            @default(0)
+  trauma_level                       Int?                            @default(0)
+  willpower                          Int?                            @default(0)
+  experience                         Int?                            @default(0)
+  health_squares                     String?                         @default("[]") @db.Text
+  stress_squares                     String?                         @default("[]") @db.Text
+  created_at                         DateTime                        @default(now())
+  atencao_bonus                      Int?                            @default(0)
+  atencao_calculado                  Int?                            @default(10)
+  current_energy_points              Int?                            @default(0)
+  current_soul_integrity             Int?                            @default(0)
+  defesa_bonus                       Int?                            @default(0)
+  defesa_calculada                   Int?                            @default(10)
+  derived_values_bonuses             String?                         @default("{}") @db.Text
+  deslocamento_bonus                 Int?                            @default(0)
+  deslocamento_calculado             Int?                            @default(9)
+  especializacao                     String?
+  experiencia                        Int?                            @default(0)
+  grau                               String?
+  iniciativa_bonus                   Int?                            @default(0)
+  iniciativa_calculada               Int?                            @default(0)
+  level                              Int?                            @default(1)
+  max_energy_points                  Int?                            @default(0)
+  multiclasse                        String?
+  origem                             String?
+  tecnica                            String?
+  treino                             String?
+  feiticeiros_distribution_completed Boolean                         @default(false)
+  feiticeiros_metodo_criacao         String?                         @default("FIXOS")
+  equipment_notes                    String?                         @db.Text
+  radiation_squares                  String?                         @default("[]") @db.Text
+  experience_points                  Int?                            @default(0)
+  experience_squares                 String?                         @default("[]") @db.Text
+  history_points                     Int?                            @default(0)
+  history_squares                    String?                         @default("[]") @db.Text
+  appearance                         String?                         @db.Text
+  camarada                           String?
+  career                             String?
+  personal_goal                      String?                         @db.Text
+  rival                              String?
+  talents                            String?                         @default("[]") @db.Text
+  conditions                         String?                         @default("{}") @db.Text
+  consumables                        String?                         @default("{}") @db.Text
+  emotional_item                     String?                         @db.Text
+  injuries                           String?                         @default("[]") @db.Text
+  tiny_items                         String?                         @db.Text
+  armadura                           String?
+  armas                              String?                         @default("[]") @db.Text
+  carga_armadura                     String?                         @default("")
+  nivel_armadura                     String?                         @default("")
+  attributes                         CharacterAttribute[]
+  skills                             CharacterSkill[]
+  feiticeiros_ataques                FeiticeirosAtaque[]
+  feiticeiros_attributes             FeiticeirosCharacterAttribute[]
+  feiticeiros_oficios                FeiticeirosOficio[]
+  feiticeiros_pericias               FeiticeirosPericia[]
+  feiticeiros_resistencias           FeiticeirosResistencia[]
+  rolls                              Roll[]
+  yearzero_attributes                YearZeroCharacterAttribute[]
+  yearzero_skills                    YearZeroCharacterSkill[]
 
   @@index([name])
   @@index([player_name])
@@ -107,9 +96,6 @@ model Character {
   @@map("character")
 }
 
-// ============================================
-// CLASSIC RPG SYSTEM MODELS
-// ============================================
 model CharacterAttribute {
   character_id Int
   attribute_id Int
@@ -152,9 +138,6 @@ model Skill {
   @@map("skills")
 }
 
-// ============================================
-// YEAR ZERO SYSTEM MODELS
-// ============================================
 model YearZeroCharacterAttribute {
   character_id Int
   attribute_id Int
@@ -197,9 +180,6 @@ model YearZeroSkill {
   @@map("yearzero_skill")
 }
 
-// ============================================
-// FEITICEIROS SYSTEM MODELS
-// ============================================
 model FeiticeirosCharacterAttribute {
   character_id Int
   attribute_id Int
@@ -222,9 +202,6 @@ model FeiticeirosAttribute {
   @@map("feiticeiros_attribute")
 }
 
-// ============================================
-// FEITICEIROS SKILL-BASED MODELS
-// ============================================
 model FeiticeirosPericia {
   id           Int       @id @default(autoincrement())
   character_id Int
@@ -285,9 +262,6 @@ model FeiticeirosAtaque {
   @@map("feiticeiros_ataques")
 }
 
-// ============================================
-// UTILITY MODELS
-// ============================================
 model Roll {
   id            Int       @id @default(autoincrement())
   max_number    Int

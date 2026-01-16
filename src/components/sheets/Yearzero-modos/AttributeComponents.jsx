@@ -2,21 +2,135 @@ import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from '
 import { Box, TextField, IconButton, Typography } from '@mui/material';
 import { Casino } from '@mui/icons-material';
 
-// Versão 2.7.0 - FIX: Remoção de debugs poluentes e otimização geral
-console.log('[AttributeComponents] Versão 2.7.0 - FIX: Console limpo e performance otimizada');
+// Versão 3.1.1 - FIX: Correção definitiva dos callbacks
+console.log('[AttributeComponents] Versão 3.1.1 - FIX: Callbacks corrigidos, interface simplificada');
 
-// Eu formato nomes de skills com quebras de linha
+// Gerenciador global de sessão de cliques
+let globalClickSession = {
+  active: false,
+  fieldId: null,
+  startValue: 0,
+  accumulated: 0,
+  lastClickTime: 0,
+  clickIntervals: [],
+  timeoutId: null
+};
+
+// Reset da sessão global
+const resetGlobalSession = () => {
+  if (globalClickSession.timeoutId) {
+    clearTimeout(globalClickSession.timeoutId);
+  }
+  globalClickSession = {
+    active: false,
+    fieldId: null,
+    startValue: 0,
+    accumulated: 0,
+    lastClickTime: 0,
+    clickIntervals: [],
+    timeoutId: null
+  };
+};
+
+// Inicia nova sessão
+const startNewSession = (fieldId, currentValue, direction) => {
+  const now = Date.now();
+  
+  if (globalClickSession.timeoutId) {
+    clearTimeout(globalClickSession.timeoutId);
+  }
+  
+  globalClickSession = {
+    active: true,
+    fieldId: fieldId,
+    startValue: currentValue,
+    accumulated: direction,
+    lastClickTime: now,
+    clickIntervals: [],
+    timeoutId: null
+  };
+};
+
+// Continua sessão existente
+const continueSession = (fieldId, direction) => {
+  const now = Date.now();
+  
+  if (globalClickSession.fieldId !== fieldId) {
+    return false;
+  }
+  
+  const interval = now - globalClickSession.lastClickTime;
+  globalClickSession.clickIntervals.push(interval);
+  globalClickSession.accumulated += direction;
+  globalClickSession.lastClickTime = now;
+  
+  if (globalClickSession.clickIntervals.length > 4) {
+    globalClickSession.clickIntervals.shift();
+  }
+  
+  return true;
+};
+
+// Calcula threshold adaptativo baseado no padrão do usuário
+const calculateAdaptiveThreshold = () => {
+  if (globalClickSession.clickIntervals.length === 0) {
+    return 400;
+  }
+  
+  const sum = globalClickSession.clickIntervals.reduce((a, b) => a + b, 0);
+  const average = sum / globalClickSession.clickIntervals.length;
+  
+  return Math.max(300, Math.min(800, average * 2.5));
+};
+
+// Processa clique na seta nativa - VERSÃO SIMPLIFICADA
+const processArrowClick = (fieldId, currentValue, direction, onSaveCallback) => {
+  const now = Date.now();
+  const isNewSession = !globalClickSession.active || 
+                      (now - globalClickSession.lastClickTime > 500) ||
+                      globalClickSession.fieldId !== fieldId;
+  
+  if (isNewSession) {
+    startNewSession(fieldId, currentValue, direction);
+  } else {
+    const continued = continueSession(fieldId, direction);
+    if (!continued) {
+      startNewSession(fieldId, currentValue, direction);
+    }
+  }
+  
+  const finalValue = Math.max(0, Math.min(6, 
+    globalClickSession.startValue + globalClickSession.accumulated
+  ));
+  
+  if (globalClickSession.timeoutId) {
+    clearTimeout(globalClickSession.timeoutId);
+  }
+  
+  const threshold = calculateAdaptiveThreshold();
+  
+  globalClickSession.timeoutId = setTimeout(() => {
+    if (globalClickSession.active && globalClickSession.accumulated !== 0) {
+      onSaveCallback(finalValue);
+      resetGlobalSession();
+    }
+  }, threshold);
+  
+  return finalValue;
+};
+
+// Formato nomes de skills com quebras de linha
 export const formatSkillDisplayName = (skillName) => {
   const nameMap = {
     'COMBATE CORPO A CORPO': 'CORPO A\nCORPO',
     'MAQUINÁRIO PESADO': 'MAQUINÁRIO\nPESADO', 
     'COMBATE À DISTÂNCIA': 'COMBATE\nÀ DISTÂNCIA',
-    'AJUDA MÉDICA': 'AJUDA\nMÉDICA'
+    'AJUDA MÉDICA': 'AJUDA MÉDICA'
   };
   return nameMap[skillName] || skillName;
 };
 
-// Eu pego valor de atributo com validação de limites
+// Pega valor de atributo com validação de limites
 export const getAttributeValue = (attributes, attributeName, defaultAttributes = []) => {
   const validatedAttributes = attributes.length ? attributes : defaultAttributes;
   const attribute = validatedAttributes.find(a => a.name === attributeName);
@@ -24,7 +138,7 @@ export const getAttributeValue = (attributes, attributeName, defaultAttributes =
   return Math.max(0, Math.min(6, value));
 };
 
-// Eu pego valor de skill com validação de limites
+// Pega valor de skill com validação de limites
 export const getSkillValue = (skills, skillName, defaultSkills = []) => {
   const validatedSkills = skills.length ? skills : defaultSkills;
   const skill = validatedSkills.find(s => s.name === skillName);
@@ -32,18 +146,9 @@ export const getSkillValue = (skills, skillName, defaultSkills = []) => {
   return Math.max(0, Math.min(6, value));
 };
 
-// Eu atualizo atributo com validação e callback
+// Atualiza atributo - VERSÃO SIMPLIFICADA
 export const updateAttribute = (attributeName, value, onUpdate) => {
-  let numValue;
-  
-  if (value === "" || value === null || value === undefined) {
-    numValue = 0;
-  } else {
-    numValue = parseInt(value);
-    if (isNaN(numValue)) numValue = 0;
-  }
-  
-  numValue = Math.max(0, Math.min(6, numValue));
+  const numValue = Math.max(0, Math.min(6, parseInt(value) || 0));
   
   if (onUpdate) {
     onUpdate('attribute', attributeName, numValue);
@@ -52,18 +157,9 @@ export const updateAttribute = (attributeName, value, onUpdate) => {
   return numValue;
 };
 
-// Eu atualizo skill com validação e callback
+// Atualiza skill - VERSÃO SIMPLIFICADA
 export const updateSkill = (skillName, value, onUpdate) => {
-  let numValue;
-  
-  if (value === "" || value === null || value === undefined) {
-    numValue = 0;
-  } else {
-    numValue = parseInt(value);
-    if (isNaN(numValue)) numValue = 0;
-  }
-  
-  numValue = Math.max(0, Math.min(6, numValue));
+  const numValue = Math.max(0, Math.min(6, parseInt(value) || 0));
   
   if (onUpdate) {
     onUpdate('skill', skillName, numValue);
@@ -72,7 +168,7 @@ export const updateSkill = (skillName, value, onUpdate) => {
   return numValue;
 };
 
-// Eu mapeio atributos para suas skills correspondentes
+// Mapeia atributos para suas skills correspondentes
 export const attributeSkillMap = {
   'Força': { 
     positionClass: 'positionTop', 
@@ -108,7 +204,7 @@ export const attributeSkillMap = {
   }
 };
 
-// Eu defino os estilos dos componentes
+// Estilos dos componentes
 export const attributeComponentsStyles = (theme) => ({
   attributePosition: {
     position: 'absolute',
@@ -116,33 +212,33 @@ export const attributeComponentsStyles = (theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
-    width: '100px',
-    height: '100px'
+    width: '110px',
+    height: '110px'
   },
   positionTop: {
-    top: '0%',
+    top: '5px',
     left: '50%',
-    transform: 'translate(-50%, -50%)'
+    transform: 'translateX(-50%)'
   },
   positionLeft: {
     top: '50%',
-    left: '0%',
-    transform: 'translate(-50%, -50%)'
+    left: '5px',
+    transform: 'translateY(-50%)'
   },
   positionRight: {
     top: '50%',
-    right: '0%',
-    transform: 'translate(50%, -50%)'
+    right: '5px',
+    transform: 'translateY(-50%)'
   },
   positionBottom: {
-    bottom: '0%',
+    bottom: '5px',
     left: '50%',
-    transform: 'translate(-50%, 50%)'
+    transform: 'translateX(-50%)'
   },
   attributeOctagonContainer: {
     position: 'relative',
-    width: '90px',
-    height: '90px',
+    width: '100px',
+    height: '100px',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center'
@@ -163,81 +259,92 @@ export const attributeComponentsStyles = (theme) => ({
     background: 'rgba(255, 255, 255, 0.95)',
     color: '#ff6b35',
     textAlign: 'center',
-    fontWeight: 'bold',
-    width: '82px',
-    height: '82px',
+    fontWeight: '900',
+    width: '90px',
+    height: '90px',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
     clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)',
     zIndex: 2,
-    border: '1px solid #ff6b35',
+    border: '2px solid #ff6b35',
     backdropFilter: 'blur(5px)'
   },
   attributeOctagonContent: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '4px',
+    gap: '5px',
     width: '100%',
-    padding: '6px'
+    padding: '8px'
   },
   attributeNameBox: {
     background: '#ff6b35',
     color: '#fff',
-    padding: '2px 8px',
-    borderRadius: '2px',
-    fontSize: '0.5rem',
-    fontWeight: 'bold',
+    padding: '3px 10px',
+    borderRadius: '3px',
+    fontSize: '0.7rem',
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: '0.3px',
-    marginTop: '3px',
+    letterSpacing: '0.5px',
+    marginTop: '4px',
     whiteSpace: 'nowrap',
-    border: '1px solid #fff',
-    filter: 'brightness(1.1)'
+    border: '2px solid #fff',
+    filter: 'brightness(1.1)',
+    textShadow: '0px 1px 1px rgba(0,0,0,0.2)'
   },
   attributeInputRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: '4px',
+    gap: '6px',
     justifyContent: 'center'
   },
   attributeInput: {
-    width: '38px',
+    width: '50px',
     '& .MuiOutlinedInput-root': {
-      background: 'rgba(255, 255, 255, 0.9)',
-      borderRadius: '2px',
+      background: 'rgba(255, 255, 255, 0.95)',
+      borderRadius: '4px',
       '& fieldset': {
         borderColor: '#ff6b35',
-        borderWidth: '1px'
+        borderWidth: '2px'
       },
       '&:hover fieldset': {
         borderColor: '#ff6b35',
       },
       '&.Mui-focused fieldset': {
         borderColor: '#ff6b35',
-        borderWidth: '1px'
+        borderWidth: '2px'
       }
     },
     '& input': {
       color: '#ff6b35',
-      fontWeight: '800',
-      fontSize: '0.75rem',
+      fontWeight: '900',
+      fontSize: '1.2rem',
       textAlign: 'center',
-      padding: '4px 2px',
-      height: '22px'
+      padding: '6px 4px',
+      height: '28px',
+      fontFamily: '"Roboto", "Arial", sans-serif',
+      cursor: 'default',
+      caretColor: 'transparent',
+      userSelect: 'none',
+      MozAppearance: 'textfield',
+      '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+        WebkitAppearance: 'auto',
+        margin: 0
+      }
     }
   },
   attributeDiceButton: {
-    padding: '4px',
+    padding: '6px',
     minWidth: 'auto',
     color: '#ff6b35',
-    background: 'rgba(255, 255, 255, 0.9)',
-    border: '1px solid #ff6b35',
-    borderRadius: '2px',
+    background: 'rgba(255, 255, 255, 0.95)',
+    border: '2px solid #ff6b35',
+    borderRadius: '4px',
     '& .MuiSvgIcon-root': {
-      fontSize: '14px'
+      fontSize: '16px',
+      fontWeight: 'bold'
     },
     '&:hover': {
       backgroundColor: '#ff6b35',
@@ -246,8 +353,8 @@ export const attributeComponentsStyles = (theme) => ({
   },
   skillOctagonContainer: {
     position: 'relative',
-    width: '70px',
-    height: '70px',
+    width: '90px',
+    height: '90px',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center'
@@ -268,94 +375,105 @@ export const attributeComponentsStyles = (theme) => ({
     background: 'rgba(255, 255, 255, 0.95)',
     color: '#1976d2',
     textAlign: 'center',
-    fontWeight: 'bold',
-    width: '64px',
-    height: '64px',
+    fontWeight: '800',
+    width: '82px',
+    height: '82px',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
     clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)',
     zIndex: 2,
-    border: '1px solid #1976d2',
+    border: '2px solid #1976d2',
     backdropFilter: 'blur(5px)'
   },
   skillOctagonContent: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '3px',
+    gap: '4px',
     width: '100%',
-    padding: '4px'
+    padding: '8px'
   },
   skillNameBox: {
     background: '#1976d2',
     color: '#fff',
-    padding: '3px 6px',
-    borderRadius: '2px',
-    fontSize: '0.45rem',
-    fontWeight: 'bold',
+    padding: '5px 10px',
+    borderRadius: '3px',
+    fontSize: '0.7rem',
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: '0.3px',
+    letterSpacing: '0.5px',
     whiteSpace: 'pre-line',
     textAlign: 'center',
-    lineHeight: '1.1',
-    border: '1px solid #fff',
-    minWidth: '70px',
+    lineHeight: '1.3',
+    border: '2px solid #fff',
+    minWidth: '85px',
     position: 'relative',
     zIndex: 3,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     wordWrap: 'break-word',
-    filter: 'brightness(1.1)'
+    filter: 'brightness(1.1)',
+    textShadow: '0px 1px 1px rgba(0,0,0,0.2)'
   },
   skillInputRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: '2px',
+    gap: '6px',
     justifyContent: 'center',
-    marginBottom: '1px'
+    marginBottom: '3px'
   },
   skillInput: {
-    width: '34px',
+    width: '45px',
     '& .MuiOutlinedInput-root': {
-      background: 'rgba(255, 255, 255, 0.9)',
-      borderRadius: '2px',
+      background: 'rgba(255, 255, 255, 0.95)',
+      borderRadius: '4px',
       '& fieldset': {
         borderColor: '#1976d2',
-        borderWidth: '1px'
+        borderWidth: '2px'
       },
       '&:hover fieldset': {
         borderColor: '#1976d2',
       },
       '&.Mui-focused fieldset': {
         borderColor: '#1976d2',
-        borderWidth: '1px'
+        borderWidth: '2px'
       }
     },
     '& input': {
       color: '#1976d2',
-      fontWeight: 'bold',
-      fontSize: '0.7rem',
+      fontWeight: '800',
+      fontSize: '1.2rem',
       textAlign: 'center',
-      padding: '3px 1px',
-      height: '20px'
+      padding: '6px 4px',
+      height: '28px',
+      fontFamily: '"Roboto", "Arial", sans-serif',
+      cursor: 'default',
+      caretColor: 'transparent',
+      userSelect: 'none',
+      MozAppearance: 'textfield',
+      '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+        WebkitAppearance: 'auto',
+        margin: 0
+      }
     }
   },
   skillDiceButton: {
-    padding: '3px',
+    padding: '6px',
     minWidth: 'auto',
     color: '#1976d2',
-    background: 'rgba(255, 255, 255, 0.9)',
-    border: '1px solid #1976d2',
-    borderRadius: '2px',
+    background: 'rgba(255, 255, 255, 0.95)',
+    border: '2px solid #1976d2',
+    borderRadius: '4px',
     '&:hover': {
       backgroundColor: '#1976d2',
       color: '#fff'
     },
     '& .MuiSvgIcon-root': {
-      fontSize: '12px'
+      fontSize: '16px',
+      fontWeight: 'bold'
     }
   },
   skillGroup: {
@@ -365,72 +483,72 @@ export const attributeComponentsStyles = (theme) => ({
     zIndex: 20
   },
   skillTopLeft: {
-    top: '-50px',
-    left: '-50px',
+    top: '-45px',
+    left: '-25px',
     flexDirection: 'row'
   },
   skillTopCenter: {
-    top: '-145px',
+    top: '-125px',
     left: '50%',
     transform: 'translateX(-50%)',
     flexDirection: 'column'
   },
   skillTopRight: {
-    top: '-50px',
-    right: '-50px',
+    top: '-45px',
+    right: '-37px',
     flexDirection: 'row-reverse'
   },
   skillLeftTop: {
-    top: '40px',
-    left: '-100px',
+    top: '55px',
+    left: '-95px',
     flexDirection: 'row'
   },
   skillLeftMiddle: {
     top: '50%',
-    left: '-190px',
+    left: '-180px',
     transform: 'translateY(-50%)',
     flexDirection: 'row'
   },
   skillLeftBottom: {
-    bottom: '40px',
-    left: '-100px',
+    bottom: '55px',
+    left: '-95px',
     flexDirection: 'row'
   },
   skillRightTop: {
-    top: '40px',
-    right: '-100px',
+    top: '55px',
+    right: '-95px',
     flexDirection: 'row-reverse'
   },
   skillRightMiddle: {
     top: '50%',
-    right: '-190px',
+    right: '-200px',
     transform: 'translateY(-50%)',
     flexDirection: 'row-reverse'
   },
   skillRightBottom: {
-    bottom: '40px',
-    right: '-100px',
+    bottom: '55px',
+    right: '-95px',
     flexDirection: 'row-reverse'
   },
   skillBottomLeft: {
-    bottom: '-50px',
-    left: '-40px',
+    bottom: '-45px',
+    left: '-35px',
     flexDirection: 'row'
   },
   skillBottomCenter: {
-    bottom: '-135px',
+    bottom: '-110px',
     left: '50%',
     transform: 'translateX(-50%)',
     flexDirection: 'column-reverse'
   },
   skillBottomRight: {
-    bottom: '-50px',
-    right: '-40px',
+    bottom: '-45px',
+    right: '-35px',
     flexDirection: 'row-reverse'
   }
 });
 
-// Componente individual de atributo
+// Componente individual de atributo - VERSÃO CORRIGIDA
 const AttributeOctagonComponent = ({ 
   classes, 
   attributeName, 
@@ -441,141 +559,113 @@ const AttributeOctagonComponent = ({
 }) => {
   const [localValue, setLocalValue] = useState(attributeValue);
   const inputRef = useRef(null);
-  const saveTimeoutRef = useRef(null);
-  const lastSavedValueRef = useRef(attributeValue);
+  const componentId = useRef(`attr_${attributeName}_${Math.random().toString(36).substr(2, 9)}`);
 
+  // Sincroniza com valor externo
   useEffect(() => {
-    if (lastSavedValueRef.current !== attributeValue) {
-      setLocalValue(attributeValue);
-      lastSavedValueRef.current = attributeValue;
-    }
-  }, [attributeName, attributeValue]);
+    setLocalValue(attributeValue);
+  }, [attributeValue]);
 
-  const saveAttribute = useCallback((value, isFinal = false) => {
-    let numValue;
-    
-    if (value === '' || value === null || value === undefined) {
-      numValue = 0;
-    } else {
-      numValue = parseInt(value);
-      if (isNaN(numValue)) numValue = 0;
-    }
-    
-    numValue = Math.max(0, Math.min(6, numValue));
-    
-    if (numValue === lastSavedValueRef.current) {
-      return;
-    }
-    
-    lastSavedValueRef.current = numValue;
-    
-    if (onUpdate) {
-      updateAttribute(attributeName, numValue, onUpdate);
-    }
-  }, [attributeName, onUpdate]);
-
+  // Handler para mudanças no input (setas nativas)
   const handleInputChange = useCallback((e) => {
-    const value = e.target.value;
+    const newValue = parseInt(e.target.value);
     
-    if (value === '') {
-      setLocalValue('');
-    } else {
-      const numValue = parseInt(value);
-      if (!isNaN(numValue)) {
-        const clampedValue = Math.max(0, Math.min(6, numValue));
-        setLocalValue(clampedValue);
-      }
+    if (!isNaN(newValue)) {
+      const direction = newValue > localValue ? 1 : -1;
+      const absoluteDirection = Math.abs(newValue - localValue);
+      
+      const finalValue = processArrowClick(
+        componentId.current,
+        localValue,
+        direction * absoluteDirection,
+        (finalValueResult) => {
+          setLocalValue(finalValueResult);
+          if (onUpdate) {
+            onUpdate('attribute', attributeName, finalValueResult);
+          }
+        }
+      );
+      
+      setLocalValue(finalValue);
     }
-    
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    saveTimeoutRef.current = setTimeout(() => {
-      saveAttribute(value, true);
-    }, 600);
-  }, [saveAttribute]);
+  }, [attributeName, localValue, onUpdate]);
 
-  const handleBlur = useCallback((e) => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
-    }
-    
-    saveAttribute(e.target.value, true);
-  }, [saveAttribute]);
-
-  const handleDiceClick = useCallback(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
-    }
-    
-    // Eu salvo se necessário
-    if (localValue !== lastSavedValueRef.current) {
-      saveAttribute(localValue.toString(), true);
-    }
-    
-    // Eu passo o valor atual pro modal
-    const valueToRoll = lastSavedValueRef.current;
-    
-    if (onAttributeRoll) {
-      onAttributeRoll(attributeName, valueToRoll);
-    }
-  }, [attributeName, onAttributeRoll, localValue, saveAttribute]);
-
-  const handleWheel = useCallback((e) => {
-    e.preventDefault();
-    
-    let newValue;
-    
-    if (e.deltaY < 0) {
-      newValue = Math.min(6, localValue + 1);
-    } else {
-      newValue = Math.max(0, localValue - 1);
-    }
-    
-    setLocalValue(newValue);
-    
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    saveTimeoutRef.current = setTimeout(() => {
-      saveAttribute(newValue.toString(), true);
-    }, 300);
-  }, [localValue, saveAttribute]);
-
+  // Handler para teclado
   const handleKeyDown = useCallback((e) => {
-    let newValue;
-    
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      newValue = Math.min(6, localValue + 1);
+      const newValue = processArrowClick(
+        componentId.current,
+        localValue,
+        1,
+        (finalValue) => {
+          setLocalValue(finalValue);
+          if (onUpdate) {
+            onUpdate('attribute', attributeName, finalValue);
+          }
+        }
+      );
+      setLocalValue(newValue);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      newValue = Math.max(0, localValue - 1);
-    } else {
-      return;
+      const newValue = processArrowClick(
+        componentId.current,
+        localValue,
+        -1,
+        (finalValue) => {
+          setLocalValue(finalValue);
+          if (onUpdate) {
+            onUpdate('attribute', attributeName, finalValue);
+          }
+        }
+      );
+      setLocalValue(newValue);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (onAttributeRoll) {
+        onAttributeRoll(attributeName, localValue);
+      }
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+    }
+  }, [attributeName, localValue, onUpdate, onAttributeRoll]);
+
+  // Handler para clique no dado
+  const handleDiceClick = useCallback(() => {
+    if (globalClickSession.active && globalClickSession.fieldId === componentId.current) {
+      const finalValue = Math.max(0, Math.min(6, 
+        globalClickSession.startValue + globalClickSession.accumulated
+      ));
+      setLocalValue(finalValue);
+      if (onUpdate) {
+        onUpdate('attribute', attributeName, finalValue);
+      }
+      resetGlobalSession();
     }
     
-    setLocalValue(newValue);
-    
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+    if (onAttributeRoll) {
+      onAttributeRoll(attributeName, localValue);
     }
-    
-    saveTimeoutRef.current = setTimeout(() => {
-      saveAttribute(newValue.toString(), true);
-    }, 200);
-  }, [localValue, saveAttribute]);
+  }, [attributeName, localValue, onUpdate, onAttributeRoll]);
+
+  // Handler para foco
+  const handleFocus = useCallback((e) => {
+    e.target.select();
+  }, []);
+
+  // Handler para prevenir digitação
+  const handlePaste = useCallback((e) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+  }, []);
 
   useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   }, []);
 
   return (
@@ -589,10 +679,18 @@ const AttributeOctagonComponent = ({
                 type="number"
                 value={localValue}
                 onChange={handleInputChange}
-                onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                onWheel={handleWheel}
-                inputProps={{ min: 0, max: 6 }}
+                onFocus={handleFocus}
+                onPaste={handlePaste}
+                onDrop={handleDrop}
+                inputProps={{ 
+                  min: 0, 
+                  max: 6,
+                  style: { 
+                    cursor: 'default',
+                    caretColor: 'transparent'
+                  }
+                }}
                 className={classes.attributeInput}
                 size="small"
                 inputRef={inputRef}
@@ -615,22 +713,15 @@ const AttributeOctagonComponent = ({
   );
 };
 
-// Função de comparação para AttributeOctagon
 const attributeOctagonPropsAreEqual = (prevProps, nextProps) => {
-  const attributeValueChanged = prevProps.attributeValue !== nextProps.attributeValue;
-  const callbacksChanged = prevProps.onUpdate !== nextProps.onUpdate || 
-                          prevProps.onAttributeRoll !== nextProps.onAttributeRoll;
-  
-  if (!attributeValueChanged && !callbacksChanged) {
-    return true;
-  }
-  
-  return false;
+  return prevProps.attributeValue === nextProps.attributeValue &&
+         prevProps.onUpdate === nextProps.onUpdate &&
+         prevProps.onAttributeRoll === nextProps.onAttributeRoll;
 };
 
 export const AttributeOctagon = memo(AttributeOctagonComponent, attributeOctagonPropsAreEqual);
 
-// Componente individual de skill
+// Componente individual de skill - VERSÃO CORRIGIDA
 const SkillComponentInternal = ({ 
   classes, 
   skillName, 
@@ -641,144 +732,107 @@ const SkillComponentInternal = ({
 }) => {
   const [localValue, setLocalValue] = useState(skillValue);
   const inputRef = useRef(null);
-  const saveTimeoutRef = useRef(null);
-  const lastSavedValueRef = useRef(skillValue);
+  const componentId = useRef(`skill_${skillName}_${Math.random().toString(36).substr(2, 9)}`);
 
   useEffect(() => {
-    if (lastSavedValueRef.current !== skillValue) {
-      setLocalValue(skillValue);
-      lastSavedValueRef.current = skillValue;
-    }
-  }, [skillName, skillValue]);
-
-  const saveSkill = useCallback((value, isFinal = false) => {
-    let numValue;
-    
-    if (value === '' || value === null || value === undefined) {
-      numValue = 0;
-    } else {
-      numValue = parseInt(value);
-      if (isNaN(numValue)) numValue = 0;
-    }
-    
-    numValue = Math.max(0, Math.min(6, numValue));
-    
-    if (numValue === lastSavedValueRef.current) {
-      return;
-    }
-    
-    lastSavedValueRef.current = numValue;
-    
-    if (onUpdate) {
-      updateSkill(skillName, numValue, onUpdate);
-    }
-  }, [skillName, onUpdate]);
+    setLocalValue(skillValue);
+  }, [skillValue]);
 
   const handleInputChange = useCallback((e) => {
-    const value = e.target.value;
+    const newValue = parseInt(e.target.value);
     
-    if (value === '') {
-      setLocalValue('');
-    } else {
-      const numValue = parseInt(value);
-      if (!isNaN(numValue)) {
-        const clampedValue = Math.max(0, Math.min(6, numValue));
-        setLocalValue(clampedValue);
-      }
+    if (!isNaN(newValue)) {
+      const direction = newValue > localValue ? 1 : -1;
+      const absoluteDirection = Math.abs(newValue - localValue);
+      
+      const finalValue = processArrowClick(
+        componentId.current,
+        localValue,
+        direction * absoluteDirection,
+        (finalValueResult) => {
+          setLocalValue(finalValueResult);
+          if (onUpdate) {
+            onUpdate('skill', skillName, finalValueResult);
+          }
+        }
+      );
+      
+      setLocalValue(finalValue);
     }
-    
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    saveTimeoutRef.current = setTimeout(() => {
-      saveSkill(value, true);
-    }, 600);
-  }, [saveSkill]);
-
-  const handleBlur = useCallback((e) => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
-    }
-    
-    saveSkill(e.target.value, true);
-  }, [saveSkill]);
-
-  const handleDiceClick = useCallback(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
-    }
-    
-    // Eu salvo antes do roll
-    if (localValue !== lastSavedValueRef.current) {
-      saveSkill(localValue.toString(), true);
-    }
-    
-    // Eu passo o valor atual pro modal
-    const valueToRoll = lastSavedValueRef.current;
-    
-    // Eu dou um pequeno delay pra garantir que o save foi processado
-    setTimeout(() => {
-      if (onSkillRoll) {
-        onSkillRoll(skillName, valueToRoll);
-      }
-    }, 50);
-  }, [skillName, onSkillRoll, localValue, saveSkill]);
-
-  const handleWheel = useCallback((e) => {
-    e.preventDefault();
-    
-    let newValue;
-    
-    if (e.deltaY < 0) {
-      newValue = Math.min(6, localValue + 1);
-    } else {
-      newValue = Math.max(0, localValue - 1);
-    }
-    
-    setLocalValue(newValue);
-    
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    saveTimeoutRef.current = setTimeout(() => {
-      saveSkill(newValue.toString(), true);
-    }, 300);
-  }, [localValue, saveSkill]);
+  }, [skillName, localValue, onUpdate]);
 
   const handleKeyDown = useCallback((e) => {
-    let newValue;
-    
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      newValue = Math.min(6, localValue + 1);
+      const newValue = processArrowClick(
+        componentId.current,
+        localValue,
+        1,
+        (finalValue) => {
+          setLocalValue(finalValue);
+          if (onUpdate) {
+            onUpdate('skill', skillName, finalValue);
+          }
+        }
+      );
+      setLocalValue(newValue);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      newValue = Math.max(0, localValue - 1);
-    } else {
-      return;
+      const newValue = processArrowClick(
+        componentId.current,
+        localValue,
+        -1,
+        (finalValue) => {
+          setLocalValue(finalValue);
+          if (onUpdate) {
+            onUpdate('skill', skillName, finalValue);
+          }
+        }
+      );
+      setLocalValue(newValue);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (onSkillRoll) {
+        onSkillRoll(skillName, localValue);
+      }
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+    }
+  }, [skillName, localValue, onUpdate, onSkillRoll]);
+
+  const handleDiceClick = useCallback(() => {
+    if (globalClickSession.active && globalClickSession.fieldId === componentId.current) {
+      const finalValue = Math.max(0, Math.min(6, 
+        globalClickSession.startValue + globalClickSession.accumulated
+      ));
+      setLocalValue(finalValue);
+      if (onUpdate) {
+        onUpdate('skill', skillName, finalValue);
+      }
+      resetGlobalSession();
     }
     
-    setLocalValue(newValue);
-    
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+    if (onSkillRoll) {
+      onSkillRoll(skillName, localValue);
     }
-    
-    saveTimeoutRef.current = setTimeout(() => {
-      saveSkill(newValue.toString(), true);
-    }, 200);
-  }, [localValue, saveSkill]);
+  }, [skillName, localValue, onUpdate, onSkillRoll]);
+
+  const handleFocus = useCallback((e) => {
+    e.target.select();
+  }, []);
+
+  const handlePaste = useCallback((e) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+  }, []);
 
   useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   }, []);
 
   return (
@@ -792,10 +846,18 @@ const SkillComponentInternal = ({
                 type="number"
                 value={localValue}
                 onChange={handleInputChange}
-                onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                onWheel={handleWheel}
-                inputProps={{ min: 0, max: 6 }}
+                onFocus={handleFocus}
+                onPaste={handlePaste}
+                onDrop={handleDrop}
+                inputProps={{ 
+                  min: 0, 
+                  max: 6,
+                  style: { 
+                    cursor: 'default',
+                    caretColor: 'transparent'
+                  }
+                }}
                 className={classes.skillInput}
                 size="small"
                 inputRef={inputRef}
@@ -818,22 +880,15 @@ const SkillComponentInternal = ({
   );
 };
 
-// Função de comparação para SkillComponent
 const skillComponentPropsAreEqual = (prevProps, nextProps) => {
-  const skillValueChanged = prevProps.skillValue !== nextProps.skillValue;
-  const callbacksChanged = prevProps.onUpdate !== nextProps.onUpdate || 
-                          prevProps.onSkillRoll !== nextProps.onSkillRoll;
-  
-  if (!skillValueChanged && !callbacksChanged) {
-    return true;
-  }
-  
-  return false;
+  return prevProps.skillValue === nextProps.skillValue &&
+         prevProps.onUpdate === nextProps.onUpdate &&
+         prevProps.onSkillRoll === nextProps.onSkillRoll;
 };
 
 export const SkillComponent = memo(SkillComponentInternal, skillComponentPropsAreEqual);
 
-// Componente principal que agrupa atributo com suas skills
+// Componente principal que agrupa atributo com suas skills - VERSÃO SIMPLIFICADA
 const AttributeWithSkillsComponent = ({ 
   classes,
   attributeName,
@@ -867,69 +922,38 @@ const AttributeWithSkillsComponent = ({
     return positionMap[attributeName] || [];
   }, [attributeName, classes]);
   
-  const memoizedOnUpdate = useMemo(() => onUpdate, [onUpdate]);
-  const memoizedOnAttributeRoll = useMemo(() => onAttributeRoll, [onAttributeRoll]);
-  const memoizedOnSkillRoll = useMemo(() => onSkillRoll, [onSkillRoll]);
-  
+  // Callbacks simplificados - passam direto para o pai
   const handleAttributeUpdate = useCallback((type, name, value) => {
-    if (type === 'attribute' && name === attributeName) {
-      if (memoizedOnUpdate) {
-        memoizedOnUpdate(type, name, value);
-      }
+    if (onUpdate) {
+      onUpdate(type, name, value);
     }
-  }, [memoizedOnUpdate, attributeName]);
+  }, [onUpdate]);
   
   const handleAttributeRoll = useCallback((attributeNameParam, attributeValue) => {
-    if (memoizedOnAttributeRoll) {
-      memoizedOnAttributeRoll(attributeNameParam, attributeValue);
+    if (onAttributeRoll) {
+      onAttributeRoll(attributeNameParam, attributeValue);
     }
-  }, [memoizedOnAttributeRoll]);
+  }, [onAttributeRoll]);
   
   const handleSkillRoll = useCallback((skillName, skillValue) => {
-    if (memoizedOnSkillRoll) {
-      memoizedOnSkillRoll(skillName, skillValue);
+    if (onSkillRoll) {
+      onSkillRoll(skillName, skillValue);
     }
-  }, [memoizedOnSkillRoll]);
-  
-  const skillUpdateHandlers = useMemo(() => {
-    const handlers = {};
-    
-    attributeSkills.forEach(skill => {
-      handlers[skill.name] = (type, name, value) => {
-        if (type === 'skill' && name === skill.name) {
-          if (memoizedOnUpdate) {
-            const numValue = typeof value === 'number' ? value : parseInt(value);
-            
-            if (isNaN(numValue)) {
-              return;
-            }
-            
-            memoizedOnUpdate(type, name, numValue);
-          }
-        }
-      };
-    });
-    
-    return handlers;
-  }, [attributeSkills, memoizedOnUpdate, attributeName]);
+  }, [onSkillRoll]);
   
   const memoizedSkillComponents = useMemo(() => {
-    return attributeSkills.map((skill, index) => {
-      const skillUpdateHandler = skillUpdateHandlers[skill.name];
-      
-      return (
-        <SkillComponent
-          key={skill.name}
-          classes={classes}
-          skillName={skill.name}
-          skillValue={skill.value}
-          positionClass={skillPositions[index]}
-          onUpdate={skillUpdateHandler}
-          onSkillRoll={(skillNameParam, skillValueParam) => handleSkillRoll(skillNameParam, skillValueParam)}
-        />
-      );
-    });
-  }, [attributeSkills, classes, skillPositions, skillUpdateHandlers, handleSkillRoll]);
+    return attributeSkills.map((skill, index) => (
+      <SkillComponent
+        key={skill.name}
+        classes={classes}
+        skillName={skill.name}
+        skillValue={skill.value}
+        positionClass={skillPositions[index]}
+        onUpdate={handleAttributeUpdate} // Usa o mesmo callback do atributo
+        onSkillRoll={handleSkillRoll}
+      />
+    ));
+  }, [attributeSkills, classes, skillPositions, handleAttributeUpdate, handleSkillRoll]);
 
   return (
     <>
@@ -939,7 +963,7 @@ const AttributeWithSkillsComponent = ({
         attributeValue={currentAttributeValue}
         positionClass={classes[config.positionClass]}
         onUpdate={handleAttributeUpdate}
-        onAttributeRoll={(attributeNameParam, attributeValueParam) => handleAttributeRoll(attributeNameParam, attributeValueParam)}
+        onAttributeRoll={handleAttributeRoll}
       />
 
       {memoizedSkillComponents}
@@ -947,7 +971,6 @@ const AttributeWithSkillsComponent = ({
   );
 };
 
-// Função de comparação otimizada para AttributeWithSkills
 const attributeWithSkillsPropsAreEqual = (prevProps, nextProps) => {
   const getAttributeValueLocal = (attrs, name, defaultAttrs) => {
     const validatedAttributes = attrs.length ? attrs : defaultAttrs;
@@ -1006,16 +1029,11 @@ const attributeWithSkillsPropsAreEqual = (prevProps, nextProps) => {
   
   const shouldUpdate = attributeValueChanged || anySkillChanged || callbacksChanged;
   
-  if (!shouldUpdate) {
-    return true;
-  }
-  
-  return false;
+  return !shouldUpdate;
 };
 
 export const AttributeWithSkills = memo(AttributeWithSkillsComponent, attributeWithSkillsPropsAreEqual);
 
-// Export default pra manter compatibilidade
 export default {
   AttributeWithSkills,
   AttributeOctagon,

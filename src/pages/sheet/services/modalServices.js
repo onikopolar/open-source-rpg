@@ -1,3 +1,7 @@
+// Arquivo: src/pages/sheet/services/modalServices.js
+// Versão: 1.1.0 - ADD: Callback de atualização após upload de imagem
+console.log('[modalServices] Versão 1.1.0 - Callback de atualização de imagem implementado');
+
 import React from 'react';
 import { DiceRollModal, YearZeroDiceModal, StatusBarModal, ChangePictureModal } from '../../../components';
 
@@ -30,15 +34,22 @@ export const createModals = (useModal, handlers) => {
       currentHitPoints: custom.currentHitPoints,
       maxHitPoints: custom.maxHitPoints,
       onSubmit: handlers.handleHitPointsUpdate,
-      isLoading: false // Será injetado
+      isLoading: false
     });
   });
 
   const changePictureModal = useModal(({ close, custom }) => {
+    console.log('[modalServices] Criando ChangePictureModal com callback:', {
+      hasRefreshData: !!custom.refreshData,
+      hasOnPictureChange: !!custom.onPictureChange
+    });
+    
     return React.createElement(ChangePictureModal, {
       handleClose: close,
-      characterId: custom.characterId,
-      characterName: custom.characterName
+      character: custom.character,
+      onPictureChange: custom.refreshData || custom.onPictureChange || (() => {
+        console.warn('[modalServices] Nenhum callback de atualização fornecido');
+      })
     });
   });
 

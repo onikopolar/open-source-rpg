@@ -365,8 +365,8 @@ function YearZeroDiceModal({
             };
         }
         return {
-            backgroundColor: isYellowDie ? '#fff9c4' : '#e0e0e0',
-            border: isYellowDie ? '1px solid #ffd54f' : '1px solid #bdbdbd'
+            backgroundColor: isYellowDie ? '#f2de28ce' : '#a2b69848',
+            border: isYellowDie ? '1px solid #f8c312ff' : '1px solid #bdbdbd'
         };
     };
 

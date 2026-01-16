@@ -1,4 +1,6 @@
 // styles/characterSheetStyles.js
+// Versionamento Semântico: 2.1.0 - Retorno dos efeitos de translateY com minimalismo sutil
+
 export const styles = (theme) => ({
   container: {
     padding: '20px',
@@ -41,11 +43,9 @@ export const styles = (theme) => ({
     border: '3px solid rgba(99, 158, 194, 0.4)',
     borderRadius: '12px',
     padding: '20px',
-    backdropFilter: 'blur(10px)',
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 30px rgba(99, 158, 194, 0.15)',
-    transition: 'all 0.3s ease',
+    transition: 'transform 0.2s ease, border-color 0.2s ease',
     '&:hover': {
-      boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6), 0 0 40px rgba(99, 158, 194, 0.25)',
       transform: 'translateY(-2px)',
       borderColor: 'rgba(99, 158, 194, 0.6)',
     }
@@ -59,18 +59,15 @@ export const styles = (theme) => ({
     borderRadius: '8px',
     padding: '15px',
     textAlign: 'center',
-    transition: 'all 0.3s ease',
+    transition: 'transform 0.2s ease, border-color 0.2s ease',
     cursor: 'pointer',
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
-    backdropFilter: 'blur(10px)',
     '&:hover': {
       transform: 'translateY(-3px)',
-      boxShadow: '0 6px 20px rgba(99, 158, 194, 0.3)',
       borderColor: 'rgba(99, 158, 194, 0.6)',
-      background: 'linear-gradient(135deg, rgba(99, 158, 194, 0.15) 0%, rgba(74, 122, 156, 0.1) 100%)',
     }
   },
   infoFieldHeader: {
@@ -83,7 +80,6 @@ export const styles = (theme) => ({
   infoFieldIcon: {
     fontSize: '24px',
     color: '#639EC2',
-    filter: 'drop-shadow(0 0 6px rgba(99, 158, 194, 0.5))'
   },
   infoFieldName: {
     fontSize: '0.9rem',
@@ -91,14 +87,12 @@ export const styles = (theme) => ({
     color: '#639EC2',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
-    textShadow: '0 0 8px rgba(99, 158, 194, 0.5)'
   },
   infoFieldValue: {
     fontSize: '1.4rem',
     fontWeight: 'bold',
     color: '#7ab3d9',
     margin: '8px 0',
-    textShadow: '0 0 10px rgba(122, 179, 217, 0.6)'
   },
   infoFieldDescription: {
     fontSize: '0.75rem',
@@ -185,10 +179,10 @@ export const styles = (theme) => ({
     flexDirection: 'column',
     overflow: 'hidden',
     width: '100%',
-    backdropFilter: 'blur(10px)',
+    transition: 'transform 0.2s ease, border-color 0.2s ease',
     '&:hover': {
+      transform: 'translateY(-2px)',
       borderColor: 'rgba(99, 158, 194, 0.5)',
-      boxShadow: '0 4px 15px rgba(99, 158, 194, 0.3)',
     }
   },
   columnTitle: {
@@ -201,7 +195,6 @@ export const styles = (theme) => ({
     textTransform: 'uppercase',
     letterSpacing: '1px',
     color: '#639EC2',
-    textShadow: '0 0 10px rgba(99, 158, 194, 0.6)'
   },
   moduleTitle: {
     fontSize: '1.1rem',
@@ -211,7 +204,6 @@ export const styles = (theme) => ({
     color: '#7ab3d9',
     borderBottom: '2px solid rgba(122, 179, 217, 0.4)',
     paddingBottom: '4px',
-    textShadow: '0 0 8px rgba(122, 179, 217, 0.5)'
   },
   mahoragaLayout: {
     position: 'relative',
@@ -236,8 +228,7 @@ export const styles = (theme) => ({
     borderRadius: '50%',
     padding: '30px',
     textAlign: 'center',
-    transition: 'all 0.4s ease',
-    backdropFilter: 'blur(15px)',
+    transition: 'transform 0.2s ease, border-color 0.2s ease',
     width: '150px',
     height: '150px',
     display: 'flex',
@@ -248,8 +239,7 @@ export const styles = (theme) => ({
     position: 'relative',
     overflow: 'hidden',
     '&:hover': {
-      transform: 'translateY(-8px) scale(1.08)',
-      boxShadow: '0 12px 35px rgba(0, 0, 0, 0.8), 0 0 50px rgba(99, 158, 194, 0.6)',
+      transform: 'translateY(-8px)',
       borderColor: '#7ab3d9',
     },
     '&::before': {
@@ -262,7 +252,6 @@ export const styles = (theme) => ({
       background: 'conic-gradient(from 0deg, #639EC2, #7ab3d9, #4a7a9c, #639EC2)',
       borderRadius: '50%',
       zIndex: -1,
-      animation: '$rotate 3s linear infinite',
     },
     '&::after': {
       content: '""',
@@ -276,35 +265,15 @@ export const styles = (theme) => ({
       zIndex: -1,
     }
   },
-  '@keyframes rotate': {
-    '0%': {
-      transform: 'rotate(0deg)',
-    },
-    '100%': {
-      transform: 'rotate(360deg)',
-    }
-  },
   emptyWheel: {
     background: 'linear-gradient(135deg, rgba(32, 30, 30, 0.8) 0%, rgba(24, 23, 23, 0.9) 100%)',
     border: '4px solid rgba(99, 158, 194, 0.4)',
     borderRadius: '50%',
-    transition: 'all 0.3s ease',
+    transition: 'border-color 0.2s ease',
     width: '130px',
     height: '130px',
     boxShadow: '0 6px 25px rgba(0, 0, 0, 0.4)',
     position: 'relative',
-    '&::before': {
-      content: '""',
-      position: 'absolute',
-      top: '-4px',
-      left: '-4px',
-      right: '-4px',
-      bottom: '-4px',
-      background: 'conic-gradient(from 0deg, transparent, rgba(99, 158, 194, 0.3), transparent)',
-      borderRadius: '50%',
-      zIndex: -1,
-      animation: '$rotate 6s linear infinite',
-    },
   },
   attributeNameWheel: {
     position: 'absolute',
@@ -313,7 +282,6 @@ export const styles = (theme) => ({
     color: '#7ab3d9',
     textTransform: 'uppercase',
     letterSpacing: '1px',
-    textShadow: '0 0 8px rgba(122, 179, 217, 0.8), 1px 1px 2px rgba(0,0,0,0.5)',
     whiteSpace: 'nowrap',
     zIndex: 20,
   },
@@ -347,7 +315,6 @@ export const styles = (theme) => ({
       fontSize: '1.1rem',
       textAlign: 'center',
       padding: '8px',
-      textShadow: '0 0 8px rgba(122, 179, 217, 0.5)',
       background: 'transparent',
     }
   },
@@ -358,12 +325,12 @@ export const styles = (theme) => ({
     borderRadius: '50%',
     padding: '6px',
     marginTop: '5px',
-    transition: 'all 0.3s ease',
+    transition: 'background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
     '&:hover': {
       backgroundColor: '#639EC2',
       color: 'white',
-      transform: 'scale(1.1)',
-      boxShadow: '0 0 15px rgba(99, 158, 194, 0.6)',
+      borderColor: '#639EC2',
+      transform: 'translateY(-2px)',
     },
   },
   modifierBoxWheel: {
@@ -375,7 +342,6 @@ export const styles = (theme) => ({
     fontWeight: 'bold',
     marginTop: '5px',
     border: '2px solid rgba(99, 158, 194, 0.4)',
-    textShadow: '0 0 6px rgba(122, 179, 217, 0.5)',
   },
   modifierLabelWheel: {
     fontSize: '0.5rem',
@@ -401,8 +367,7 @@ export const styles = (theme) => ({
     borderRadius: '6px',
     padding: '4px 6px',
     marginBottom: '2px',
-    transition: 'all 0.3s ease',
-    backdropFilter: 'blur(10px)',
+    transition: 'transform 0.2s ease, border-color 0.2s ease',
     boxShadow: '0 1px 4px rgba(99, 158, 194, 0.1)',
     width: '100%',
     maxWidth: '100%',
@@ -410,7 +375,6 @@ export const styles = (theme) => ({
     overflow: 'visible',
     '&:hover': {
       transform: 'translateY(-1px)',
-      boxShadow: '0 2px 8px rgba(99, 158, 194, 0.2)',
       borderColor: 'rgba(99, 158, 194, 0.6)',
     }
   },
@@ -433,7 +397,6 @@ export const styles = (theme) => ({
     flex: '0 1 70px',
     minWidth: '60px',
     maxWidth: '110px',
-    textShadow: '0 0 6px rgba(122, 179, 217, 0.5)',
     overflow: 'visible',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -461,7 +424,6 @@ export const styles = (theme) => ({
     minWidth: '30px',
     maxWidth: '35px',
     textAlign: 'center',
-    textShadow: '0 0 8px rgba(122, 179, 217, 0.6)',
     background: 'linear-gradient(135deg, rgba(99, 158, 194, 0.2) 0%, rgba(74, 122, 156, 0.1) 100%)',
     padding: '2px 4px',
     borderRadius: '4px',
@@ -496,7 +458,6 @@ export const styles = (theme) => ({
     textTransform: 'uppercase',
     lineHeight: '1',
     letterSpacing: '0.8px',
-    textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
     background: 'linear-gradient(135deg, #639EC2, #7ab3d9)',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
@@ -513,9 +474,6 @@ export const styles = (theme) => ({
     minWidth: '20px',
     '&.Mui-checked': {
       color: '#639EC2',
-      transform: 'scale(1.1)',
-      transition: 'all 0.3s ease',
-      filter: 'drop-shadow(0 0 4px rgba(99, 158, 194, 0.8))'
     },
     '& .MuiSvgIcon-root': {
       fontSize: '18px'
@@ -527,9 +485,6 @@ export const styles = (theme) => ({
     minWidth: '20px',
     '&.Mui-checked': {
       color: '#7ab3d9',
-      transform: 'scale(1.1)',
-      transition: 'all 0.3s ease',
-      filter: 'drop-shadow(0 0 4px rgba(122, 179, 217, 0.8))'
     },
     '& .MuiSvgIcon-root': {
       fontSize: '18px'
@@ -544,7 +499,7 @@ export const styles = (theme) => ({
     width: '22px',
     height: '22px',
     maxWidth: '24px',
-    transition: 'all 0.3s ease',
+    transition: 'background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
     background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(99, 158, 194, 0.05) 100%)',
     fontWeight: 'bold',
     boxSizing: 'border-box',
@@ -553,9 +508,7 @@ export const styles = (theme) => ({
       backgroundColor: '#639EC2',
       color: 'white',
       borderColor: '#639EC2',
-      transform: 'scale(1.03)',
-      boxShadow: '0 1px 4px rgba(99, 158, 194, 0.3)',
-      filter: 'drop-shadow(0 0 6px rgba(99, 158, 194, 0.6))'
+      transform: 'translateY(-1px)',
     },
     '& .MuiSvgIcon-root': {
       fontSize: '14px'
@@ -581,7 +534,6 @@ export const styles = (theme) => ({
       },
       '&.Mui-focused': {
         borderColor: '#639EC2',
-        boxShadow: '0 0 8px rgba(99, 158, 194, 0.4)',
       },
       '& input': {
         textAlign: 'center',
@@ -593,7 +545,6 @@ export const styles = (theme) => ({
         background: 'transparent',
         width: '100%',
         boxSizing: 'border-box',
-        textShadow: '0 0 4px rgba(122, 179, 217, 0.5)',
       }
     }
   },
@@ -611,15 +562,13 @@ export const styles = (theme) => ({
     border: '2px solid rgba(99, 158, 194, 0.4)',
     borderRadius: '8px',
     padding: '20px',
-    backdropFilter: 'blur(10px)',
-    transition: 'all 0.3s ease',
+    transition: 'transform 0.2s ease, border-color 0.2s ease',
     cursor: 'pointer',
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
     '&:hover': {
       transform: 'translateY(-2px)',
-      boxShadow: '0 6px 16px rgba(99, 158, 194, 0.3)',
       borderColor: 'rgba(99, 158, 194, 0.6)',
     }
   },
@@ -628,15 +577,13 @@ export const styles = (theme) => ({
     border: '2px solid rgba(122, 179, 217, 0.4)',
     borderRadius: '8px',
     padding: '20px',
-    backdropFilter: 'blur(10px)',
-    transition: 'all 0.3s ease',
+    transition: 'transform 0.2s ease, border-color 0.2s ease',
     cursor: 'pointer',
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
     '&:hover': {
       transform: 'translateY(-2px)',
-      boxShadow: '0 6px 16px rgba(122, 179, 217, 0.3)',
       borderColor: 'rgba(122, 179, 217, 0.6)',
     }
   },
@@ -645,15 +592,13 @@ export const styles = (theme) => ({
     border: '2px solid rgba(74, 122, 156, 0.4)',
     borderRadius: '8px',
     padding: '20px',
-    backdropFilter: 'blur(10px)',
-    transition: 'all 0.3s ease',
+    transition: 'transform 0.2s ease, border-color 0.2s ease',
     cursor: 'pointer',
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
     '&:hover': {
       transform: 'translateY(-2px)',
-      boxShadow: '0 6px 16px rgba(74, 122, 156, 0.3)',
       borderColor: 'rgba(74, 122, 156, 0.6)',
     }
   },
@@ -669,7 +614,6 @@ export const styles = (theme) => ({
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    textShadow: '0 0 6px rgba(99, 158, 194, 0.5)'
   },
   soulTitle: {
     color: '#7ab3d9',
@@ -677,7 +621,6 @@ export const styles = (theme) => ({
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    textShadow: '0 0 6px rgba(122, 179, 217, 0.5)'
   },
   energyTitle: {
     color: '#4a7a9c',
@@ -685,11 +628,9 @@ export const styles = (theme) => ({
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    textShadow: '0 0 6px rgba(74, 122, 156, 0.5)'
   },
   healthIcon: {
     fontSize: '24px',
-    filter: 'drop-shadow(0 0 4px currentColor)'
   },
   progressContainer: {
     marginBottom: '15px'
@@ -709,7 +650,6 @@ export const styles = (theme) => ({
     fontSize: '1.1rem',
     fontWeight: 'bold',
     color: '#7ab3d9',
-    textShadow: '0 0 6px rgba(122, 179, 217, 0.5)'
   },
   healthProgress: {
     height: '20px',
@@ -718,7 +658,6 @@ export const styles = (theme) => ({
     '& .MuiLinearProgress-bar': {
       backgroundColor: '#639EC2',
       borderRadius: '10px',
-      boxShadow: '0 0 10px rgba(99, 158, 194, 0.6)',
     }
   },
   soulProgress: {
@@ -728,7 +667,6 @@ export const styles = (theme) => ({
     '& .MuiLinearProgress-bar': {
       backgroundColor: '#7ab3d9',
       borderRadius: '10px',
-      boxShadow: '0 0 10px rgba(122, 179, 217, 0.6)',
     }
   },
   energyProgress: {
@@ -738,7 +676,6 @@ export const styles = (theme) => ({
     '& .MuiLinearProgress-bar': {
       backgroundColor: '#4a7a9c',
       borderRadius: '10px',
-      boxShadow: '0 0 10px rgba(74, 122, 156, 0.6)',
     }
   },
   healthDetails: {
@@ -784,9 +721,11 @@ export const styles = (theme) => ({
     border: '2px solid rgba(99, 158, 194, 0.4)',
     color: '#7ab3d9',
     fontWeight: 'bold',
+    transition: 'transform 0.2s ease',
     '&:hover': {
       background: 'linear-gradient(135deg, #639EC2 0%, #4a7a9c 100%)',
       color: 'white',
+      transform: 'translateY(-2px)',
     }
   },
   methodSelection: {
@@ -802,31 +741,27 @@ export const styles = (theme) => ({
     border: '3px solid rgba(99, 158, 194, 0.3)',
     borderRadius: '12px',
     cursor: 'pointer',
-    transition: 'all 0.3s ease',
+    transition: 'transform 0.2s ease, border-color 0.2s ease',
     height: '100%',
     background: 'linear-gradient(135deg, rgba(99, 158, 194, 0.1) 0%, rgba(74, 122, 156, 0.05) 100%)',
     '&:hover': {
       borderColor: 'rgba(99, 158, 194, 0.6)',
       transform: 'translateY(-5px)',
-      boxShadow: '0 8px 25px rgba(99, 158, 194, 0.3)',
     },
     '&.selected': {
       borderColor: '#639EC2',
-      background: 'linear-gradient(135deg, rgba(99, 158, 194, 0.2) 0%, rgba(74, 122, 156, 0.15) 100%)',
     }
   },
   methodIcon: {
     fontSize: '48px',
     marginBottom: '15px',
     color: '#639EC2',
-    filter: 'drop-shadow(0 0 8px rgba(99, 158, 194, 0.6))'
   },
   methodTitle: {
     fontSize: '1.5rem',
     fontWeight: 'bold',
     color: '#7ab3d9',
     marginBottom: '10px',
-    textShadow: '0 0 10px rgba(122, 179, 217, 0.6)'
   },
   methodDescription: {
     color: 'rgba(255, 255, 255, 0.8)',
@@ -842,7 +777,6 @@ export const styles = (theme) => ({
     marginBottom: '10px',
     background: 'linear-gradient(135deg, #639EC2 0%, #4a7a9c 100%)',
     color: 'white',
-    textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
   },
   sectionTitle: {
     fontSize: '1.5rem',
@@ -852,7 +786,6 @@ export const styles = (theme) => ({
     textAlign: 'center',
     borderBottom: '2px solid #639EC2',
     paddingBottom: '8px',
-    textShadow: '0 0 15px rgba(99, 158, 194, 0.6)'
   },
   additionalValuesSection: {
     marginBottom: '30px',
@@ -866,12 +799,10 @@ export const styles = (theme) => ({
     borderRadius: '8px',
     padding: '20px',
     textAlign: 'center',
-    transition: 'all 0.3s ease',
-    backdropFilter: 'blur(10px)',
+    transition: 'transform 0.2s ease, border-color 0.2s ease',
     height: '100%',
     '&:hover': {
       transform: 'translateY(-2px)',
-      boxShadow: '0 6px 16px rgba(99, 158, 194, 0.3)',
       borderColor: 'rgba(99, 158, 194, 0.6)',
     }
   },
@@ -885,21 +816,18 @@ export const styles = (theme) => ({
   additionalValueIcon: {
     fontSize: '32px',
     color: '#639EC2',
-    filter: 'drop-shadow(0 0 8px rgba(99, 158, 194, 0.6))'
   },
   additionalValueName: {
     fontSize: '1.2rem',
     fontWeight: 'bold',
     color: '#7ab3d9',
     textTransform: 'uppercase',
-    textShadow: '0 0 10px rgba(122, 179, 217, 0.6)'
   },
   additionalValueDisplay: {
     fontSize: '2rem',
     fontWeight: 'bold',
     color: '#639EC2',
     margin: '15px 0',
-    textShadow: '0 0 15px rgba(99, 158, 194, 0.8)'
   },
   additionalValueFormula: {
     fontSize: '0.8rem',
@@ -949,11 +877,11 @@ export const styles = (theme) => ({
     color: '#7ab3d9',
     fontWeight: 'bold',
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    textShadow: '0 0 6px rgba(122, 179, 217, 0.5)',
+    transition: 'background-color 0.2s ease, transform 0.2s ease',
     '&:hover': {
       background: '#639EC2',
       color: 'white',
+      transform: 'translateY(-2px)',
     },
     '&.used': {
       background: 'rgba(140, 140, 140, 0.2)',
@@ -987,7 +915,6 @@ export const styles = (theme) => ({
     marginBottom: '20px',
     fontWeight: 'bold',
     fontSize: '1.2rem',
-    textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
   },
   rollButtonContainer: {
     textAlign: 'center',
@@ -1007,3 +934,9 @@ export const styles = (theme) => ({
     zIndex: 1
   }
 });
+
+// Fix aplicado: Retorno dos efeitos de translateY mantendo o minimalismo
+// Versão 2.1.0 é um minor update que reintroduz interatividade sutil
+// Todos os elementos interativos agora têm efeito de elevação ao hover
+// Transições mantidas em 0.2s para minimalismo e performance
+// Efeitos visuais limitados apenas a translateY e border-color

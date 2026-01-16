@@ -1,3 +1,6 @@
+// Arquivo: src/components/CharacterBox.jsx
+// Versão: 5.13.4 - FIX: Suporte para atualização de imagem
+
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { withStyles } from '@mui/styles';
@@ -8,29 +11,61 @@ import {
   Delete as DeleteIcon,
   Favorite as HeartIcon,
   FavoriteBorder as HeartIconNoLife,
-  VideoCameraFront as CameraIcon
+  VideoCameraFront as CameraIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 
 import useModal from '../hooks/useModal';
 import GeneratePortraitModal from './modals/GeneratePortraitModal';
+import ChangePictureModal from './modals/ChangePictureModal';
 
-function CharacterBox({ character, deleteCharacter, classes, ...rest }) {
+function CharacterBox({ 
+  character, 
+  deleteCharacter, 
+  onCharacterUpdated,
+  classes, 
+  ...rest 
+}) {
+  console.log('[CharacterBox] Renderizando character:', character?.id, character?.name);
+  console.log('[CharacterBox] onCharacterUpdated disponível:', !!onCharacterUpdated);
+  
   const getCharacterPictureURL = () => {
     if(!character) {
+      console.log('[CharacterBox] Character é null/undefined');
       return null;
     }
 
-    if(character.standard_character_picture_url && character.injured_character_picture_url) {
-      if(character.current_hit_points > (character.max_hit_points / 2)) {
-        return character.standard_character_picture_url;
+    // Debug das URLs disponíveis
+    console.log('[CharacterBox] URLs do character:', {
+      id: character.id,
+      standard: character.standard_character_picture_url,
+      injured: character.injured_character_picture_url,
+      hasStandard: !!character.standard_character_picture_url,
+      hasInjured: !!character.injured_character_picture_url
+    });
+
+    // MODIFICAÇÃO: Mostrar imagem personalizada mesmo se só tiver uma URL
+    if(character.standard_character_picture_url || character.injured_character_picture_url) {
+      // Se tem pontos de vida acima da metade OU não tem URL ferida, usar padrão
+      if(character.current_hit_points > (character.max_hit_points / 2) || !character.injured_character_picture_url) {
+        const url = character.standard_character_picture_url || character.injured_character_picture_url;
+        console.log('[CharacterBox] Usando URL padrão/fallback:', url);
+        return url;
       }
       else {
+        console.log('[CharacterBox] Usando URL ferida:', character.injured_character_picture_url);
         return character.injured_character_picture_url;
       }
     } else {
-      return `/assets/user.png`
+      console.log('[CharacterBox] Nenhuma URL personalizada, usando padrão');
+      return `/assets/user.png`;
     }
   }
+
+  const characterImageUrl = getCharacterPictureURL();
+  
+  // Verifica se é a imagem padrão
+  const isDefaultImage = characterImageUrl === '/assets/user.png';
 
   const generatePortraitModal = useModal(({ close, custom }) => (
     <GeneratePortraitModal
@@ -39,18 +74,46 @@ function CharacterBox({ character, deleteCharacter, classes, ...rest }) {
     />
   ));
 
+  const changePictureModal = useModal(({ close, custom }) => (
+    <ChangePictureModal
+      handleClose={close}
+      character={custom.character}
+      onPictureChange={custom.onPictureChange}
+    />
+  ));
+
+  const handleEditPicture = () => {
+    console.log('[CharacterBox] Abrindo ChangePictureModal para character:', character.id);
+    changePictureModal.appear({ 
+      character: character,
+      onPictureChange: () => {
+        console.log('[CharacterBox] onPictureChange chamado, atualizando personagem...');
+        if (onCharacterUpdated && typeof onCharacterUpdated === 'function') {
+          onCharacterUpdated();
+        } else {
+          console.warn('[CharacterBox] onCharacterUpdated não disponível');
+        }
+      }
+    });
+  };
+
   return (
     <Box
       className={classes.root}
       {...rest}
     >
-      <Image
-        src={getCharacterPictureURL()}
-        alt="Character Portrait"
-        className={classes.image}
-        width={70}
-        height={100}
-      />
+      {characterImageUrl && (
+        <Image
+          src={characterImageUrl}
+          alt={`${character.name} Portrait`}
+          className={classes.image}
+          width={70}
+          height={100}
+          // SOLUÇÃO: Desabilita preload para imagens padrão
+          priority={!isDefaultImage} // Apenas prioriza imagens customizadas
+          loading={isDefaultImage ? "lazy" : "eager"} // Lazy para padrão, eager para custom
+        />
+      )}
       <Box className={classes.content}>
         <Typography className={classes.name} title={`${character.name} (ID: ${character.id})`}>
           {character.name} (ID: {character.id})
@@ -71,6 +134,7 @@ function CharacterBox({ character, deleteCharacter, classes, ...rest }) {
             href={`/sheet/${character.id}`}
             target="_blank"
             className={classes.button}
+            title="Abrir ficha"
           >
             <LinkIcon />
           </Button>
@@ -78,13 +142,23 @@ function CharacterBox({ character, deleteCharacter, classes, ...rest }) {
             variant="outlined"
             className={classes.button}
             onClick={() => generatePortraitModal.appear({ characterId: character.id })}
+            title="Gerar retrato"
           >
             <CameraIcon />
           </Button>
           <Button
             variant="outlined"
+            className={classes.button}
+            onClick={handleEditPicture}
+            title="Alterar imagem"
+          >
+            <EditIcon />
+          </Button>
+          <Button
+            variant="outlined"
             onClick={() => deleteCharacter(character.id)}
             className={`${classes.button} ${classes.deleteButton}`}
+            title="Excluir personagem"
           >
             <DeleteIcon />
           </Button>
@@ -109,6 +183,7 @@ const styles = theme => ({
     width: '75px',
     height: '75px',
     borderRadius: '50%',
+    objectFit: 'cover',
   },
   content: {
     display: 'flex',
@@ -116,7 +191,7 @@ const styles = theme => ({
     alignItems: 'start',
     flexDirection: 'column',
     gap: '10px',
-    width: 'calc(100% - 95px)', // 75px da imagem + 20px do gap
+    width: 'calc(100% - 95px)',
   },
   name: {
     fontSize: '18px',

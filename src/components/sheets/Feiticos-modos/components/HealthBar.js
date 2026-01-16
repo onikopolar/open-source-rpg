@@ -1,4 +1,4 @@
-// components/HealthBar.js - VERSÃO MUI 4
+// components/HealthBar.js - VERSÃO 2.1.1 - Correção de grid para layout horizontal mobile
 import React from 'react';
 import { withStyles } from '@mui/styles';
 import { 
@@ -19,6 +19,9 @@ import {
   Add,
   Remove
 } from '@mui/icons-material';
+
+// Versionamento Semântico: 2.1.1 - Correção de grid para layout horizontal mobile
+console.log('[HealthBar] Versão 2.1.1 - Correção de grid para layout horizontal mobile');
 
 // Configurações centralizadas para cada tipo de barra
 const HEALTH_BAR_CONFIGS = {
@@ -71,21 +74,21 @@ const styles = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    minHeight: '200px',
+    minHeight: '130px',
     cursor: 'pointer',
     transition: 'all 0.2s ease-in-out',
     '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+      transform: 'translateY(-1px)',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
     }
   },
   cardContent: {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    padding: '16px',
+    padding: '10px',
     '&:last-child': {
-      paddingBottom: '16px'
+      paddingBottom: '10px'
     }
   },
   healthHeader: {
@@ -93,94 +96,104 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '12px'
+    marginBottom: '6px'
   },
   headerContent: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px'
+    gap: '4px'
   },
   healthTitle: {
-    fontSize: '0.9rem',
+    fontSize: '0.8rem',
     fontWeight: '600',
-    lineHeight: 1.2
+    lineHeight: 1
   },
   editButton: {
     flex: '0 0 auto',
-    color: 'text.secondary'
+    color: 'text.secondary',
+    padding: '2px',
+    minWidth: '24px',
+    height: '24px'
   },
   progressContainer: {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
-    margin: '16px 0',
-    gap: '8px'
+    margin: '8px 0',
+    gap: '4px'
   },
   progressLabel: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '8px'
+    marginBottom: '4px'
   },
   progressText: {
-    fontSize: '0.8rem',
+    fontSize: '0.7rem',
     color: 'text.secondary',
     fontWeight: '500'
   },
   progressValue: {
-    fontSize: '0.9rem',
+    fontSize: '0.75rem',
     fontWeight: 'bold'
   },
   healthProgress: {
-    height: '12px',
-    borderRadius: '6px',
+    height: '8px',
+    borderRadius: '4px',
     backgroundColor: '#f4433620',
     '& .MuiLinearProgress-bar': {
       backgroundColor: '#f44336',
-      borderRadius: '6px',
-      transition: 'transform 0.4s ease-in-out'
+      borderRadius: '4px',
+      transition: 'transform 0.2s ease-in-out'
     }
   },
   soulProgress: {
-    height: '12px',
-    borderRadius: '6px',
+    height: '8px',
+    borderRadius: '4px',
     backgroundColor: '#9c27b020',
     '& .MuiLinearProgress-bar': {
       backgroundColor: '#9c27b0',
-      borderRadius: '6px',
-      transition: 'transform 0.4s ease-in-out'
+      borderRadius: '4px',
+      transition: 'transform 0.2s ease-in-out'
     }
   },
   energyProgress: {
-    height: '12px',
-    borderRadius: '6px',
+    height: '8px',
+    borderRadius: '4px',
     backgroundColor: '#2196f320',
     '& .MuiLinearProgress-bar': {
       backgroundColor: '#2196f3',
-      borderRadius: '6px',
-      transition: 'transform 0.4s ease-in-out'
+      borderRadius: '4px',
+      transition: 'transform 0.2s ease-in-out'
     }
   },
   descriptionText: {
-    fontSize: '0.75rem',
+    fontSize: '0.65rem',
     color: 'text.secondary',
     textAlign: 'center',
-    marginTop: '4px',
-    fontStyle: 'italic'
+    marginTop: '1px',
+    fontStyle: 'italic',
+    lineHeight: 1
   },
   quickActions: {
     flex: '0 0 auto',
     marginTop: 'auto',
-    paddingTop: '12px',
+    paddingTop: '6px',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: '12px'
+    gap: '6px'
   },
   quickActionButton: {
-    minWidth: '60px',
-    fontWeight: '600'
+    minWidth: '42px',
+    fontWeight: '600',
+    fontSize: '0.7rem',
+    padding: '2px 6px',
+    height: '28px'
+  },
+  healthIcon: {
+    fontSize: '0.9rem'
   }
 };
 
@@ -231,7 +244,10 @@ const HealthBar = React.memo(({
   max = 0, 
   onClick, 
   onQuickAction, 
-  classes 
+  classes,
+  compactMode = false,
+  verticalSpacing = 1,
+  isMobile = false // NOVA PROP: para controle do grid
 }) => {
   
   const { 
@@ -247,36 +263,67 @@ const HealthBar = React.memo(({
     return null;
   }
 
+  const getCardHeight = () => {
+    if (compactMode) {
+      if (verticalSpacing <= 0.25) return '110px';
+      if (verticalSpacing <= 0.5) return '120px';
+      return '125px';
+    }
+    return '130px';
+  };
+
   const iconElement = React.createElement(config.icon, { 
-    className: classes.healthIcon 
+    className: classes.healthIcon,
+    style: { fontSize: compactMode ? '0.8rem' : '0.9rem' }
   });
 
   const progressStyle = {
     color: config.color
   };
 
+  // CORREÇÃO CRÍTICA: xs: 4 para mobile, 12 para desktop
+  const gridXS = isMobile ? 4 : 12;
+
   return React.createElement(Grid, { 
     item: true, 
-    xs: 12, 
+    xs: gridXS, // ALTERADO: agora é dinâmico
     md: 4,
-    className: classes.gridItem
+    className: classes.gridItem,
+    style: {
+      marginBottom: compactMode ? `${verticalSpacing * 2}px` : '6px'
+    }
   },
     React.createElement(Card, { 
       className: `${classes.healthCard} ${classes[config.cardClass]}`,
-      onClick: onClick
+      onClick: onClick,
+      style: {
+        minHeight: getCardHeight()
+      }
     },
       React.createElement(CardContent, { 
-        className: classes.cardContent
+        className: classes.cardContent,
+        style: {
+          padding: compactMode ? '6px' : '10px'
+        }
       },
         React.createElement(Box, { 
-          className: classes.healthHeader
+          className: classes.healthHeader,
+          style: {
+            marginBottom: compactMode ? '4px' : '6px'
+          }
         },
           React.createElement(Box, {
-            className: classes.headerContent
+            className: classes.headerContent,
+            style: {
+              gap: compactMode ? '2px' : '4px'
+            }
           },
             iconElement,
             React.createElement(Typography, { 
-              className: `${classes.healthTitle} ${classes[config.titleClass]}`
+              className: `${classes.healthTitle} ${classes[config.titleClass]}`,
+              style: {
+                fontSize: compactMode ? '0.75rem' : '0.8rem'
+              }
             }, config.title)
           ),
           React.createElement(IconButton, { 
@@ -292,13 +339,23 @@ const HealthBar = React.memo(({
         ),
 
         React.createElement(Box, { 
-          className: classes.progressContainer
+          className: classes.progressContainer,
+          style: {
+            margin: compactMode ? '4px 0' : '8px 0',
+            gap: compactMode ? '2px' : '4px'
+          }
         },
           React.createElement(Box, { 
-            className: classes.progressLabel
+            className: classes.progressLabel,
+            style: {
+              marginBottom: compactMode ? '2px' : '4px'
+            }
           },
             React.createElement(Typography, { 
-              className: classes.progressText
+              className: classes.progressText,
+              style: {
+                fontSize: compactMode ? '0.65rem' : '0.7rem'
+              }
             }, `${current} / ${max}`),
             React.createElement(Typography, { 
               className: classes.progressValue, 
@@ -309,38 +366,59 @@ const HealthBar = React.memo(({
           React.createElement(LinearProgress, {
             variant: "determinate",
             value: progress,
-            className: classes[config.progressClass]
+            className: classes[config.progressClass],
+            style: {
+              height: compactMode ? '6px' : '8px'
+            }
           }),
 
           data?.description && React.createElement(Typography, {
-            className: classes.descriptionText
+            className: classes.descriptionText,
+            style: {
+              fontSize: compactMode ? '0.6rem' : '0.65rem',
+              marginTop: compactMode ? '0px' : '1px'
+            }
           }, data.description)
         ),
 
-        React.createElement(Box, { 
-          className: classes.quickActions
+        showActionButtons && React.createElement(Box, { 
+          className: classes.quickActions,
+          style: {
+            paddingTop: compactMode ? '2px' : '6px',
+            gap: compactMode ? '4px' : '6px'
+          }
         },
-          showActionButtons && React.createElement(React.Fragment, null,
-            React.createElement(Button, {
-              size: "small",
-              variant: "outlined",
-              color: config.buttonColor,
-              onClick: handleMinusClick,
-              className: classes.quickActionButton,
-              startIcon: React.createElement(Remove, { fontSize: "small" }),
-              disabled: current <= 0
-            }, config.quickActions.minus.label),
+          React.createElement(Button, {
+            size: "small",
+            variant: "outlined",
+            color: config.buttonColor,
+            onClick: handleMinusClick,
+            className: classes.quickActionButton,
+            startIcon: React.createElement(Remove, { fontSize: "small" }),
+            disabled: current <= 0,
+            style: {
+              minWidth: compactMode ? '36px' : '42px',
+              fontSize: compactMode ? '0.65rem' : '0.7rem',
+              padding: compactMode ? '1px 4px' : '2px 6px',
+              height: compactMode ? '24px' : '28px'
+            }
+          }, config.quickActions.minus.label),
 
-            React.createElement(Button, {
-              size: "small",
-              variant: "contained",
-              color: config.buttonColor,
-              onClick: handlePlusClick,
-              className: classes.quickActionButton,
-              startIcon: React.createElement(Add, { fontSize: "small" }),
-              disabled: current >= max
-            }, config.quickActions.plus.label)
-          )
+          React.createElement(Button, {
+            size: "small",
+            variant: "contained",
+            color: config.buttonColor,
+            onClick: handlePlusClick,
+            className: classes.quickActionButton,
+            startIcon: React.createElement(Add, { fontSize: "small" }),
+            disabled: current >= max,
+            style: {
+              minWidth: compactMode ? '36px' : '42px',
+              fontSize: compactMode ? '0.65rem' : '0.7rem',
+              padding: compactMode ? '1px 4px' : '2px 6px',
+              height: compactMode ? '24px' : '28px'
+            }
+          }, config.quickActions.plus.label)
         )
       )
     )
@@ -352,7 +430,10 @@ const HealthBar = React.memo(({
     prevProps.max === nextProps.max &&
     prevProps.classes === nextProps.classes &&
     prevProps.onClick === nextProps.onClick &&
-    prevProps.onQuickAction === nextProps.onQuickAction
+    prevProps.onQuickAction === nextProps.onQuickAction &&
+    prevProps.compactMode === nextProps.compactMode &&
+    prevProps.verticalSpacing === nextProps.verticalSpacing &&
+    prevProps.isMobile === nextProps.isMobile // ADICIONADO: comparar isMobile
   );
 });
 
@@ -361,7 +442,10 @@ HealthBar.defaultProps = {
   max: 0,
   classes: {},
   onQuickAction: () => {},
-  onClick: () => {}
+  onClick: () => {},
+  compactMode: false,
+  verticalSpacing: 1,
+  isMobile: false // ADICIONADO: default false
 };
 
 export default withStyles(styles)(HealthBar);

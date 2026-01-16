@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useMemo, useCallback, useRef, useEffect } from 'react';
 import { withStyles } from '@mui/styles';
 import { 
   Box, 
   Typography, 
   Paper, 
-  Button 
+  Button,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import { 
   Shuffle, 
@@ -48,6 +50,129 @@ console.error = (...args) => {
   originalError.apply(console, args);
 };
 
+// Versionamento Semântico: 3.6.0 - FIX: HealthSection horizontal em mobile
+console.log('[FeiticeirosSheet] Versão 3.6.0 - HealthSection horizontal em mobile');
+
+const mainStyles = (theme) => {
+  const originalStyles = styles(theme);
+  
+  return {
+    ...originalStyles,
+    
+    layoutContainer: {
+      width: '100%',
+      maxWidth: '1800px',
+      margin: '0 auto',
+      padding: theme.spacing(2),
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '0px',
+      position: 'relative',
+      left: '0',
+      right: '0',
+      minHeight: '100vh',
+      boxSizing: 'border-box',
+    },
+    
+    layoutTopRow: {
+      width: '100%',
+      maxWidth: '1200px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: theme.spacing(1.5),
+      marginBottom: theme.spacing(0),
+      marginLeft: 'auto',
+      marginRight: 'auto',
+      alignItems: 'center',
+    },
+    
+    topRowComponent: {
+      width: '100%',
+      maxWidth: '1200px',
+      minWidth: '300px',
+      margin: '0 auto',
+    },
+    
+    layoutMiddleRow: {
+      width: '100%',
+      maxWidth: '1600px',
+      display: 'grid',
+      gridTemplateColumns: '400px auto 400px',
+      gap: theme.spacing(6),
+      marginBottom: theme.spacing(0.5),
+      marginLeft: 'auto',
+      marginRight: 'auto',
+      alignItems: 'start',
+      justifyContent: 'center',
+      transform: 'scale(0.85)',
+      transformOrigin: 'center center',
+    },
+    
+    middleRowWrapper: {
+      width: '100%',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: theme.spacing(0),
+    },
+    
+    layoutBottomRow: {
+      width: '100%',
+      maxWidth: '1200px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: theme.spacing(1),
+      marginTop: theme.spacing(0),
+      marginLeft: 'auto',
+      marginRight: 'auto',
+    },
+    
+    mobileMiddleRow: {
+      width: '100%',
+      maxWidth: '1600px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: theme.spacing(1),
+      marginBottom: theme.spacing(0.5),
+      marginLeft: 'auto',
+      marginRight: 'auto',
+      alignItems: 'center',
+    },
+    
+    expandedColumn: {
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+    },
+    
+    expandedPericiasContainer: {
+      width: '100%',
+      maxWidth: '400px',
+      minWidth: '380px',
+    },
+    
+    expandedOficiosContainer: {
+      width: '100%',
+      maxWidth: '400px',
+      minWidth: '380px',
+    },
+    
+    centerColumnWrapper: {
+      width: '100%',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minWidth: '520px',
+      maxWidth: '600px',
+      margin: '0',
+    }
+  };
+};
+
 function FeiticeirosSheet({
   classes,
   character,
@@ -55,6 +180,13 @@ function FeiticeirosSheet({
   loadingStates = {},
   errors = {}
 }) {
+  console.log('[FeiticeirosSheet] Iniciando com character ID:', character?.id);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallMobile = useMediaQuery('(max-width: 430px)');
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+
   const diceRollModal = useModal(({ close, custom }) => {
     return React.createElement(DiceRollModal, {
       handleClose: close,
@@ -72,10 +204,148 @@ function FeiticeirosSheet({
   }, { defaultZIndex: 10000 });
 
   const {
-    localAttributes,
+    localAttributes = {
+      forca: { value: 0, modifier: 0 },
+      agilidade: { value: 0, modifier: 0 },
+      intelecto: { value: 0, modifier: 0 },
+      presenca: { value: 0, modifier: 0 },
+      vigor: { value: 0, modifier: 0 }
+    },
     showMethodSelection,
     setShowMethodSelection,
     selectedMethod,
+    showDistribution,
+    setShowDistribution,
+    availableValues = [],
+    distributionAttributes = {},
+    pontosDisponiveis = 0,
+    isLoading = false,
+    localErrors = {},
+    currentHP = 0,
+    currentSoul = 0,
+    currentPE = 0,
+    maxHP = 0,
+    maxPE = 0,
+    editDialog,
+    setEditDialog,
+    pericias = [],
+    oficios = [],
+    resistencias = [],
+    ataques = [],
+    characterInfo = {},
+    canvasRef,
+    wheelPositions = [],
+    additionalValues = {},
+    showDerivedValuesModal,
+    derivedValuesWithBonuses = [],
+    derivedValuesBonuses = {},
+    handleOpenDerivedValuesModal = () => {},
+    handleCloseDerivedValuesModal = () => {},
+    handleSaveDerivedValuesBonuses = () => {},
+    handleHealthClick = () => {},
+    handleSoulClick = () => {},
+    handleEnergyClick = () => {},
+    handleSaveEdit = () => {},
+    handleQuickAction = () => {},
+    handleToggleTreinada = () => {},
+    handleOutrosChange = () => {},
+    handlePericiaRoll = () => {},
+    handleCharacterInfoClick = () => {},
+    handleMethodSelect = () => {},
+    assignValueToAttribute = () => {},
+    ajustarAtributoCompra = () => {},
+    confirmDistribution = () => {},
+    resetDistribution = () => {},
+    updateAttribute = () => {},
+    handleAttributeRoll = () => {},
+    handleInputChange = () => {},
+    handleBlur = () => {},
+    handleKeyDown = () => {},
+    canConfirm = false
+  } = useFeiticeirosSheet(character, onUpdate, diceRollModal);
+
+  const prevOnUpdateRef = useRef();
+  
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      if (prevOnUpdateRef.current !== onUpdate) {
+        console.log('[FeiticeirosSheet] onUpdate referência atualizada');
+      }
+    }
+    
+    prevOnUpdateRef.current = onUpdate;
+  }, [onUpdate]);
+
+  const modalsContent = useMemo(() => {
+    return (
+      <>
+        {diceRollModal.isOpen && diceRollModal.content}
+        
+        <DerivedValuesModal
+          open={showDerivedValuesModal}
+          onClose={handleCloseDerivedValuesModal}
+          onSave={handleSaveDerivedValuesBonuses}
+          additionalValues={additionalValues}
+          currentBonuses={derivedValuesBonuses}
+          classes={classes}
+          isMobile={isMobile}
+        />
+        
+        <EditDialogModal
+          editDialog={editDialog}
+          setEditDialog={setEditDialog}
+          handleSaveEdit={handleSaveEdit}
+          classes={classes}
+          isMobile={isMobile}
+        />
+        
+        <MethodSelectionModal
+          showMethodSelection={showMethodSelection}
+          setShowMethodSelection={setShowMethodSelection}
+          selectedMethod={selectedMethod}
+          handleMethodSelect={handleMethodSelect}
+          classes={classes}
+          isMobile={isMobile}
+        />
+        
+        <DistributionModal
+          showDistribution={showDistribution}
+          setShowDistribution={setShowDistribution}
+          setShowMethodSelection={setShowMethodSelection}
+          selectedMethod={selectedMethod}
+          availableValues={availableValues}
+          distributionAttributes={distributionAttributes}
+          pontosDisponiveis={pontosDisponiveis}
+          isLoading={isLoading}
+          localErrors={localErrors}
+          character={character}
+          diceRollModal={diceRollModal}
+          assignValueToAttribute={assignValueToAttribute}
+          ajustarAtributoCompra={ajustarAtributoCompra}
+          confirmDistribution={confirmDistribution}
+          resetDistribution={resetDistribution}
+          canConfirm={canConfirm}
+          classes={classes}
+          isMobile={isMobile}
+        />
+      </>
+    );
+  }, [
+    diceRollModal.isOpen,
+    diceRollModal.content,
+    showDerivedValuesModal,
+    handleCloseDerivedValuesModal,
+    handleSaveDerivedValuesBonuses,
+    additionalValues,
+    derivedValuesBonuses,
+    classes,
+    editDialog,
+    setEditDialog,
+    handleSaveEdit,
+    showMethodSelection,
+    setShowMethodSelection,
+    selectedMethod,
+    handleMethodSelect,
     showDistribution,
     setShowDistribution,
     availableValues,
@@ -83,217 +353,274 @@ function FeiticeirosSheet({
     pontosDisponiveis,
     isLoading,
     localErrors,
-    currentHP,
-    currentSoul,
-    currentPE,
-    maxHP,
-    maxPE,
-    editDialog,
-    setEditDialog,
-    pericias,
-    oficios,
-    resistencias,
-    ataques,
-    characterInfo,
-    canvasRef,
-    wheelPositions,
-    additionalValues,
-    showDerivedValuesModal,
-    derivedValuesWithBonuses,
-    derivedValuesBonuses,
-    handleOpenDerivedValuesModal,
-    handleCloseDerivedValuesModal,
-    handleSaveDerivedValuesBonuses,
-    handleHealthClick,
-    handleSoulClick,
-    handleEnergyClick,
-    handleSaveEdit,
-    handleQuickAction,
-    handleToggleTreinada,
-    handleOutrosChange,
-    handlePericiaRoll,
-    handleCharacterInfoClick,
-    handleMethodSelect,
+    character,
+    diceRollModal,
     assignValueToAttribute,
     ajustarAtributoCompra,
     confirmDistribution,
     resetDistribution,
-    updateAttribute,
-    handleAttributeRoll,
-    handleInputChange,
-    handleBlur,
-    handleKeyDown,
-    canConfirm
-  } = useFeiticeirosSheet(character, onUpdate, diceRollModal);
+    canConfirm,
+    isMobile
+  ]);
 
-  return React.createElement(Box, { className: classes.container },
-    diceRollModal.isOpen && diceRollModal.content,
-    
-    React.createElement(DerivedValuesModal, {
-      open: showDerivedValuesModal,
-      onClose: handleCloseDerivedValuesModal,
-      onSave: handleSaveDerivedValuesBonuses,
-      additionalValues: additionalValues,
-      currentBonuses: derivedValuesBonuses,
-      classes
-    }),
-    
-    React.createElement(EditDialogModal, {
-      editDialog,
-      setEditDialog,
-      handleSaveEdit,
-      classes
-    }),
-    
-    React.createElement(MethodSelectionModal, {
-      showMethodSelection,
-      setShowMethodSelection,
-      selectedMethod,
-      handleMethodSelect,
-      classes
-    }),
-    
-    React.createElement(DistributionModal, {
-      showDistribution,
-      setShowDistribution,
-      setShowMethodSelection,
-      selectedMethod,
-      availableValues,
-      distributionAttributes,
-      pontosDisponiveis,
-      isLoading,
-      localErrors,
-      character,
-      diceRollModal,
-      assignValueToAttribute,
-      ajustarAtributoCompra,
-      confirmDistribution,
-      resetDistribution,
-      canConfirm,
-      classes
-    }),
-    
-    React.createElement(Paper, { className: classes.header },
-      React.createElement(Typography, { variant: "h4", fontWeight: "bold" },
-        'FEITICEIROS & MALDIÇÕES'
-      ),
-      React.createElement(Typography, { variant: "subtitle1" },
-        'Sistema baseado no universo de Jujutsu Kaisen'
-      ),
-      React.createElement(Button, {
-        className: classes.setupButton,
-        startIcon: React.createElement(Shuffle),
-        onClick: () => setShowMethodSelection(true)
-      }, 'Escolher Método de Criação')
-    ),
+  const scaleValue = isSmallMobile ? 0.65 : isMobile ? 0.75 : isTablet ? 0.85 : 0.85;
 
-    React.createElement(CharacterInfoSection, {
-      characterInfo,
-      handleCharacterInfoClick,
-      classes
-    }),
+  return (
+    <Box 
+      className={classes.layoutContainer}
+      sx={{
+        transform: `scale(${scaleValue})`,
+        transformOrigin: 'top center',
+        minHeight: '100vh',
+        pb: 1,
+      }}
+    >
+      {modalsContent}
+      
+      <Box sx={{ 
+        width: '100%', 
+        mb: 0.5,
+        display: 'flex', 
+        justifyContent: 'center' 
+      }}>
+        <Paper className={classes.header}
+          sx={{
+            p: isSmallMobile ? 1 : isMobile ? 1.5 : 2,
+            width: '100%',
+            maxWidth: '1200px',
+          }}
+        >
+          <Typography 
+            variant={isSmallMobile ? "h6" : isMobile ? "h5" : "h4"} 
+            fontWeight="bold"
+            sx={{ 
+              fontSize: isSmallMobile ? '1.1rem' : isMobile ? '1.3rem' : '1.8rem', 
+              textAlign: 'center',
+              lineHeight: 1.1
+            }}
+          >
+            FEITICEIROS & MALDIÇÕES
+          </Typography>
+          <Typography 
+            variant="subtitle1"
+            sx={{ 
+              fontSize: isSmallMobile ? '0.7rem' : isMobile ? '0.8rem' : '0.9rem', 
+              textAlign: 'center',
+              mt: 0.5
+            }}
+          >
+            Sistema baseado no universo de Jujutsu Kaisen
+          </Typography>
+          <Box sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              mt: 0.5
+            }}
+          >
+            <Button
+              className={classes.setupButton}
+              startIcon={!isSmallMobile && <Shuffle />}
+              onClick={() => setShowMethodSelection(true)}
+              size={isSmallMobile ? "small" : isMobile ? "small" : "medium"}
+              fullWidth={isSmallMobile}
+              sx={isSmallMobile ? { maxWidth: '280px' } : {}}
+            >
+              {isSmallMobile ? 'Método de Criação' : 'Escolher Método de Criação'}
+            </Button>
+          </Box>
+        </Paper>
+      </Box>
 
-    React.createElement(HealthSection, {
-      additionalValues,
-      currentHP,
-      currentSoul,
-      currentPE,
-      maxHP,
-      maxPE,
-      handleHealthClick,
-      handleSoulClick,
-      handleEnergyClick,
-      handleQuickAction,
-      classes
-    }),
+      <Box className={classes.layoutTopRow}>
+        <Box className={classes.topRowComponent}>
+          <CharacterInfoSection
+            characterInfo={characterInfo}
+            handleCharacterInfoClick={handleCharacterInfoClick}
+            classes={classes}
+            isMobile={isMobile}
+            isSmallMobile={isSmallMobile}
+          />
+        </Box>
+        
+        <Box className={classes.topRowComponent}>
+          <HealthSection
+            additionalValues={additionalValues}
+            currentHP={currentHP}
+            currentSoul={currentSoul}
+            currentPE={currentPE}
+            maxHP={maxHP}
+            maxPE={maxPE}
+            handleHealthClick={handleHealthClick}
+            handleSoulClick={handleSoulClick}
+            handleEnergyClick={handleEnergyClick}
+            handleQuickAction={handleQuickAction}
+            classes={classes}
+            isMobile={isMobile}
+            isSmallMobile={isSmallMobile}
+          />
+        </Box>
+        
+        <Box className={classes.topRowComponent}>
+          <DerivedValuesDisplay
+            values={derivedValuesWithBonuses}
+            onConfigure={handleOpenDerivedValuesModal}
+            classes={classes}
+            isMobile={isMobile}
+            isSmallMobile={isSmallMobile}
+          />
+        </Box>
+      </Box>
 
-    React.createElement(Box, { 
-      sx: { 
-        mb: 3, 
-        px: 2 
-      } 
-    },
-      React.createElement(DerivedValuesDisplay, {
-        values: derivedValuesWithBonuses,
-        onConfigure: handleOpenDerivedValuesModal,
-        classes
-      })
-    ),
+      {isMobile ? (
+        <Box className={classes.mobileMiddleRow}>
+          <Box className={classes.expandedPericiasContainer}>
+            <PericiasSection
+              pericias={pericias}
+              localAttributes={localAttributes}
+              handleToggleTreinada={handleToggleTreinada}
+              handleOutrosChange={handleOutrosChange}
+              handlePericiaRoll={handlePericiaRoll}
+              character={character}
+              classes={classes}
+              isMobile={true}
+              isSmallMobile={isSmallMobile}
+            />
+          </Box>
+          <Box className={classes.centerColumnWrapper}>
+            <AttributesSection
+              localAttributes={localAttributes}
+              canvasRef={canvasRef}
+              wheelPositions={wheelPositions}
+              handleInputChange={handleInputChange}
+              handleBlur={handleBlur}
+              handleKeyDown={handleKeyDown}
+              handleAttributeRoll={handleAttributeRoll}
+              updateAttribute={updateAttribute}
+              classes={classes}
+              isMobile={true}
+              isSmallMobile={isSmallMobile}
+              isTablet={false}
+            />
+          </Box>
+          <Box className={classes.expandedOficiosContainer}>
+            <OficiosSection
+              oficios={oficios}
+              resistencias={resistencias}
+              ataques={ataques}
+              localAttributes={localAttributes}
+              handleToggleTreinada={handleToggleTreinada}
+              handleOutrosChange={handleOutrosChange}
+              handlePericiaRoll={handlePericiaRoll}
+              character={character}
+              classes={classes}
+              isMobile={true}
+              isSmallMobile={isSmallMobile}
+            />
+          </Box>
+        </Box>
+      ) : (
+        <Box className={classes.middleRowWrapper}>
+          <Box className={classes.layoutMiddleRow}>
+            <Box className={classes.expandedColumn}>
+              <Box className={classes.expandedPericiasContainer}>
+                <PericiasSection
+                  pericias={pericias}
+                  localAttributes={localAttributes}
+                  handleToggleTreinada={handleToggleTreinada}
+                  handleOutrosChange={handleOutrosChange}
+                  handlePericiaRoll={handlePericiaRoll}
+                  character={character}
+                  classes={classes}
+                  isMobile={false}
+                  isSmallMobile={false}
+                />
+              </Box>
+            </Box>
+            
+            <Box className={classes.centerColumnWrapper}>
+              <AttributesSection
+                localAttributes={localAttributes}
+                canvasRef={canvasRef}
+                wheelPositions={wheelPositions}
+                handleInputChange={handleInputChange}
+                handleBlur={handleBlur}
+                handleKeyDown={handleKeyDown}
+                handleAttributeRoll={handleAttributeRoll}
+                updateAttribute={updateAttribute}
+                classes={classes}
+                isMobile={false}
+                isSmallMobile={false}
+                isTablet={isTablet}
+              />
+            </Box>
+            
+            <Box className={classes.expandedColumn}>
+              <Box className={classes.expandedOficiosContainer}>
+                <OficiosSection
+                  oficios={oficios}
+                  resistencias={resistencias}
+                  ataques={ataques}
+                  localAttributes={localAttributes}
+                  handleToggleTreinada={handleToggleTreinada}
+                  handleOutrosChange={handleOutrosChange}
+                  handlePericiaRoll={handlePericiaRoll}
+                  character={character}
+                  classes={classes}
+                  isMobile={false}
+                  isSmallMobile={false}
+                />
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      )}
 
-    React.createElement(Box, { 
-      className: classes.hierarchicalLayout,
-      sx: {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
-        gap: 3,
-        alignItems: 'start'
-      }
-    },
-      React.createElement(PericiasSection, {
-        pericias,
-        localAttributes,
-        handleToggleTreinada,
-        handleOutrosChange,
-        handlePericiaRoll,
-        character,
-        classes
-      }),
-
-      React.createElement(AttributesSection, {
-        localAttributes,
-        canvasRef,
-        wheelPositions,
-        handleInputChange,
-        handleBlur,
-        handleKeyDown,
-        handleAttributeRoll,
-        updateAttribute,
-        classes
-      }),
-
-      React.createElement(OficiosSection, {
-        oficios,
-        resistencias,
-        ataques,
-        localAttributes,
-        handleToggleTreinada,
-        handleOutrosChange,
-        handlePericiaRoll,
-        character,
-        classes
-      })
-    ),
-
-    React.createElement(Box, { className: classes.rollButtonContainer },
-      React.createElement(Button, {
-        variant: "contained",
-        size: "large",
-        onClick: () => {
-          if (character) {
-            diceRollModal.appear({
-              characterId: character.id,
-              characterName: character.name
-            });
-          }
-        },
-        startIcon: React.createElement(Casino),
-        className: classes.setupButton,
-        disabled: !character
-      }, character ? 'Rolar Dados' : 'Carregando...')
-    ),
-
-    React.createElement(Box, { 
-      sx: { 
-        textAlign: 'center', 
-        mt: 4, 
-        color: 'text.secondary' 
-      } 
-    },
-      React.createElement(Typography, { variant: "body2" },
-        'Sistema em desenvolvimento - Layout Hierárquico com Informações do Personagem'
-      )
-    )
+      <Box className={classes.layoutBottomRow}>
+        <Box 
+          className={classes.rollButtonContainer}
+          sx={{
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'center'
+          }}
+        >
+          <Button
+            variant="contained"
+            size={isSmallMobile ? "small" : isMobile ? "medium" : "medium"}
+            onClick={() => {
+              if (character) {
+                diceRollModal.appear({
+                  characterId: character.id,
+                  characterName: character.name
+                });
+              }
+            }}
+            startIcon={<Casino />}
+            className={classes.setupButton}
+            disabled={!character}
+            fullWidth={isSmallMobile}
+            sx={isSmallMobile ? { maxWidth: '280px' } : {}}
+          >
+            {character ? 'Rolar Dados' : 'Carregando...'}
+          </Button>
+        </Box>
+        <Box sx={{ 
+            textAlign: 'center', 
+            color: 'text.secondary',
+            width: '100%'
+          }}
+        >
+          <Typography variant="body2"
+            sx={{ 
+              fontSize: isSmallMobile ? '0.6rem' : isMobile ? '0.7rem' : '0.8rem'
+            }}
+          >
+            Sistema em desenvolvimento - Layout Hierárquico com Informações do Personagem
+          </Typography>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
-export default withStyles(styles)(FeiticeirosSheet);
+export default withStyles(mainStyles)(FeiticeirosSheet);

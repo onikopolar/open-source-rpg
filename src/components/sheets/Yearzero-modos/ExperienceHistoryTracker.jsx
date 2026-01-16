@@ -1,106 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 
-console.log('[ExperienceHistoryTracker] Versão 4.0 - Fix: Paleta FODA alinhada com tema');
+console.log('[ExperienceHistoryTracker] Versão 5.0.0 - MAJOR: Redesign minimalista para identidade visual angular e densa do sistema');
 
-const styles = (theme) => ({
-  experienceHistoryContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '15px',
-    width: '200px',
-    flexShrink: 0
-  },
-  experienceTracker: {
-    background: '#655959cc',
-    // COR PRIMÁRIA DO TEMA: #639EC2 (azul claro)
-    border: '1px solid #639EC2',
-    borderRadius: '4px',
-    padding: '10px 12px',
-    width: '100%',
-    boxShadow: '0 2px 8px rgba(99, 158, 194, 0.3)',
-    height: 'fit-content',
-    backdropFilter: 'blur(10px)'
-  },
-  historyTracker: {
-    background: '#655959cc',
-    // COR COMPLEMENTAR: #4ECDC4 (verde azulado turquesa)
-    border: '1px solid #4ECDC4',
-    borderRadius: '4px',
-    padding: '10px 12px',
-    width: '100%',
-    boxShadow: '0 2px 8px rgba(78, 205, 196, 0.3)',
-    height: 'fit-content',
-    backdropFilter: 'blur(10px)'
-  },
-  trackerHeader: {
-    fontSize: '0.7rem',
-    fontWeight: 'bold',
-    marginBottom: '6px',
-    textTransform: 'uppercase',
-    textAlign: 'center',
-    letterSpacing: '0.5px'
-  },
-  experienceHeader: {
-    // COR PRIMÁRIA: #639EC2
-    color: '#639EC2'
-  },
-  historyHeader: {
-    // COR COMPLEMENTAR: #4ECDC4
-    color: '#4ECDC4'
-  },
-  squaresContainer: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(5, 1fr)',
-    gridTemplateRows: 'repeat(2, 1fr)',
-    gap: '3px',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  historySquaresContainer: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '0 20px',
-    width: '100%',
-    boxSizing: 'border-box'
-  },
-  square: {
-    width: '20px',
-    height: '20px',
-    border: '1.5px solid',
-    borderRadius: '2px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    '&:hover': {
-      transform: 'scale(1.05)'
-    }
-  },
-  experienceSquare: {
-    // COR PRIMÁRIA: #639EC2
-    borderColor: '#639EC2',
-    '&.active': {
-      backgroundColor: '#639EC2'
-    }
-  },
-  historySquare: {
-    // COR COMPLEMENTAR: #4ECDC4
-    borderColor: '#4ECDC4',
-    '&.active': {
-      backgroundColor: '#4ECDC4'
-    }
-  },
-  trackerLabel: {
-    fontSize: '0.5rem',
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: '2px',
-    display: 'block'
-  }
-});
+const PALETA_PRINCIPAL = {
+  atributo: '#ff6b35',
+  habilidade: '#1976d2',
+  fundo: 'rgba(18, 23, 33, 0.98)',
+  texto: 'rgba(255, 255, 255, 0.95)',
+  borda: 'rgba(255, 107, 53, 0.3)',
+  destaque: '#ff8c5a',
+  fundo_input: 'rgba(25, 30, 40, 0.9)'
+};
 
 const ExperienceHistoryTracker = ({ 
-  classes, 
   experienceSquares = [], 
   historySquares = [], 
   onExperienceUpdate,
@@ -146,80 +59,304 @@ const ExperienceHistoryTracker = ({
     updateFunction(newSquares);
   };
 
-  // Experience - cor primária do tema #639EC2
+  const getActiveCount = (squares) => squares.filter(s => s).length;
+
   const renderExperienceSquares = () => {
     return localExperienceSquares.map((isActive, index) => {
       const squareNumber = index + 1;
-      const squareClass = `${classes.square} ${classes.experienceSquare} ${isActive ? 'active' : ''}`;
       
       return (
-        <div key={index} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div 
-            className={squareClass}
-            onClick={() => handleSquareClick(index, localExperienceSquares, setLocalExperienceSquares, onExperienceUpdate, 10)}
-            style={{
-              backgroundColor: isActive ? '#639EC2' : 'transparent'
+        <Box key={index} display="flex" flexDirection="column" alignItems="center">
+          <Box 
+            sx={{
+              width: 20,
+              height: 20,
+              border: `1.5px solid ${isActive ? '#639EC2' : 'rgba(255, 255, 255, 0.2)'}`,
+              borderRadius: '1px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'border-color 0.15s ease',
+              backgroundColor: isActive ? '#639EC2' : 'transparent',
+              '&:hover': {
+                borderColor: '#639EC2',
+              }
             }}
-          />
-          <Typography className={classes.trackerLabel}>
-            {squareNumber}
-          </Typography>
-        </div>
+            onClick={() => handleSquareClick(index, localExperienceSquares, setLocalExperienceSquares, onExperienceUpdate, 10)}
+          >
+            <Typography 
+              sx={{ 
+                color: isActive ? '#fff' : 'rgba(255, 255, 255, 0.5)',
+                fontWeight: isActive ? 800 : 500,
+                fontSize: '0.65rem',
+              }}
+            >
+              {squareNumber}
+            </Typography>
+          </Box>
+        </Box>
       );
     });
   };
 
-  // History - cor complementar #4ECDC4
   const renderHistorySquares = () => {
     return localHistorySquares.map((isActive, index) => {
       const squareNumber = index + 1;
-      const squareClass = `${classes.square} ${classes.historySquare} ${isActive ? 'active' : ''}`;
       
       return (
-        <div key={index} style={{ 
+        <Box key={index} sx={{ 
           display: 'flex', 
           flexDirection: 'column', 
           alignItems: 'center',
           flex: '1',
           maxWidth: '33%'
         }}>
-          <div 
-            className={squareClass}
-            onClick={() => handleSquareClick(index, localHistorySquares, setLocalHistorySquares, onHistoryUpdate, 3)}
-            style={{
-              backgroundColor: isActive ? '#4ECDC4' : 'transparent'
+          <Box 
+            sx={{
+              width: 24,
+              height: 24,
+              border: `1.5px solid ${isActive ? '#4ECDC4' : 'rgba(255, 255, 255, 0.2)'}`,
+              borderRadius: '1px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'border-color 0.15s ease',
+              backgroundColor: isActive ? '#4ECDC4' : 'transparent',
+              '&:hover': {
+                borderColor: '#4ECDC4',
+              }
             }}
-          />
-          <Typography className={classes.trackerLabel}>
-            {squareNumber}
-          </Typography>
-        </div>
+            onClick={() => handleSquareClick(index, localHistorySquares, setLocalHistorySquares, onHistoryUpdate, 3)}
+          >
+            <Typography 
+              sx={{ 
+                color: isActive ? '#fff' : 'rgba(255, 255, 255, 0.5)',
+                fontWeight: isActive ? 800 : 500,
+                fontSize: '0.75rem',
+              }}
+            >
+              {squareNumber}
+            </Typography>
+          </Box>
+        </Box>
       );
     });
   };
 
   return (
-    <Box className={classes.experienceHistoryContainer}>
-      <Paper className={classes.experienceTracker}>
-        <Typography className={`${classes.trackerHeader} ${classes.experienceHeader}`}>
-          Pontos de Experiência
-        </Typography>
-        <Box className={classes.squaresContainer}>
-          {renderExperienceSquares()}
+    <Box 
+      sx={{ 
+        width: '100%',
+        maxWidth: 360,
+        margin: '0 auto',
+        fontFamily: '"Segoe UI", Roboto, sans-serif'
+      }}
+    >
+      <Box 
+        sx={{ 
+          p: 1.5,
+          backgroundColor: PALETA_PRINCIPAL.fundo,
+          border: `1px solid ${PALETA_PRINCIPAL.borda}`,
+          borderRadius: '1px',
+          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.4)',
+          backdropFilter: 'blur(4px)',
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '1px',
+            background: `linear-gradient(90deg, ${PALETA_PRINCIPAL.atributo}, ${PALETA_PRINCIPAL.habilidade})`,
+          }
+        }}
+      >
+        {/* Cabeçalho minimalista */}
+        <Box sx={{ textAlign: 'center', mb: 1.5 }}>
+          <Typography 
+            sx={{
+              fontWeight: 800,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              color: PALETA_PRINCIPAL.texto,
+              fontSize: '0.9rem',
+              borderBottom: `1px solid ${PALETA_PRINCIPAL.atributo}`,
+              display: 'inline-block',
+              pb: 0.3
+            }}
+          >
+            Experiência & História
+          </Typography>
         </Box>
-      </Paper>
 
-      <Paper className={classes.historyTracker}>
-        <Typography className={`${classes.trackerHeader} ${classes.historyHeader}`}>
-          Pontos de História
-        </Typography>
-        <Box className={classes.historySquaresContainer}>
-          {renderHistorySquares()}
+        {/* Experiência - topo */}
+        <Box 
+          sx={{ 
+            mb: 1.5,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}
+        >
+          <Box 
+            sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              mb: 1,
+              width: '100%',
+              justifyContent: 'center',
+              gap: 0.5
+            }}
+          >
+            <Box 
+              sx={{ 
+                width: 4,
+                height: 4,
+                borderRadius: '50%',
+                backgroundColor: '#639EC2',
+              }} 
+            />
+            <Typography 
+              sx={{ 
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.8px',
+                color: '#639EC2',
+                fontSize: '0.75rem',
+              }}
+            >
+              Experiência
+            </Typography>
+            <Typography 
+              sx={{ 
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                color: 'rgba(255, 255, 255, 0.6)',
+                ml: 0.5,
+              }}
+            >
+              {getActiveCount(localExperienceSquares)}/10
+            </Typography>
+          </Box>
+          
+          <Box 
+            sx={{ 
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gridTemplateRows: 'repeat(2, 1fr)',
+              gap: '4px',
+              justifyContent: 'center',
+              alignItems: 'center',
+              width: '100%',
+            }}
+          >
+            {renderExperienceSquares()}
+          </Box>
         </Box>
-      </Paper>
+
+        {/* Separador horizontal sutil */}
+        <Box 
+          sx={{ 
+            height: '1px',
+            width: '100%',
+            background: 'rgba(255, 255, 255, 0.05)',
+            mb: 1.5
+          }} 
+        />
+
+        {/* História - base */}
+        <Box 
+          sx={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}
+        >
+          <Box 
+            sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              mb: 1,
+              width: '100%',
+              justifyContent: 'center',
+              gap: 0.5
+            }}
+          >
+            <Box 
+              sx={{ 
+                width: 4,
+                height: 4,
+                borderRadius: '50%',
+                backgroundColor: '#4ECDC4',
+              }} 
+            />
+            <Typography 
+              sx={{ 
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.8px',
+                color: '#4ECDC4',
+                fontSize: '0.75rem',
+              }}
+            >
+              História
+            </Typography>
+            <Typography 
+              sx={{ 
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                color: 'rgba(255, 255, 255, 0.6)',
+                ml: 0.5,
+              }}
+            >
+              {getActiveCount(localHistorySquares)}/3
+            </Typography>
+          </Box>
+          
+          <Box 
+            sx={{ 
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              width: '100%',
+              px: 2
+            }}
+          >
+            {renderHistorySquares()}
+          </Box>
+        </Box>
+      </Box>
     </Box>
   );
 };
 
 export default ExperienceHistoryTracker;
-export { styles as experienceHistoryStyles };
+
+export const experienceHistoryStyles = (theme) => ({
+  container: {
+    width: '100%',
+    maxWidth: 360,
+    margin: '0 auto',
+  },
+  contentBox: {
+    p: 1.5,
+    backgroundColor: PALETA_PRINCIPAL.fundo,
+    border: `1px solid ${PALETA_PRINCIPAL.borda}`,
+    borderRadius: '1px',
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.4)',
+    backdropFilter: 'blur(4px)',
+    position: 'relative',
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: '1px',
+      background: `linear-gradient(90deg, ${PALETA_PRINCIPAL.atributo}, ${PALETA_PRINCIPAL.habilidade})`,
+    }
+  }
+});

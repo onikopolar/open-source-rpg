@@ -33,24 +33,26 @@ export const CharacterInfoSection = ({
             loading="eager"
             priority
           />
-          <Button 
-            variant="outlined" 
-            sx={{ 
-              mt: 2,
-              width: isMobile ? '100%' : 'auto',
-              minWidth: 140
-            }}
-            onClick={() => {
-              changePictureModal.appear({
-                characterId: character.id,
-                characterName: character.name
-              });
-            }}
-            disabled={loadingStates.changePicture}
-            size={isMobile ? "small" : "medium"}
-          >
-            {loadingStates.changePicture ? <CircularProgress size={24} /> : 'Alterar Imagem'}
-          </Button>
+<Button 
+  variant="outlined" 
+  sx={{ 
+    mt: 2,
+    width: isMobile ? '100%' : 'auto',
+    minWidth: 140
+  }}
+  onClick={() => {
+    changePictureModal.appear({
+      character: character, // ← ADICIONAR ESTA LINHA
+      characterId: character.id,
+      characterName: character.name,
+      refreshData: refreshData // ← ADICIONAR TAMBÉM
+    });
+  }}
+  disabled={loadingStates.changePicture}
+  size={isMobile ? "small" : "medium"}
+>
+  {loadingStates.changePicture ? <CircularProgress size={24} /> : 'Alterar Imagem'}
+</Button>
         </Box>
       </Grid>
       

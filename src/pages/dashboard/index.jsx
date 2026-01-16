@@ -1,3 +1,6 @@
+// Arquivo: src/pages/dashboard/index.js
+// Versão: 5.13.4 - FIX: Corrigir valores nulos e warnings do React
+
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -84,28 +87,72 @@ function Dashboard({
   const [characters, setCharacters] = useState(initialCharacters);
   const [attributes, setAttributes] = useState(initialAttributes);
   const [skills, setSkills] = useState(initialSkills);
+  
+  // CORREÇÃO: Inicializar com strings vazias em vez de null
   const [updatedConfigs, setUpdatedConfigs] = useState({
-    DICE_ON_SCREEN_TIMEOUT_IN_MS: null,
-    TIME_BETWEEN_DICES_IN_MS: null
+    DICE_ON_SCREEN_TIMEOUT_IN_MS: '',
+    TIME_BETWEEN_DICES_IN_MS: ''
   });
 
+  // DEBUG: Verificar estrutura dos personagens carregados
   useEffect(() => {
+    console.log('[Dashboard DEBUG] Estado atual dos characters:');
+    
+    characters.forEach((char, index) => {
+      console.log(`Character ${index} (${char.id} - ${char.name}):`, {
+        standard_character_picture_url: char.standard_character_picture_url,
+        injured_character_picture_url: char.injured_character_picture_url,
+        hasStandardUrl: !!char.standard_character_picture_url,
+        hasInjuredUrl: !!char.injured_character_picture_url,
+        standardUrlValid: char.standard_character_picture_url?.startsWith('/uploads/'),
+        injuredUrlValid: char.injured_character_picture_url?.startsWith('/uploads/')
+      });
+    });
+  }, [characters]);
+
+  useEffect(() => {
+    // CORREÇÃO: Tratar valores null/undefined do banco
     configs.forEach(config => {
       setUpdatedConfigs(prevState => ({
         ...prevState,
-        [config.name]: config.value
+        [config.name]: config.value || '' // Fallback para string vazia
       }));
     });
   }, [configs]);
 
+  // Função para recarregar personagens do servidor
+  const refreshCharacters = () => {
+    console.log('[Dashboard] Recarregando lista de personagens...');
+    api.get('/character')
+      .then(res => {
+        console.log('[Dashboard] Personagens recarregados:', res.data.length);
+        setCharacters(res.data);
+      })
+      .catch(error => {
+        console.error('[Dashboard] Erro ao recarregar personagens:', error);
+        alert('Erro ao atualizar lista de personagens');
+      });
+  };
+
   const updateConfigs = () => {
+    // CORREÇÃO: Validar se os valores são números válidos
+    const diceTimeoutValue = parseInt(updatedConfigs.DICE_ON_SCREEN_TIMEOUT_IN_MS);
+    const timeBetweenValue = parseInt(updatedConfigs.TIME_BETWEEN_DICES_IN_MS);
+    
+    if (isNaN(diceTimeoutValue) || isNaN(timeBetweenValue)) {
+      alert('Por favor, insira valores numéricos válidos');
+      return;
+    }
+
     api.put('/config/DICE_ON_SCREEN_TIMEOUT_IN_MS', {
-      value: `${parseInt(updatedConfigs.DICE_ON_SCREEN_TIMEOUT_IN_MS) * 1000}`
+      value: `${diceTimeoutValue * 1000}`
     });
 
     api.put('/config/TIME_BETWEEN_DICES_IN_MS', {
-      value: `${parseInt(updatedConfigs.TIME_BETWEEN_DICES_IN_MS) * 1000}`
+      value: `${timeBetweenValue * 1000}`
     });
+    
+    alert('Configurações salvas com sucesso!');
   }
 
   const runInitialSetup = () => {
@@ -147,11 +194,7 @@ function Dashboard({
   const createCharacterModal = useModal(({ close }) => (
     <CreateCharacterModal
       handleClose={close}
-      onCharacterCreated={() => {
-        api.get('/character')
-          .then(res => setCharacters(res.data))
-          .catch(() => alert('Erro ao carregar personagens'));
-      }}
+      onCharacterCreated={refreshCharacters}
     />
   ));
 
@@ -218,6 +261,8 @@ function Dashboard({
                                 data: { id: character.id, type: 'character' },
                               })
                             }
+                            // Passar função para recarregar personagens
+                            onCharacterUpdated={refreshCharacters}
                           />
                         </Grid>
                       ))}
@@ -337,7 +382,8 @@ function Dashboard({
                               type="number"
                               label="Tempo do dado em tela"
                               helperText="Em segundos"
-                              value={updatedConfigs.DICE_ON_SCREEN_TIMEOUT_IN_MS}
+                              // CORREÇÃO: Fallback para string vazia
+                              value={updatedConfigs.DICE_ON_SCREEN_TIMEOUT_IN_MS || ''}
                               onChange={(e) => {
                                 const value = e.target.value;
 
@@ -355,7 +401,8 @@ function Dashboard({
                               type="number"
                               label="Tempo entre cada dado"
                               helperText="Em segundos"
-                              value={updatedConfigs.TIME_BETWEEN_DICES_IN_MS}
+                              // CORREÇÃO: Fallback para string vazia
+                              value={updatedConfigs.TIME_BETWEEN_DICES_IN_MS || ''}
                               onChange={(e) => {
                                 const value = e.target.value;
 
