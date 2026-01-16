@@ -7,7 +7,7 @@ import {
   Button, 
   CircularProgress
 } from '@mui/material';
-import { Section, StatusBar } from '../../../components';
+import { Section, StatusBar } from '../components';
 
 export const ClassicSystem = ({ 
   character, 

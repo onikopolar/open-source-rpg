@@ -1,7 +1,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { Grid, Box, Button, CircularProgress } from '@mui/material';
-import { CharacterInfoForm } from '../../../components/forms';
+import CharacterInfoForm from './forms/CharacterInfoForm';
 
 export const CharacterInfoSection = ({ 
   character, 

@@ -7,7 +7,7 @@ import {
   Alert 
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
-import SheetSelector from '../../../components/sheets/SheetSelector';
+import SheetSelector from './sheets/SheetSelector';
 
 // Sistema de versionamento: FIX - Corrige problema de primeira visita
 // Antes: Usuário via sistema clássico na primeira vez

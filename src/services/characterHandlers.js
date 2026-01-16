@@ -1,4 +1,4 @@
-import { api } from '../../../utils';
+import { api } from '../utils';
 
 // Handler para informações do personagem
 export const handleCharacterInfoSubmit = async (character, values, setLoading, clearError, handleApiError) => {

@@ -3,7 +3,7 @@
 console.log('[modalServices] Versão 1.1.0 - Callback de atualização de imagem implementado');
 
 import React from 'react';
-import { DiceRollModal, YearZeroDiceModal, StatusBarModal, ChangePictureModal } from '../../../components';
+import { DiceRollModal, YearZeroDiceModal, StatusBarModal, ChangePictureModal } from '../components';
 
 export const createModals = (useModal, handlers) => {
   const attributeDiceModal = useModal(({ close, custom }) => {

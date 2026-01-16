@@ -2,7 +2,7 @@
 // Versão 1.12.1 - FIX: Correção definitiva do endpoint duplicado
 console.log('[YearZero Handlers] Versão 1.12.1 - FIX: Endpoint duplicado corrigido');
 
-import { api } from '../../../utils';
+import { api } from '../utils';
 
 // FUNÇÃO PRINCIPAL - Interface compatível com AttributeComponents
 export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, setYearZeroAttributeValues, setYearZeroSkillValues, type, name, value) => {

@@ -42,7 +42,7 @@ import {
   validateNumericInput,
   createHandlers,
   createModals
-} from './index';
+} from '../../index[id]';
 
 // SSR (mantido igual)
 export const getServerSideProps = async ({ params }) => {

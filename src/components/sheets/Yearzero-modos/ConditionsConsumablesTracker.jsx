@@ -1,6 +1,6 @@
 // Arquivo: ConditionsConsumablesTracker.jsx
-// Versão: 3.8.1 - FIX: Corrigido cores e layout para manter originalidade
-console.log('[ConditionsConsumablesTracker] Versão 3.8.1 - FIX: Ícones adicionados mantendo cores originais');
+// Versão: 3.8.2 - FIX: Corrigida importação do ícone Radioactive para Dangerous
+console.log('[ConditionsConsumablesTracker] Versão 3.8.2 - FIX: Ícone Radioactive substituído por Dangerous');
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -23,7 +23,7 @@ import {
   BatteryFull as EnergyIcon,
   WaterDrop as WaterIcon,
   Inbox as CargoIcon,
-  Radioactive as RadiationIcon,
+  Dangerous as RadiationIcon,
   Air as AirIcon,
   AcUnit as FreezingIcon,
   Opacity as DehydratedIcon,
