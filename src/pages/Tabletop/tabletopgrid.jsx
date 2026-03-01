@@ -1,5 +1,5 @@
 // pages/testetabletop/tabletopgrid.jsx
-import { useState, useRef, useEffect, useCallback, useMemo, useReducer } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, useReducer } from "react";
 import TokenModal from "../../components/TokenModal/TokenModal";
 import { DragDropSystem } from "../../components/TokenModal/TokenModal";
 import {
@@ -10,433 +10,20 @@ import {
     desenharBordaDeArrasto,
     desenharBolinhasRedimensionamento,
     desenharFallbackToken,
-    desenharAreaSelecao
+    desenharSelecao
 } from "../../components/TabletopDesign";
 
-// CONSTANTES DO SISTEMA
-const BASE_GRID_SIZE = 50;
-const CELLS_X = 200;
-const CELLS_Y = 200;
-const WORLD_WIDTH = BASE_GRID_SIZE * CELLS_X;
-const WORLD_HEIGHT = BASE_GRID_SIZE * CELLS_Y;
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 4;
-const TOLERANCIA_CLIQUE = 0.1;
-const RENDER_INTERVAL = 16;
-const GRID_CONFIGS = [
-    { zoomThreshold: 0, sizeMultiplier: 8, alpha: 0.08 },
-    { zoomThreshold: 0.125, sizeMultiplier: 4, alpha: 0.06 },
-    { zoomThreshold: 0.25, sizeMultiplier: 1, alpha: 0.10 },
-    { zoomThreshold: 2.0, sizeMultiplier: 0.5, alpha: 0.07 },
-    { zoomThreshold: 3.0, sizeMultiplier: 0.25, alpha: 0.05 }
-];
-
-// HOOK DE UNDO/REDO
-class UndoRedoManager {
-    constructor(initialState) {
-        this.history = [initialState];
-        this.future = [];
-    }
-
-    push(newState) {
-        this.history.push(newState);
-        this.future = [];
-    }
-
-    undo() {
-        if (this.history.length < 2) return null;
-        const currentState = this.history.pop();
-        this.future.push(currentState);
-        return this.history[this.history.length - 1];
-    }
-
-    redo() {
-        if (this.future.length === 0) return null;
-        const nextState = this.future.pop();
-        this.history.push(nextState);
-        return nextState;
-    }
-
-    canUndo() {
-        return this.history.length > 1;
-    }
-
-    canRedo() {
-        return this.future.length > 0;
-    }
-}
-
-function useUndoRedo(initialState) {
-    const managerRef = useRef(null);
-
-    if (!managerRef.current) {
-        managerRef.current = new UndoRedoManager(initialState);
-    }
-
-    const [state, setState] = useState(initialState);
-
-    const setStateDirect = useCallback((newState) => {
-        setState(newState);
-    }, []);
-
-    const push = useCallback((newState) => {
-        managerRef.current.push(newState);
-        setState(newState);
-    }, []);
-
-    const undo = useCallback(() => {
-        const previousState = managerRef.current.undo();
-        if (previousState) {
-            setState(previousState);
-        }
-        return previousState;
-    }, []);
-
-    const redo = useCallback(() => {
-        const nextState = managerRef.current.redo();
-        if (nextState) {
-            setState(nextState);
-        }
-        return nextState;
-    }, []);
-
-    return {
-        state,
-        push,
-        undo,
-        redo,
-        canUndo: managerRef.current.canUndo(),
-        canRedo: managerRef.current.canRedo(),
-        setStateDirect
-    };
-}
-
-// FUNÇÕES UTILITÁRIAS
-const clamp = (valor, minimo, maximo) => {
-    return Math.min(Math.max(valor, minimo), maximo);
-};
-
-const calcularDistancia = (x1, y1, x2, y2) => {
-    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-};
-
-const calcularNovaEscalaToken = (
-    mouseWorldX, mouseWorldY,
-    tokenX, tokenY,
-    larguraBase, alturaBase,
-    modo,
-    tamanhoInicial,
-    escalaMaxima = Infinity
-) => {
-    let novaLargura = tamanhoInicial.largura;
-    let novaAltura = tamanhoInicial.altura;
-
-    if (modo === 'se') {
-        novaLargura = Math.max(10, mouseWorldX - tokenX);
-        novaAltura = Math.max(10, mouseWorldY - tokenY);
-    } else if (modo === 'sw') {
-        novaLargura = Math.max(10, tokenX + (larguraBase * tamanhoInicial.escala) - mouseWorldX);
-        novaAltura = Math.max(10, mouseWorldY - tokenY);
-    } else if (modo === 'ne') {
-        novaLargura = Math.max(10, mouseWorldX - tokenX);
-        novaAltura = Math.max(10, tokenY + (alturaBase * tamanhoInicial.escala) - mouseWorldY);
-    } else if (modo === 'nw') {
-        novaLargura = Math.max(10, tokenX + (larguraBase * tamanhoInicial.escala) - mouseWorldX);
-        novaAltura = Math.max(10, tokenY + (alturaBase * tamanhoInicial.escala) - mouseWorldY);
-    }
-
-    const escalaX = novaLargura / larguraBase;
-    const escalaY = novaAltura / alturaBase;
-    const menorEscala = Math.min(escalaX, escalaY);
-    const resultado = escalaMaxima === Infinity
-        ? Math.max(0.1, menorEscala)
-        : clamp(menorEscala, 0.1, escalaMaxima);
-
-    return resultado;
-};
-
-// Função para calcular o bounding box de um grupo de tokens
-const calcularBoundingBoxGrupo = (tokens) => {
-    if (!tokens || tokens.length === 0) return null;
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    tokens.forEach(token => {
-        minX = Math.min(minX, token.x);
-        minY = Math.min(minY, token.y);
-        maxX = Math.max(maxX, token.x + (token.larguraOriginal * token.escala));
-        maxY = Math.max(maxY, token.y + (token.alturaOriginal * token.escala));
-    });
-
-    return {
-        x: minX,
-        y: minY,
-        largura: maxX - minX,
-        altura: maxY - minY,
-        larguraBase: maxX - minX,
-        alturaBase: maxY - minY,
-        // Também retorna o token virtual para usar nas funções de detecção
-        tokenVirtual: {
-            x: minX,
-            y: minY,
-            larguraOriginal: maxX - minX,
-            alturaOriginal: maxY - minY,
-            escala: 1
-        }
-    };
-};
-
-const trazerTokenParaFrente = (tokens, indiceToken) => {
-    if (indiceToken < 0 || indiceToken >= tokens.length) {
-        return tokens;
-    }
-
-    const novosTokens = [...tokens];
-    const [tokenSelecionado] = novosTokens.splice(indiceToken, 1);
-    novosTokens.push(tokenSelecionado);
-
-    return novosTokens;
-};
-
-// REDUCER UI
-const initialUIState = {
-    zoom: 1,
-    position: { x: 0, y: 0 },
-    tokenSelecionado: null,
-    tokensSelecionados: [],
-    tokenSendoArrastado: null,
-    tokenRedimensionando: null,
-    modoRedimensionamento: null,
-    tamanhoInicialRedimensionamento: { largura: 0, altura: 0, escala: 1 },
-    boundingBoxGrupo: null,
-    offsetArrasto: { x: 0, y: 0 },
-    visibilidadeTokens: {},
-    tokensBloqueados: {},
-    areaSelecao: {
-        ativo: false,
-        inicioX: 0,
-        inicioY: 0,
-        fimX: 0,
-        fimY: 0
-    },
-    menuContexto: {
-        aberto: false,
-        x: 0,
-        y: 0,
-        tokenIndice: null,
-        tokenId: null,
-        token: null
-    },
-    ui: {
-        usuarioInteragindo: null,
-        mostrarFeedback: false,
-        isDragging: false,
-        isClickingToken: false,
-        isSelectingArea: false,
-        feedbackMessage: null,
-        feedbackType: null
-    },
-    mouseDownInfo: null,
-    dragStartPosition: null,
-    ignoreMouseMove: false
-};
-
-function uiReducer(state, action) {
-    switch (action.type) {
-        case 'SET_ZOOM':
-            return { ...state, zoom: clamp(action.payload, MIN_ZOOM, MAX_ZOOM) };
-
-        case 'SET_POSITION':
-            return { ...state, position: action.payload };
-
-        case 'SELECT_TOKEN':
-            if (action.payload === null) {
-                return {
-                    ...state,
-                    tokenSelecionado: null,
-                    tokensSelecionados: []
-                };
-            }
-            return {
-                ...state,
-                tokenSelecionado: action.payload,
-                tokensSelecionados: []
-            };
-
-        case 'SELECT_MULTIPLE_TOKENS':
-            return {
-                ...state,
-                tokensSelecionados: action.payload,
-                tokenSelecionado: action.payload.length > 0 ? action.payload[0] : null
-            };
-
-        case 'START_TOKEN_DRAG':
-            if (!action.payload.tokenInfo?.token) {
-                return state;
-            }
-            return {
-                ...state,
-                tokenSendoArrastado: action.payload.tokenInfo,
-                offsetArrasto: action.payload.offset,
-                dragStartPosition: {
-                    x: action.payload.tokenInfo.token.x,
-                    y: action.payload.tokenInfo.token.y
-                }
-            };
-
-        case 'STOP_TOKEN_DRAG':
-            return {
-                ...state,
-                tokenSendoArrastado: null,
-                offsetArrasto: { x: 0, y: 0 }
-            };
-
-        case 'START_RESIZE':
-            return {
-                ...state,
-                tokenRedimensionando: { 
-                    token: action.payload.token, 
-                    indice: action.payload.indice,
-                    isGroupResize: action.payload.isGroupResize || false 
-                },
-                modoRedimensionamento: action.payload.canto,
-                tamanhoInicialRedimensionamento: action.payload.tamanhoInicial,
-                boundingBoxGrupo: action.payload.boundingBoxGrupo || null,
-                offsetArrasto: action.payload.offset
-            };
-
-        case 'STOP_RESIZE':
-            return {
-                ...state,
-                tokenRedimensionando: null,
-                modoRedimensionamento: null,
-                tamanhoInicialRedimensionamento: { largura: 0, altura: 0, escala: 1 },
-                boundingBoxGrupo: null,
-                offsetArrasto: { x: 0, y: 0 }
-            };
-
-        case 'TOGGLE_VISIBILITY':
-            return {
-                ...state,
-                visibilidadeTokens: {
-                    ...state.visibilidadeTokens,
-                    [action.payload]: !state.visibilidadeTokens[action.payload]
-                }
-            };
-
-        case 'TOGGLE_LOCK':
-            return {
-                ...state,
-                tokensBloqueados: {
-                    ...state.tokensBloqueados,
-                    [action.payload]: !state.tokensBloqueados[action.payload]
-                }
-            };
-
-        case 'OPEN_CONTEXT_MENU':
-            return { ...state, menuContexto: action.payload };
-
-        case 'CLOSE_CONTEXT_MENU':
-            return {
-                ...state,
-                menuContexto: {
-                    aberto: false,
-                    x: 0,
-                    y: 0,
-                    tokenIndice: null,
-                    tokenId: null,
-                    token: null
-                }
-            };
-
-        case 'SET_MOUSE_DOWN_INFO':
-            return { ...state, mouseDownInfo: action.payload };
-
-        case 'START_AREA_SELECTION':
-            return {
-                ...state,
-                areaSelecao: {
-                    ativo: true,
-                    inicioX: action.payload.x,
-                    inicioY: action.payload.y,
-                    fimX: action.payload.x,
-                    fimY: action.payload.y
-                },
-                ui: {
-                    ...state.ui,
-                    isSelectingArea: true
-                }
-            };
-
-        case 'UPDATE_AREA_SELECTION':
-            if (!state.areaSelecao.ativo) return state;
-            return {
-                ...state,
-                areaSelecao: {
-                    ...state.areaSelecao,
-                    fimX: action.payload.x,
-                    fimY: action.payload.y
-                }
-            };
-
-        case 'END_AREA_SELECTION':
-            return {
-                ...state,
-                areaSelecao: {
-                    ativo: false,
-                    inicioX: 0,
-                    inicioY: 0,
-                    fimX: 0,
-                    fimY: 0
-                },
-                ui: {
-                    ...state.ui,
-                    isSelectingArea: false
-                }
-            };
-
-        case 'SET_UI_STATE':
-            return {
-                ...state,
-                ui: { ...state.ui, ...action.payload }
-            };
-
-        case 'SET_FEEDBACK':
-            return {
-                ...state,
-                ui: {
-                    ...state.ui,
-                    feedbackMessage: action.payload.message,
-                    feedbackType: action.payload.type,
-                    mostrarFeedback: true
-                }
-            };
-
-        case 'RESET_UI_FEEDBACK':
-            return {
-                ...state,
-                ui: {
-                    ...state.ui,
-                    usuarioInteragindo: null,
-                    mostrarFeedback: false,
-                    feedbackMessage: null,
-                    feedbackType: null
-                }
-            };
-
-        case 'SET_IGNORE_MOUSE_MOVE':
-            return {
-                ...state,
-                ignoreMouseMove: action.payload
-            };
-
-        default:
-            return state;
-    }
-}
+// Importações organizadas - AGORA EM PORTUGUÊS
+import { WORLD_WIDTH, WORLD_HEIGHT, TOLERANCIA_CLIQUE, RENDER_INTERVAL, BASE_GRID_SIZE, GRID_CONFIGS, clamp } from "../../components/Tabletop/ConstantesMesa";
+import { useDesfazerRefazer } from "../../components/Tabletop/useDesfazerRefazer";
+import { initialUIState, uiReducer } from "../../components/Tabletop/RedutorUI";
+import { useMovimentoToken } from "../../components/Tabletop/useMovimentoToken";
+import { useRedimensionamentoToken } from "../../components/Tabletop/useRedimensionamentoToken";
+import { useEventosMouse } from "../../components/Tabletop/useEventosMouse";
+import { useAtalhosTeclado } from "../../components/Tabletop/useAtalhosTeclado";
+import { useSelecaoToken } from "../../components/Tabletop/useSelecaoToken";
+import { useRenderizacaoToken } from "../../components/Tabletop/useRenderizacaoToken";
+import { trazerTokenParaFrente } from "../../components/Tabletop/UtilitariosToken";
 
 // COMPONENTE PRINCIPAL
 function TabletopGrid() {
@@ -450,7 +37,7 @@ function TabletopGrid() {
         canUndo,
         canRedo,
         setStateDirect
-    } = useUndoRedo([]);
+    } = useDesfazerRefazer([]);
 
     const [uiState, uiDispatch] = useReducer(uiReducer, initialUIState);
 
@@ -458,7 +45,6 @@ function TabletopGrid() {
     const isDraggingRef = useRef(false);
     const dragInProgressRef = useRef(false);
     const resizeInProgressRef = useRef(false);
-    const resizeStartStateRef = useRef(null);
     const ignoreMouseTimeoutRef = useRef(null);
     const containerRef = useRef(null);
     const canvasRef = useRef(null);
@@ -470,6 +56,11 @@ function TabletopGrid() {
     const lastRenderTime = useRef(0);
     const contextRef = useRef(null);
     const renderGridToCanvasRef = useRef(null);
+    const teveMovimentoRef = useRef(false);
+
+    // Hooks personalizados
+    const { processarArrastoToken } = useMovimentoToken();
+    const { processarRedimensionamento, resizeStartStateRef } = useRedimensionamentoToken();
 
     // FUNÇÕES DE TRANSFORMAÇÃO
     const restringirPosicao = useCallback((newX, newY) => {
@@ -570,125 +161,9 @@ function TabletopGrid() {
     }, [tokensState, uiState.zoom, uiState.position, uiState.visibilidadeTokens,
         uiState.tokensBloqueados, uiState.tokenSelecionado, uiState.tokensSelecionados]);
 
-    const verificarSeMouseSobreToken = useCallback((mouseX, mouseY, modo = 'esquerdo') => {
-        if (modo === 'esquerdo') {
-            for (let i = tokensComInfo.length - 1; i >= 0; i--) {
-                const token = tokensComInfo[i];
-                if (token.bloqueado) continue;
-
-                const dentro = calcularSeMouseEstaDentro(
-                    mouseX, mouseY,
-                    token.posicaoTela.x, token.posicaoTela.y,
-                    token.tamanhoTela.larguraTela, token.tamanhoTela.alturaTela
-                );
-
-                if (dentro) {
-                    return {
-                        token: tokensState[i],
-                        indice: i,
-                        ...token.tamanhoTela,
-                        telaX: token.posicaoTela.x,
-                        telaY: token.posicaoTela.y,
-                        bloqueado: token.bloqueado
-                    };
-                }
-            }
-            return null;
-        }
-
-        if (modo === 'direito') {
-            // Primeiro procura tokens não bloqueados
-            for (let i = tokensComInfo.length - 1; i >= 0; i--) {
-                const token = tokensComInfo[i];
-                if (token.bloqueado) continue;
-
-                const dentro = calcularSeMouseEstaDentro(
-                    mouseX, mouseY,
-                    token.posicaoTela.x, token.posicaoTela.y,
-                    token.tamanhoTela.larguraTela, token.tamanhoTela.alturaTela
-                );
-
-                if (dentro) {
-                    return {
-                        token: tokensState[i],
-                        indice: i,
-                        ...token.tamanhoTela,
-                        telaX: token.posicaoTela.x,
-                        telaY: token.posicaoTela.y,
-                        bloqueado: token.bloqueado
-                    };
-                }
-            }
-
-            // Se não achou, procura qualquer token (incluindo bloqueados)
-            for (let i = tokensComInfo.length - 1; i >= 0; i--) {
-                const token = tokensComInfo[i];
-
-                const dentro = calcularSeMouseEstaDentro(
-                    mouseX, mouseY,
-                    token.posicaoTela.x, token.posicaoTela.y,
-                    token.tamanhoTela.larguraTela, token.tamanhoTela.alturaTela
-                );
-
-                if (dentro) {
-                    return {
-                        token: tokensState[i],
-                        indice: i,
-                        ...token.tamanhoTela,
-                        telaX: token.posicaoTela.x,
-                        telaY: token.posicaoTela.y,
-                        bloqueado: token.bloqueado
-                    };
-                }
-            }
-            return null;
-        }
-
-        return null;
-    }, [tokensComInfo, tokensState, calcularSeMouseEstaDentro]);
-
-    // Verifica se o mouse está sobre as bolinhas de redimensionamento (para token individual OU grupo)
-    const verificarSeMousePodeRedimensionar = useCallback((mouseX, mouseY, tokenTelaX, tokenTelaY, larguraTela, alturaTela, tokenBloqueado) => {
-        if (tokenBloqueado) return null;
-
-        const TAMANHO_BOLINHA = Math.max(8, 16 * uiState.zoom);
-        const DISTANCIA_EXTERNA = Math.max(4, 8 * Math.min(uiState.zoom, 1));
-        const RAIO = TAMANHO_BOLINHA / 2;
-
-        const DETECT_MULTIPLIER = 1.5;
-        const DETECT_RAIO = RAIO * DETECT_MULTIPLIER;
-
-        const posicoes = [
-            { nome: 'se', x: tokenTelaX + larguraTela + DISTANCIA_EXTERNA, y: tokenTelaY + alturaTela + DISTANCIA_EXTERNA },
-            { nome: 'sw', x: tokenTelaX - DISTANCIA_EXTERNA, y: tokenTelaY + alturaTela + DISTANCIA_EXTERNA },
-            { nome: 'ne', x: tokenTelaX + larguraTela + DISTANCIA_EXTERNA, y: tokenTelaY - DISTANCIA_EXTERNA },
-            { nome: 'nw', x: tokenTelaX - DISTANCIA_EXTERNA, y: tokenTelaY - DISTANCIA_EXTERNA }
-        ];
-
-        for (const bolinha of posicoes) {
-            if (mouseX >= (bolinha.x - DETECT_RAIO) && mouseX <= (bolinha.x + DETECT_RAIO) &&
-                mouseY >= (bolinha.y - DETECT_RAIO) && mouseY <= (bolinha.y + DETECT_RAIO)) {
-                return bolinha.nome;
-            }
-        }
-        return null;
-    }, [uiState.zoom]);
-
-    const tokenEstaNaAreaSelecao = useCallback((token, area) => {
-        if (!area.ativo) return false;
-
-        const x1 = Math.min(area.inicioX, area.fimX);
-        const x2 = Math.max(area.inicioX, area.fimX);
-        const y1 = Math.min(area.inicioY, area.fimY);
-        const y2 = Math.max(area.inicioY, area.fimY);
-
-        const tokenX1 = token.posicaoTela.x;
-        const tokenY1 = token.posicaoTela.y;
-        const tokenX2 = token.posicaoTela.x + token.tamanhoTela.larguraTela;
-        const tokenY2 = token.posicaoTela.y + token.tamanhoTela.alturaTela;
-
-        return !(tokenX2 < x1 || tokenX1 > x2 || tokenY2 < y1 || tokenY1 > y2);
-    }, []);
+    // Hooks de seleção
+    const { verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, tokenEstaNaAreaSelecao } = 
+        useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeMouseEstaDentro);
 
     // FUNÇÕES DE RENDERIZAÇÃO
     const getCanvasContext = useCallback(() => {
@@ -762,93 +237,16 @@ function TabletopGrid() {
         }
     }, []);
 
-    const drawSingleToken = useCallback((token, context) => {
-        let img = imageCache.current.get(token.id);
-
-        if (!img) {
-            img = new Image();
-            img.onload = () => {
-                scheduleRender();
-            };
-            img.onerror = () => {
-                console.log('❌ Erro ao carregar imagem:', token.nome);
-            };
-            img.src = token.imagemUrl;
-            imageCache.current.set(token.id, img);
-
-            desenharFallbackToken(
-                context,
-                token.posicaoTela.x,
-                token.posicaoTela.y,
-                uiState.zoom,
-                token.nome
-            );
-            return false;
-        }
-
-        if (!img.complete) {
-            desenharFallbackToken(
-                context,
-                token.posicaoTela.x,
-                token.posicaoTela.y,
-                uiState.zoom,
-                token.nome
-            );
-            return false;
-        }
-
-        if (token.oculto) {
-            context.globalAlpha = 0.3;
-        }
-
-        context.drawImage(
-            img,
-            token.posicaoTela.x,
-            token.posicaoTela.y,
-            token.tamanhoTela.larguraTela,
-            token.tamanhoTela.alturaTela
-        );
-
-        context.globalAlpha = 1.0;
-        return true;
-    }, [uiState.zoom, scheduleRender]);
-
-    const drawTokenWithCache = useCallback((token, indice, context) => {
-        if (!context) {
-            context = getCanvasContext();
-            if (!context) return;
-        }
-
-        drawSingleToken(token, context);
-
-        if (uiState.tokenSendoArrastado?.indice === indice) {
-            desenharBordaDeArrasto(
-                context,
-                token.posicaoTela.x,
-                token.posicaoTela.y,
-                token.tamanhoTela.larguraTela,
-                token.tamanhoTela.alturaTela,
-                uiState.ui.usuarioInteragindo
-            );
-        }
-
-        const tokenEstaSelecionado =
-            uiState.tokenSelecionado === indice ||
-            uiState.tokensSelecionados.includes(indice);
-
-        // Desenha bolinhas de redimensionamento apenas para token individual selecionado
-        if (tokenEstaSelecionado && !token.bloqueado && uiState.tokensSelecionados.length === 0) {
-            desenharBolinhasRedimensionamento(
-                context,
-                token.posicaoTela.x,
-                token.posicaoTela.y,
-                token.tamanhoTela.larguraTela,
-                token.tamanhoTela.alturaTela,
-                uiState.zoom
-            );
-        }
-    }, [uiState.zoom, uiState.tokenSendoArrastado, uiState.ui.usuarioInteragindo,
-        uiState.tokenSelecionado, uiState.tokensSelecionados, getCanvasContext, drawSingleToken]);
+    // Hook de renderização de tokens
+    const { drawTokenWithCache } = useRenderizacaoToken(
+        uiState, 
+        imageCache, 
+        getCanvasContext, 
+        scheduleRender, 
+        desenharFallbackToken, 
+        desenharBordaDeArrasto, 
+        desenharSelecao
+    );
 
     const renderGridToCanvas = useCallback(() => {
         const canvas = canvasRef.current;
@@ -870,270 +268,45 @@ function TabletopGrid() {
 
         drawGrid();
 
-        // Desenha todos os tokens
         for (let i = 0; i < tokensComInfo.length; i++) {
             const token = tokensComInfo[i];
             drawTokenWithCache(token, i, context);
         }
 
-        // Desenha a borda do grupo (apenas visual, sem bolinhas de redimensionamento)
         if (uiState.tokensSelecionados.length > 1) {
             const tokensSelecionadosInfo = uiState.tokensSelecionados
                 .map(indice => tokensComInfo[indice])
                 .filter(token => token && !token.bloqueado);
 
             if (tokensSelecionadosInfo.length > 0) {
-                // Desenha apenas a borda tracejada, sem bolinhas
-                context.save();
-
-                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-                tokensSelecionadosInfo.forEach(token => {
-                    minX = Math.min(minX, token.posicaoTela.x);
-                    minY = Math.min(minY, token.posicaoTela.y);
-                    maxX = Math.max(maxX, token.posicaoTela.x + token.tamanhoTela.larguraTela);
-                    maxY = Math.max(maxY, token.posicaoTela.y + token.tamanhoTela.alturaTela);
-                });
-
-                const padding = 8;
-                const x = minX - padding;
-                const y = minY - padding;
-                const width = (maxX - minX) + (padding * 2);
-                const height = (maxY - minY) + (padding * 2);
-
-                // Borda externa tracejada (apenas visual)
-                ctx.strokeStyle = 'rgba(0, 123, 255, 0.8)';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([5, 3]);
-                ctx.strokeRect(x, y, width, height);
-                ctx.setLineDash([]);
-
-                // Texto com quantidade de tokens selecionados
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-                ctx.shadowBlur = 4;
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-                ctx.font = 'bold 12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(`${tokensSelecionadosInfo.length} tokens selecionados`, x + width/2, y - 10);
-                
-                context.restore();
+                // Passa 'true' como quinto parâmetro para remover o fundo azul
+                desenharSelecao(context, tokensSelecionadosInfo, uiState.zoom, 'grupo', true);
             }
         }
 
         if (uiState.areaSelecao.ativo) {
-            desenharAreaSelecao(context, uiState.areaSelecao);
+            const tokenVirtual = {
+                posicaoTela: {
+                    x: Math.min(uiState.areaSelecao.inicioX, uiState.areaSelecao.fimX),
+                    y: Math.min(uiState.areaSelecao.inicioY, uiState.areaSelecao.fimY)
+                },
+                tamanhoTela: {
+                    larguraTela: Math.abs(uiState.areaSelecao.fimX - uiState.areaSelecao.inicioX),
+                    alturaTela: Math.abs(uiState.areaSelecao.fimY - uiState.areaSelecao.inicioY)
+                }
+            };
+
+            desenharSelecao(context, [tokenVirtual], uiState.zoom, 'individual', false);
         }
     }, [tokensComInfo, drawGrid, drawTokenWithCache, getCanvasContext, uiState.areaSelecao,
-        uiState.tokensSelecionados, uiState.zoom]);
+        uiState.tokensSelecionados, uiState.zoom, desenharSelecao]);
 
     useEffect(() => {
         renderGridToCanvasRef.current = renderGridToCanvas;
     }, [renderGridToCanvas]);
 
-    const processarArrastoToken = useCallback((
-        mouseX,
-        mouseY,
-        tokenSendoArrastado,
-        offsetArrasto,
-        tokensAtuais,
-        zoom,
-        position,
-        isGroupDrag = false,
-        indicesGrupo = []
-    ) => {
-        if (!tokenSendoArrastado || !tokenSendoArrastado.token) {
-            return tokensAtuais;
-        }
-
-        if (typeof offsetArrasto.x !== 'number' || typeof offsetArrasto.y !== 'number' ||
-            isNaN(offsetArrasto.x) || isNaN(offsetArrasto.y)) {
-            return tokensAtuais;
-        }
-
-        const mundo = {
-            mundoX: (mouseX - position.x) / zoom,
-            mundoY: (mouseY - position.y) / zoom
-        };
-
-        if (isNaN(mundo.mundoX) || isNaN(mundo.mundoY)) {
-            return tokensAtuais;
-        }
-
-        const posX = mundo.mundoX - (offsetArrasto.x / zoom);
-        const posY = mundo.mundoY - (offsetArrasto.y / zoom);
-
-        if (isNaN(posX) || isNaN(posY)) {
-            return tokensAtuais;
-        }
-
-        const novosTokens = [...tokensAtuais];
-        const tokenReferencia = tokensAtuais[tokenSendoArrastado.indice];
-
-        if (!tokenReferencia) {
-            return tokensAtuais;
-        }
-
-        if (isGroupDrag && indicesGrupo.length > 0) {
-            const deltaX = posX - tokenReferencia.x;
-            const deltaY = posY - tokenReferencia.y;
-
-            if (isNaN(deltaX) || isNaN(deltaY)) {
-                return tokensAtuais;
-            }
-
-            if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
-                indicesGrupo.forEach(indice => {
-                    if (novosTokens[indice]) {
-                        novosTokens[indice] = {
-                            ...novosTokens[indice],
-                            x: novosTokens[indice].x + deltaX,
-                            y: novosTokens[indice].y + deltaY
-                        };
-                    }
-                });
-            }
-        } else {
-            novosTokens[tokenSendoArrastado.indice] = {
-                ...novosTokens[tokenSendoArrastado.indice],
-                x: posX,
-                y: posY
-            };
-        }
-
-        return novosTokens;
-    }, []);
-
-    // Função ÚNICA de redimensionamento - usa a mesma lógica para token individual E grupo
-    const processarRedimensionamento = useCallback((
-        mouseX,
-        mouseY,
-        tokenRedimensionando,
-        modoRedimensionamento,
-        tamanhoInicial,
-        boundingBoxGrupo,
-        tokensAtuais,
-        zoom,
-        position,
-        isGroupResize = false,
-        indicesGrupo = []
-    ) => {
-        // Se for grupo, usa o bounding box como token virtual
-        if (isGroupResize && indicesGrupo.length > 0 && boundingBoxGrupo) {
-            const mundo = {
-                mundoX: (mouseX - position.x) / zoom,
-                mundoY: (mouseY - position.y) / zoom
-            };
-
-            if (isNaN(mundo.mundoX) || isNaN(mundo.mundoY)) {
-                return tokensAtuais;
-            }
-
-            // Calcula a nova escala usando a MESMA função do token individual
-            const novaEscala = calcularNovaEscalaToken(
-                mundo.mundoX, mundo.mundoY,
-                boundingBoxGrupo.x, boundingBoxGrupo.y,
-                boundingBoxGrupo.larguraBase, boundingBoxGrupo.alturaBase,
-                modoRedimensionamento,
-                {
-                    largura: boundingBoxGrupo.largura,
-                    altura: boundingBoxGrupo.altura,
-                    escala: 1
-                }
-            );
-
-            if (isNaN(novaEscala)) {
-                return tokensAtuais;
-            }
-
-            // Aplica a MESMA escala para todos os tokens do grupo
-            const novosTokens = [...tokensAtuais];
-            
-            indicesGrupo.forEach(indice => {
-                if (novosTokens[indice]) {
-                    novosTokens[indice] = {
-                        ...novosTokens[indice],
-                        escala: novaEscala  // MESMA lógica do token individual!
-                    };
-                }
-            });
-
-            return novosTokens;
-        }
-
-        // Redimensionamento individual (mesma lógica de antes)
-        if (!tokenRedimensionando || !tokenRedimensionando.token) {
-            return tokensAtuais;
-        }
-
-        const mundo = {
-            mundoX: (mouseX - position.x) / zoom,
-            mundoY: (mouseY - position.y) / zoom
-        };
-
-        if (isNaN(mundo.mundoX) || isNaN(mundo.mundoY)) {
-            return tokensAtuais;
-        }
-
-        const novosTokens = [...tokensAtuais];
-        const tokenAtual = tokensAtuais[tokenRedimensionando.indice];
-        
-        if (!tokenAtual) {
-            return tokensAtuais;
-        }
-
-        const novaEscala = calcularNovaEscalaToken(
-            mundo.mundoX, mundo.mundoY,
-            tokenAtual.x, tokenAtual.y,
-            tokenAtual.larguraOriginal || 50,
-            tokenAtual.alturaOriginal || 50,
-            modoRedimensionamento,
-            tamanhoInicial
-        );
-
-        if (isNaN(novaEscala)) {
-            return tokensAtuais;
-        }
-
-        novosTokens[tokenRedimensionando.indice] = {
-            ...novosTokens[tokenRedimensionando.indice],
-            escala: novaEscala
-        };
-
-        return novosTokens;
-    }, []);
-
-    const handleWheel = useCallback((event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const container = containerRef.current;
-        if (!container) return;
-
-        const rect = container.getBoundingClientRect();
-        const mouseX = event.clientX - rect.left;
-        const mouseY = event.clientY - rect.top;
-
-        const worldXBefore = (mouseX - uiState.position.x) / uiState.zoom;
-        const worldYBefore = (mouseY - uiState.position.y) / uiState.zoom;
-
-        const zoomSpeed = 0.1;
-        const zoomFactor = event.deltaY < 0 ? 1 + zoomSpeed : 1 - zoomSpeed;
-        const newZoom = clamp(uiState.zoom * zoomFactor, MIN_ZOOM, MAX_ZOOM);
-
-        if (uiState.zoom !== newZoom) {
-            const worldXAfter = (mouseX - uiState.position.x) / newZoom;
-            const worldYAfter = (mouseY - uiState.position.y) / newZoom;
-
-            uiDispatch({ type: 'SET_ZOOM', payload: newZoom });
-            uiDispatch({
-                type: 'SET_POSITION',
-                payload: restringirPosicao(
-                    uiState.position.x + ((worldXAfter - worldXBefore) * newZoom),
-                    uiState.position.y + ((worldYAfter - worldYBefore) * newZoom)
-                )
-            });
-        }
-    }, [uiState.zoom, uiState.position, restringirPosicao]);
+    // Eventos do mouse
+    const { handleWheel, handleDragOver } = useEventosMouse(uiState, uiDispatch, containerRef, dragStartRef, restringirPosicao);
 
     const handleMouseDown = useCallback((event) => {
         if (uiState.ignoreMouseMove) {
@@ -1183,16 +356,18 @@ function TabletopGrid() {
             const mouseX = event.clientX - rect.left;
             const mouseY = event.clientY - rect.top;
 
-            // PRIMEIRO: Verifica se tem grupo selecionado e se o mouse está na borda do grupo
+            teveMovimentoRef.current = false;
+
+            // PRIMEIRO: Verificar se tem grupo selecionado
             if (uiState.tokensSelecionados.length > 1) {
                 const tokensSelecionadosInfo = uiState.tokensSelecionados
                     .map(indice => tokensComInfo[indice])
                     .filter(token => token && !token.bloqueado);
 
                 if (tokensSelecionadosInfo.length > 0) {
-                    // Calcula o bounding box do grupo em coordenadas de tela
+                    // Calcular bounding box do grupo na tela
                     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                    
+
                     tokensSelecionadosInfo.forEach(token => {
                         minX = Math.min(minX, token.posicaoTela.x);
                         minY = Math.min(minY, token.posicaoTela.y);
@@ -1200,20 +375,69 @@ function TabletopGrid() {
                         maxY = Math.max(maxY, token.posicaoTela.y + token.tamanhoTela.alturaTela);
                     });
 
-                    const padding = 16; // Um padding maior para facilitar o clique na borda
-                    const x = minX - padding;
-                    const y = minY - padding;
-                    const width = (maxX - minX) + (padding * 2);
-                    const height = (maxY - minY) + (padding * 2);
+                    // Verificar se o mouse está DENTRO de algum token do grupo (MOVIMENTO)
+                    const tokenClicadoDoGrupo = tokensSelecionadosInfo.find(token =>
+                        mouseX >= token.posicaoTela.x &&
+                        mouseX <= token.posicaoTela.x + token.tamanhoTela.larguraTela &&
+                        mouseY >= token.posicaoTela.y &&
+                        mouseY <= token.posicaoTela.y + token.tamanhoTela.alturaTela
+                    );
 
-                    // Verifica se o mouse está na área da borda do grupo
-                    const mouseNaBorda = mouseX >= x && mouseX <= x + width &&
-                                        mouseY >= y && mouseY <= y + height;
+                    // Se clicou em um token do grupo, é MOVIMENTO DE GRUPO
+                    if (tokenClicadoDoGrupo) {
+                        console.log('INICIANDO MOVIMENTO DE GRUPO');
+
+                        // Usar o primeiro token do grupo como referência
+                        const primeiroTokenGrupo = tokensSelecionadosInfo[0];
+
+                        const grupoTokenInfo = {
+                            token: primeiroTokenGrupo,
+                            indice: primeiroTokenGrupo.indice,
+                            telaX: primeiroTokenGrupo.posicaoTela.x,
+                            telaY: primeiroTokenGrupo.posicaoTela.y,
+                            isGroupDrag: true
+                        };
+
+                        const offsetX = mouseX - primeiroTokenGrupo.posicaoTela.x;
+                        const offsetY = mouseY - primeiroTokenGrupo.posicaoTela.y;
+
+                        console.log('Offset grupo:', { offsetX, offsetY });
+
+                        uiDispatch({
+                            type: 'START_TOKEN_DRAG',
+                            payload: {
+                                tokenInfo: grupoTokenInfo,
+                                offset: { x: offsetX, y: offsetY }
+                            }
+                        });
+
+                        isDraggingRef.current = true;
+                        dragInProgressRef.current = true;
+                        event.preventDefault();
+                        return;
+                    }
+
+                    // Se NÃO clicou em um token, verificar se está na área de REDIMENSIONAMENTO (bordas)
+                    const padding = 16;
+                    const areaBorda = {
+                        x: minX - padding,
+                        y: minY - padding,
+                        width: (maxX - minX) + (padding * 2),
+                        height: (maxY - minY) + (padding * 2)
+                    };
+
+                    const mouseNaBorda = mouseX >= areaBorda.x &&
+                        mouseX <= areaBorda.x + areaBorda.width &&
+                        mouseY >= areaBorda.y &&
+                        mouseY <= areaBorda.y + areaBorda.height;
 
                     if (mouseNaBorda) {
-                        // Calcula o bounding box em coordenadas de mundo para o redimensionamento
-                        let minXMundo = Infinity, minYMundo = Infinity, maxXMundo = -Infinity, maxYMundo = -Infinity;
-                        
+                        console.log('INICIANDO REDIMENSIONAMENTO DE GRUPO');
+
+                        // Calcular bounding box em coordenadas de mundo
+                        let minXMundo = Infinity, minYMundo = Infinity,
+                            maxXMundo = -Infinity, maxYMundo = -Infinity;
+
                         tokensSelecionadosInfo.forEach(token => {
                             minXMundo = Math.min(minXMundo, token.x);
                             minYMundo = Math.min(minYMundo, token.y);
@@ -1230,9 +454,8 @@ function TabletopGrid() {
                             alturaBase: maxYMundo - minYMundo
                         };
 
-                        // Usa o primeiro token como referência
                         const primeiroToken = tokensSelecionadosInfo[0];
-                        
+
                         resizeStartStateRef.current = {
                             tokenIndice: primeiroToken.indice,
                             escalaInicial: primeiroToken.escala || 1,
@@ -1244,7 +467,7 @@ function TabletopGrid() {
                             payload: {
                                 token: primeiroToken,
                                 indice: primeiroToken.indice,
-                                canto: 'se', // Canto padrão, pode ser refinado depois
+                                canto: 'se',
                                 tamanhoInicial: {
                                     largura: boundingBoxMundo.largura,
                                     altura: boundingBoxMundo.altura,
@@ -1252,8 +475,8 @@ function TabletopGrid() {
                                 },
                                 boundingBoxGrupo: boundingBoxMundo,
                                 offset: {
-                                    x: mouseX - x,
-                                    y: mouseY - y
+                                    x: mouseX - minX,
+                                    y: mouseY - minY
                                 },
                                 isGroupResize: true
                             }
@@ -1264,7 +487,7 @@ function TabletopGrid() {
                 }
             }
 
-            // DEPOIS: Verifica token individual
+            // SEGUNDO: Verificar redimensionamento de token individual
             if (uiState.tokenSelecionado !== null) {
                 const token = tokensState[uiState.tokenSelecionado];
                 const tokenBloqueado = uiState.tokensBloqueados[token?.id] === true;
@@ -1287,6 +510,8 @@ function TabletopGrid() {
                     );
 
                     if (canto) {
+                        console.log('INICIANDO REDIMENSIONAMENTO INDIVIDUAL');
+
                         resizeStartStateRef.current = {
                             tokenIndice: uiState.tokenSelecionado,
                             escalaInicial: token.escala || 1
@@ -1316,6 +541,7 @@ function TabletopGrid() {
                 }
             }
 
+            // TERCEIRO: Verificar clique em token individual
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'esquerdo');
 
             if (tokenSobre) {
@@ -1338,6 +564,8 @@ function TabletopGrid() {
                 );
 
                 if (canto) {
+                    console.log('INICIANDO REDIMENSIONAMENTO INDIVIDUAL (clique direto)');
+
                     resizeStartStateRef.current = {
                         tokenIndice: tokenSobre.indice,
                         escalaInicial: tokenSobre.token.escala || 1
@@ -1369,37 +597,12 @@ function TabletopGrid() {
                     uiState.tokenSelecionado === tokenSobre.indice;
 
                 if (tokenJaSelecionado && uiState.tokensSelecionados.length > 0) {
-                    const tokenClicado = tokenSobre;
-
-                    const grupoTokenInfo = {
-                        token: tokenClicado.token,
-                        indice: tokenClicado.indice,
-                        telaX: tokenClicado.telaX,
-                        telaY: tokenClicado.telaY,
-                        isGroupDrag: true
-                    };
-
-                    const offsetX = mouseX - tokenClicado.telaX;
-                    const offsetY = mouseY - tokenClicado.telaY;
-
-                    if (isNaN(offsetX) || isNaN(offsetY)) {
-                        event.preventDefault();
-                        return;
-                    }
-
-                    uiDispatch({
-                        type: 'START_TOKEN_DRAG',
-                        payload: {
-                            tokenInfo: grupoTokenInfo,
-                            offset: { x: offsetX, y: offsetY }
-                        }
-                    });
-
-                    isDraggingRef.current = true;
-                    dragInProgressRef.current = true;
-                    event.preventDefault();
+                    // Este caso já foi tratado no bloco de grupo acima
+                    console.log('ATENCAO: Token ja selecionado detectado no bloco individual');
                     return;
                 } else {
+                    console.log('INICIANDO MOVIMENTO INDIVIDUAL');
+
                     const novosTokens = trazerTokenParaFrente(tokensState, tokenSobre.indice);
                     setStateDirect(novosTokens);
 
@@ -1434,6 +637,7 @@ function TabletopGrid() {
                     return;
                 }
             } else {
+                // Iniciar seleção por área
                 uiDispatch({
                     type: 'START_AREA_SELECTION',
                     payload: { x: mouseX, y: mouseY }
@@ -1445,7 +649,7 @@ function TabletopGrid() {
         }
     }, [uiState.tokenSelecionado, uiState.position, uiState.zoom, uiState.ignoreMouseMove,
         uiState.tokensBloqueados, uiState.tokensSelecionados, tokensState, tokensComInfo,
-        verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, setStateDirect]);
+        verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, setStateDirect, resizeStartStateRef, uiDispatch]);
 
     const handleMouseMove = useCallback((event) => {
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -1484,6 +688,8 @@ function TabletopGrid() {
             }
 
             if (uiState.tokenSendoArrastado) {
+                teveMovimentoRef.current = true;
+
                 const isGroupDrag = uiState.tokenSendoArrastado.isGroupDrag || false;
                 const indicesGrupo = isGroupDrag ? uiState.tokensSelecionados : [];
 
@@ -1542,7 +748,7 @@ function TabletopGrid() {
             }
         });
     }, [uiState, tokensState, tokensComInfo, tokenEstaNaAreaSelecao, restringirPosicao,
-        processarArrastoToken, processarRedimensionamento, setStateDirect]);
+        processarArrastoToken, processarRedimensionamento, setStateDirect, uiDispatch]);
 
     const finalizarArrasto = useCallback(() => {
         if (dragInProgressRef.current && (uiState.tokenSendoArrastado || uiState.tokensSelecionados.length > 0)) {
@@ -1557,9 +763,14 @@ function TabletopGrid() {
                 }
             });
 
+            if (teveMovimentoRef.current) {
+                uiDispatch({ type: 'SELECT_TOKEN', payload: null });
+            }
+
             dragInProgressRef.current = false;
+            teveMovimentoRef.current = false;
         }
-    }, [tokensState, uiState.tokenSendoArrastado, uiState.tokensSelecionados, pushTokens]);
+    }, [tokensState, uiState.tokenSendoArrastado, uiState.tokensSelecionados, pushTokens, uiDispatch]);
 
     const finalizarRedimensionamento = useCallback(() => {
         if (resizeInProgressRef.current && uiState.tokenRedimensionando) {
@@ -1568,7 +779,7 @@ function TabletopGrid() {
             resizeInProgressRef.current = false;
             resizeStartStateRef.current = null;
         }
-    }, [tokensState, uiState.tokenRedimensionando, pushTokens]);
+    }, [tokensState, uiState.tokenRedimensionando, pushTokens, resizeStartStateRef]);
 
     const handleMouseUp = useCallback((event) => {
         if (event.button === 2) {
@@ -1627,12 +838,7 @@ function TabletopGrid() {
 
         uiDispatch({ type: 'SET_MOUSE_DOWN_INFO', payload: null });
         uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: false } });
-    }, [uiState, finalizarArrasto, finalizarRedimensionamento]);
-
-    const handleDragOver = useCallback((event) => {
-        event.preventDefault();
-        event.stopPropagation();
-    }, []);
+    }, [uiState, finalizarArrasto, finalizarRedimensionamento, uiDispatch]);
 
     const handleDrop = useCallback((event) => {
         event.preventDefault();
@@ -1661,7 +867,7 @@ function TabletopGrid() {
                 pushTokens(novosTokens);
             }
         } catch (erro) {
-            console.error('❌ Erro no drop:', erro);
+            console.error('Erro no drop:', erro);
         }
     }, [tokensState, pushTokens, converterMouseParaMundo]);
 
@@ -1698,7 +904,7 @@ function TabletopGrid() {
         ignoreMouseTimeoutRef.current = setTimeout(() => {
             uiDispatch({ type: 'SET_IGNORE_MOUSE_MOVE', payload: false });
         }, 100);
-    }, [canUndo, undo]);
+    }, [canUndo, undo, uiDispatch, resizeStartStateRef]);
 
     const handleRedo = useCallback(() => {
         if (!canRedo) {
@@ -1733,40 +939,12 @@ function TabletopGrid() {
         ignoreMouseTimeoutRef.current = setTimeout(() => {
             uiDispatch({ type: 'SET_IGNORE_MOUSE_MOVE', payload: false });
         }, 100);
-    }, [canRedo, redo]);
+    }, [canRedo, redo, uiDispatch, resizeStartStateRef]);
 
-    useEffect(() => {
-        const handleKeyDown = (event) => {
-            const evt = window.event ? window.event : event;
-            const keyCode = evt.keyCode || evt.which;
-            const ctrlPressed = evt.ctrlKey || evt.metaKey;
+    // Keyboard shortcuts
+    useAtalhosTeclado(handleUndo, handleRedo);
 
-            if (evt.target.tagName === 'INPUT' ||
-                evt.target.tagName === 'TEXTAREA' ||
-                evt.target.isContentEditable) {
-                return;
-            }
-
-            if (ctrlPressed && keyCode === 90 && !evt.shiftKey) {
-                evt.preventDefault();
-                evt.stopPropagation();
-                handleUndo();
-                return;
-            }
-
-            if ((ctrlPressed && keyCode === 89) ||
-                (ctrlPressed && evt.shiftKey && keyCode === 90)) {
-                evt.preventDefault();
-                evt.stopPropagation();
-                handleRedo();
-                return;
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleUndo, handleRedo]);
-
+    // Efeitos
     useEffect(() => {
         getCanvasContext();
         return () => {
@@ -1791,7 +969,7 @@ function TabletopGrid() {
             }, 500);
             return () => clearTimeout(timer);
         }
-    }, [uiState.ui.mostrarFeedback]);
+    }, [uiState.ui.mostrarFeedback, uiDispatch]);
 
     useEffect(() => {
         const container = containerRef.current;
@@ -1823,7 +1001,7 @@ function TabletopGrid() {
 
         document.addEventListener('mousedown', handleClickFora);
         return () => document.removeEventListener('mousedown', handleClickFora);
-    }, [uiState.menuContexto.aberto]);
+    }, [uiState.menuContexto.aberto, uiDispatch]);
 
     useEffect(() => {
         const bloquearMenu = (e) => e.preventDefault();
@@ -1880,12 +1058,12 @@ function TabletopGrid() {
         const novosTokens = tokensState.filter((_, i) => i !== tokenIndice);
         pushTokens(novosTokens);
         uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
-    }, [tokensState, pushTokens]);
+    }, [tokensState, pushTokens, uiDispatch]);
 
     const handleToggleVisibility = useCallback((tokenId) => {
         uiDispatch({ type: 'TOGGLE_VISIBILITY', payload: tokenId });
         uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
-    }, []);
+    }, [uiDispatch]);
 
     const handleToggleLock = useCallback((tokenId) => {
         uiDispatch({ type: 'TOGGLE_LOCK', payload: tokenId });
@@ -1899,7 +1077,7 @@ function TabletopGrid() {
                 type: estaBloqueado ? 'warning' : 'success'
             }
         });
-    }, [uiState.tokensBloqueados]);
+    }, [uiState.tokensBloqueados, uiDispatch]);
 
     return (
         <>

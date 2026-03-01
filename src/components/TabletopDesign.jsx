@@ -1,5 +1,5 @@
 // components/TabletopDesign.jsx
-import React from "react";
+import React from "react";  
 import { Box } from "@mui/material";
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -36,6 +36,113 @@ export function desenharBordaDeArrasto(ctx, x, y, largura, altura, nomeUsuario) 
     ctx.restore();
 }
 
+// FUNÇÃO ÚNICA PARA DESENHAR SELEÇÃO (SUBSTITUI desenharAreaSelecao E desenharBordaGrupoSelecionado)
+export function desenharSelecao(ctx, tokensSelecionados, zoom, tipoSelecao = 'individual', semFundo = false) {
+    if (!tokensSelecionados || tokensSelecionados.length === 0) return;
+
+    ctx.save();
+
+    let minX, minY, maxX, maxY;
+    let boundingBox = { x: 0, y: 0, largura: 0, altura: 0 };
+
+    if (tipoSelecao === 'grupo' && tokensSelecionados.length > 1) {
+        minX = Infinity;
+        minY = Infinity;
+        maxX = -Infinity;
+        maxY = -Infinity;
+
+        tokensSelecionados.forEach(token => {
+            minX = Math.min(minX, token.posicaoTela.x);
+            minY = Math.min(minY, token.posicaoTela.y);
+            maxX = Math.max(maxX, token.posicaoTela.x + token.tamanhoTela.larguraTela);
+            maxY = Math.max(maxY, token.posicaoTela.y + token.tamanhoTela.alturaTela);
+        });
+
+        boundingBox = {
+            x: minX,
+            y: minY,
+            largura: maxX - minX,
+            altura: maxY - minY
+        };
+    } else {
+        const token = tokensSelecionados[0];
+        minX = token.posicaoTela.x;
+        minY = token.posicaoTela.y;
+        maxX = token.posicaoTela.x + token.tamanhoTela.larguraTela;
+        maxY = token.posicaoTela.y + token.tamanhoTela.alturaTela;
+
+        boundingBox = {
+            x: minX,
+            y: minY,
+            largura: maxX - minX,
+            altura: maxY - minY
+        };
+    }
+
+    const padding = (tipoSelecao === 'grupo' && tokensSelecionados.length > 1) ? 8 : 4;
+    const x = minX - padding;
+    const y = minY - padding;
+    const width = (maxX - minX) + (padding * 2);
+    const height = (maxY - minY) + (padding * 2);
+
+    // Só desenha o fundo se não for semFundo
+    if (!semFundo) {
+        ctx.fillStyle = 'rgba(0, 123, 255, 0.15)';
+        ctx.fillRect(x, y, width, height);
+    }
+
+    ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
+    ctx.lineWidth = (tipoSelecao === 'grupo' && tokensSelecionados.length > 1) ? 2 : 3;
+
+    if (tipoSelecao === 'grupo' && tokensSelecionados.length > 1) {
+        ctx.setLineDash([5, 3]);
+    } else {
+        ctx.setLineDash([]);
+    }
+
+    ctx.strokeRect(x, y, width, height);
+    ctx.setLineDash([]);
+
+    // Desenha os cantos para TODOS os tipos de seleção (individual OU grupo)
+    const tamanhoCanto = 8;
+    ctx.fillStyle = 'rgba(0, 123, 255, 0.9)';
+
+    ctx.fillRect(x - 2, y - 2, tamanhoCanto, tamanhoCanto);
+    ctx.fillRect(x + width - tamanhoCanto + 2, y - 2, tamanhoCanto, tamanhoCanto);
+    ctx.fillRect(x - 2, y + height - tamanhoCanto + 2, tamanhoCanto, tamanhoCanto);
+    ctx.fillRect(x + width - tamanhoCanto + 2, y + height - tamanhoCanto + 2, tamanhoCanto, tamanhoCanto);
+
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 4;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+
+    if (tokensSelecionados.length > 1) {
+        ctx.fillText(`${tokensSelecionados.length} tokens selecionados`, x + width / 2, y - 10);
+    } else {
+        ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + 5, y - 5);
+    }
+
+    // Desenha as bolinhas de redimensionamento para TODOS os tipos de seleção
+    // Verifica se o token não está bloqueado (para grupo, verifica se nenhum está bloqueado)
+    let podeRedimensionar = true;
+    if (tipoSelecao === 'grupo' && tokensSelecionados.length > 1) {
+        // Para grupo, verifica se ALGUM token está bloqueado
+        podeRedimensionar = !tokensSelecionados.some(token => token.bloqueado === true);
+    } else {
+        // Para individual, verifica o primeiro token
+        const primeiroToken = tokensSelecionados[0];
+        podeRedimensionar = primeiroToken && primeiroToken.bloqueado !== undefined ? !primeiroToken.bloqueado : true;
+    }
+
+    if (podeRedimensionar) {
+        desenharBolinhasRedimensionamento(ctx, boundingBox.x, boundingBox.y, boundingBox.largura, boundingBox.altura, zoom);
+    }
+
+    ctx.restore();
+}
+
 // FUNÇÃO PARA DESENHAR BOLINHAS DE REDIMENSIONAMENTO EM TOKENS INDIVIDUAIS
 export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zoom) {
     ctx.save();
@@ -45,10 +152,10 @@ export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zo
     const RAIO = TAMANHO_BOLINHA / 2;
 
     const posicoes = [
-        { x: x + largura + DISTANCIA_EXTERNA, y: y + altura + DISTANCIA_EXTERNA }, // SE
-        { x: x - DISTANCIA_EXTERNA, y: y + altura + DISTANCIA_EXTERNA }, // SW
-        { x: x + largura + DISTANCIA_EXTERNA, y: y - DISTANCIA_EXTERNA }, // NE
-        { x: x - DISTANCIA_EXTERNA, y: y - DISTANCIA_EXTERNA } // NW
+        { x: x + largura + DISTANCIA_EXTERNA, y: y + altura + DISTANCIA_EXTERNA },
+        { x: x - DISTANCIA_EXTERNA, y: y + altura + DISTANCIA_EXTERNA },
+        { x: x + largura + DISTANCIA_EXTERNA, y: y - DISTANCIA_EXTERNA },
+        { x: x - DISTANCIA_EXTERNA, y: y - DISTANCIA_EXTERNA }
     ];
 
     posicoes.forEach((pos) => {
@@ -61,56 +168,6 @@ export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zo
         ctx.stroke();
     });
 
-    ctx.restore();
-}
-
-// Desenha a área de seleção (retângulo de seleção)
-export function desenharAreaSelecao(ctx, area) {
-    if (!area || !area.ativo) return;
-
-    ctx.save();
-
-    const x1 = area.inicioX;
-    const y1 = area.inicioY;
-    const x2 = area.fimX;
-    const y2 = area.fimY;
-
-    const left = Math.min(x1, x2);
-    const right = Math.max(x1, x2);
-    const top = Math.min(y1, y2);
-    const bottom = Math.max(y1, y2);
-    const width = right - left;
-    const height = bottom - top;
-
-    // Fundo semi-transparente azul
-    ctx.fillStyle = 'rgba(0, 123, 255, 0.15)';
-    ctx.fillRect(left, top, width, height);
-    
-    // Borda azul sólida
-    ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(left, top, width, height);
-    
-    // Cantos com pequenos quadrados para indicar que está selecionando
-    const tamanhoCanto = 6;
-    ctx.fillStyle = 'rgba(0, 123, 255, 0.9)';
-    
-    // Canto superior esquerdo
-    ctx.fillRect(left - 2, top - 2, tamanhoCanto, tamanhoCanto);
-    // Canto superior direito
-    ctx.fillRect(right - tamanhoCanto + 2, top - 2, tamanhoCanto, tamanhoCanto);
-    // Canto inferior esquerdo
-    ctx.fillRect(left - 2, bottom - tamanhoCanto + 2, tamanhoCanto, tamanhoCanto);
-    // Canto inferior direito
-    ctx.fillRect(right - tamanhoCanto + 2, bottom - tamanhoCanto + 2, tamanhoCanto, tamanhoCanto);
-
-    // Texto mostrando a área em pixels
-    ctx.font = '12px Arial';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 4;
-    ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, left + 5, top - 5);
-    
     ctx.restore();
 }
 
@@ -214,14 +271,14 @@ export function CanvasDesenho({ canvasRef }) {
 }
 
 // Menu de contexto pra opções do token
-export const MenuContextoToken = React.forwardRef(({ 
-    x, y, aberto, onFechar, onDeletar, onOcultar, onBloquear, tokenNome, estaOculto, estaBloqueado 
+export const MenuContextoToken = React.forwardRef(({
+    x, y, aberto, onFechar, onDeletar, onOcultar, onBloquear, tokenNome, estaOculto, estaBloqueado
 }, ref) => {
     if (!aberto) return null;
-    
+
     const textoOcultar = estaOculto ? "Mostrar (todos veem)" : "Ocultar (só eu vejo)";
     const textoBloquear = estaBloqueado ? "Desbloquear token" : "Bloquear token";
-    
+
     return (
         <div
             ref={ref}
@@ -237,10 +294,9 @@ export const MenuContextoToken = React.forwardRef(({
                 minWidth: '180px'
             }}
         >
-            {/* Cabeçalho com o nome do token */}
-            <div style={{ 
-                padding: '8px 12px', 
-                borderBottom: '1px solid #444', 
+            <div style={{
+                padding: '8px 12px',
+                borderBottom: '1px solid #444',
                 color: '#aaa',
                 fontSize: '12px',
                 display: 'flex',
@@ -249,8 +305,7 @@ export const MenuContextoToken = React.forwardRef(({
             }}>
                 <span style={{ color: '#fff', fontWeight: 'bold' }}>{tokenNome}</span>
             </div>
-            
-            {/* Botão Ocultar/Mostrar */}
+
             <button
                 onClick={() => {
                     onOcultar();
@@ -281,7 +336,6 @@ export const MenuContextoToken = React.forwardRef(({
                 {textoOcultar}
             </button>
 
-            {/* Botão Bloquear/Desbloquear */}
             <button
                 onClick={() => {
                     onBloquear();
@@ -315,8 +369,7 @@ export const MenuContextoToken = React.forwardRef(({
                 )}
                 {textoBloquear}
             </button>
-            
-            {/* Botão Deletar */}
+
             <button
                 onClick={() => {
                     onDeletar();
