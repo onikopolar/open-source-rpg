@@ -40,9 +40,11 @@ export function useRedimensionamentoToken() {
             console.log('CASO: REDIMENSIONAMENTO DE GRUPO');
             console.log('Índices do grupo:', indicesGrupo);
 
+            // PRIMEIRO FRAME - Salvar estado inicial
             if (!resizeStartStateRef.current) {
                 console.log('Primeiro frame - salvando estado inicial...');
 
+                // Calcular bounding box do grupo
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
                 indicesGrupo.forEach(indice => {
@@ -63,6 +65,7 @@ export function useRedimensionamentoToken() {
                 const centroX = minX + (maxX - minX) / 2;
                 const centroY = minY + (maxY - minY) / 2;
 
+                // Salvar estado inicial de cada token
                 const estadoInicialTokens = {};
                 indicesGrupo.forEach(indice => {
                     const token = tokensAtuais[indice];
@@ -93,6 +96,7 @@ export function useRedimensionamentoToken() {
                 return tokensAtuais;
             }
 
+            // FRAMES SEGUINTES - Aplicar redimensionamento
             const estadoInicial = resizeStartStateRef.current;
 
             if (!estadoInicial || !estadoInicial.boundingBox) {
@@ -101,6 +105,7 @@ export function useRedimensionamentoToken() {
                 return tokensAtuais;
             }
 
+            // Converter coordenadas do mouse para o mundo
             const mundo = {
                 mundoX: (mouseX - position.x) / zoom,
                 mundoY: (mouseY - position.y) / zoom
@@ -111,47 +116,31 @@ export function useRedimensionamentoToken() {
                 console.log('ERRO: Coordenadas mundo inválidas');
                 return tokensAtuais;
             }
+            
+            // Calcular a nova escala usando a função utilitária
+            const escalaCalculada = calcularNovaEscalaToken(
+                mundo.mundoX, mundo.mundoY,
+                estadoInicial.boundingBox.x, 
+                estadoInicial.boundingBox.y,
+                estadoInicial.boundingBox.width,
+                estadoInicial.boundingBox.height,
+                modoRedimensionamento,
+                { 
+                    largura: estadoInicial.boundingBox.width, 
+                    altura: estadoInicial.boundingBox.height 
+                },
+                4 // escalaMaxima = 4
+            );
 
-            let escalaX, escalaY;
-
-            if (modoRedimensionamento === 'se') {
-                const novoWidth = Math.max(10, mundo.mundoX - estadoInicial.boundingBox.x);
-                const novoHeight = Math.max(10, mundo.mundoY - estadoInicial.boundingBox.y);
-                escalaX = novoWidth / estadoInicial.boundingBox.width;
-                escalaY = novoHeight / estadoInicial.boundingBox.height;
-                console.log('Modo SE:', { novoWidth, novoHeight, escalaX, escalaY });
-            } else if (modoRedimensionamento === 'sw') {
-                const novoWidth = Math.max(10, estadoInicial.boundingBox.x + estadoInicial.boundingBox.width - mundo.mundoX);
-                const novoHeight = Math.max(10, mundo.mundoY - estadoInicial.boundingBox.y);
-                escalaX = novoWidth / estadoInicial.boundingBox.width;
-                escalaY = novoHeight / estadoInicial.boundingBox.height;
-                console.log('Modo SW:', { novoWidth, novoHeight, escalaX, escalaY });
-            } else if (modoRedimensionamento === 'ne') {
-                const novoWidth = Math.max(10, mundo.mundoX - estadoInicial.boundingBox.x);
-                const novoHeight = Math.max(10, estadoInicial.boundingBox.y + estadoInicial.boundingBox.height - mundo.mundoY);
-                escalaX = novoWidth / estadoInicial.boundingBox.width;
-                escalaY = novoHeight / estadoInicial.boundingBox.height;
-                console.log('Modo NE:', { novoWidth, novoHeight, escalaX, escalaY });
-            } else if (modoRedimensionamento === 'nw') {
-                const novoWidth = Math.max(10, estadoInicial.boundingBox.x + estadoInicial.boundingBox.width - mundo.mundoX);
-                const novoHeight = Math.max(10, estadoInicial.boundingBox.y + estadoInicial.boundingBox.height - mundo.mundoY);
-                escalaX = novoWidth / estadoInicial.boundingBox.width;
-                escalaY = novoHeight / estadoInicial.boundingBox.height;
-                console.log('Modo NW:', { novoWidth, novoHeight, escalaX, escalaY });
-            }
-
-            const escala = Math.min(escalaX, escalaY);
-            const ESCALA_MINIMA = 0.1;
-            const ESCALA_MAXIMA = 4;
-            const escalaFinal = Math.max(ESCALA_MINIMA, Math.min(ESCALA_MAXIMA, escala));
-
-            console.log('Escala calculada:', {
-                escalaX,
-                escalaY,
-                escala,
-                escalaFinal,
-                direcao: escalaFinal > 1 ? 'AUMENTANDO' : (escalaFinal < 1 ? 'DIMINUINDO' : 'MANTENDO')
+            console.log('Escala calculada via utilitário:', {
+                escalaCalculada,
+                direcao: escalaCalculada > 1 ? 'AUMENTANDO' : (escalaCalculada < 1 ? 'DIMINUINDO' : 'MANTENDO')
             });
+
+            if (isNaN(escalaCalculada) || escalaCalculada <= 0) {
+                console.log('ERRO: Escala calculada inválida');
+                return tokensAtuais;
+            }
 
             console.log('Aplicando transformação aos tokens do grupo...');
 
@@ -160,13 +149,16 @@ export function useRedimensionamentoToken() {
             indicesGrupo.forEach(indice => {
                 const tokenInicial = estadoInicial.tokens[indice];
                 if (tokenInicial && novosTokens[indice]) {
+                    // Posição relativa ao centro do grupo
                     const relX = tokenInicial.x - estadoInicial.centro.x;
                     const relY = tokenInicial.y - estadoInicial.centro.y;
 
-                    const novoX = estadoInicial.centro.x + (relX * escalaFinal);
-                    const novoY = estadoInicial.centro.y + (relY * escalaFinal);
+                    // Nova posição mantendo a proporção relativa
+                    const novoX = estadoInicial.centro.x + (relX * escalaCalculada);
+                    const novoY = estadoInicial.centro.y + (relY * escalaCalculada);
 
-                    const novaEscala = tokenInicial.escala * escalaFinal;
+                    // Nova escala (escala original * fator de escala)
+                    const novaEscala = tokenInicial.escala * escalaCalculada;
 
                     console.log(`Token ${indice}:`, {
                         antes: {
