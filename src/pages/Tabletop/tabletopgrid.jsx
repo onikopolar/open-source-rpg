@@ -13,7 +13,7 @@ import {
     desenharSelecao
 } from "../../components/TabletopDesign";
 
-// Importações organizadas - AGORA EM PORTUGUÊS
+// Importa as paradas da mesa
 import { WORLD_WIDTH, WORLD_HEIGHT, TOLERANCIA_CLIQUE, RENDER_INTERVAL, BASE_GRID_SIZE, GRID_CONFIGS, clamp } from "../../components/Tabletop/ConstantesMesa";
 import { useDesfazerRefazer } from "../../components/Tabletop/useDesfazerRefazer";
 import { initialUIState, uiReducer } from "../../components/Tabletop/RedutorUI";
@@ -25,13 +25,16 @@ import { useSelecaoToken } from "../../components/Tabletop/useSelecaoToken";
 import { useRenderizacaoToken } from "../../components/Tabletop/useRenderizacaoToken";
 import { trazerTokenParaFrente } from "../../components/Tabletop/UtilitariosToken";
 
-// COMPONENTE PRINCIPAL
+// Componente principal da mesa
 function TabletopGrid() {
-    console.log('🎯 [TabletopGrid] RENDERIZOU');
+    console.log('🏁 [TabletopGrid] INICIALIZANDO');
+    console.log(`📏 Mundo configurado: ${WORLD_WIDTH} x ${WORLD_HEIGHT} pixels`);
+    console.log(`🔲 Grade base: ${BASE_GRID_SIZE}px, células: ${WORLD_WIDTH/BASE_GRID_SIZE} x ${WORLD_HEIGHT/BASE_GRID_SIZE}`);
 
     const [modalOpen, setModalOpen] = useState(false);
-    console.log('📦 [TabletopGrid] modalOpen:', modalOpen);
+    console.log(`📂 modalOpen: ${modalOpen}`);
 
+    // Historico de ações (ctrl+z)
     const {
         state: tokensState,
         push: pushTokens,
@@ -41,13 +44,13 @@ function TabletopGrid() {
         canRedo,
         setStateDirect
     } = useDesfazerRefazer([]);
-
-    console.log('📦 [TabletopGrid] tokensState:', tokensState.length, 'tokens');
+    
+    console.log(`🎲 tokensState inicializado, total: ${tokensState.length}`);
 
     const [uiState, uiDispatch] = useReducer(uiReducer, initialUIState);
-    console.log('📦 [TabletopGrid] uiState inicializado');
+    console.log(`🎛️ uiState inicializado`);
 
-    // REFS
+    // Refs pra caramba
     const isDraggingRef = useRef(false);
     const dragInProgressRef = useRef(false);
     const resizeInProgressRef = useRef(false);
@@ -64,26 +67,17 @@ function TabletopGrid() {
     const renderGridToCanvasRef = useRef(null);
     const teveMovimentoRef = useRef(false);
 
-    // NOVAS REFS PARA LÓGICA DE CLIQUE VS ARRASTO
+    // Controle de clique vs arrasto
     const cliqueDireitoTimerRef = useRef(null);
     const isRightClickDragRef = useRef(false);
 
-    console.log('🔧 [TabletopGrid] Refs inicializadas');
-
-    // Hooks personalizados
-    console.log('🔌 [TabletopGrid] Inicializando hooks...');
+    // Hooks de funcionalidades
     const { processarArrastoToken } = useMovimentoToken();
     const { processarRedimensionamento, resizeStartStateRef } = useRedimensionamentoToken();
-    console.log('✅ [TabletopGrid] Hooks de movimento/redimensionamento inicializados');
 
-    // FUNÇÕES DE TRANSFORMAÇÃO
+    // Limita o movimento do mapa
     const restringirPosicao = useCallback((newX, newY) => {
-        console.log('🔄 [restringirPosicao] Input:', { newX, newY });
-
-        if (!containerRef.current) {
-            console.log('⚠️ [restringirPosicao] containerRef não disponível');
-            return { x: newX, y: newY };
-        }
+        if (!containerRef.current) return { x: newX, y: newY };
 
         const rect = containerRef.current.getBoundingClientRect();
         const worldWidthScaled = WORLD_WIDTH * uiState.zoom;
@@ -93,45 +87,49 @@ function TabletopGrid() {
             x: clamp(newX, rect.width - worldWidthScaled, 0),
             y: clamp(newY, rect.height - worldHeightScaled, 0)
         };
-
-        console.log('✅ [restringirPosicao] Resultado:', resultado);
+        
+        console.log(`🔄 [restringirPosicao]`, {
+            novoX: newX,
+            novoY: newY,
+            limitadoX: resultado.x,
+            limitadoY: resultado.y,
+            zoom: uiState.zoom,
+            mundoEscalado: `${worldWidthScaled.toFixed(0)} x ${worldHeightScaled.toFixed(0)}`,
+            tela: `${rect.width.toFixed(0)} x ${rect.height.toFixed(0)}`
+        });
+        
         return resultado;
     }, [uiState.zoom]);
 
+    // Converte pixel da tela pra coordenada do mundo
     const converterMouseParaMundo = useCallback((mouseX, mouseY) => {
-        console.log('🔄 [converterMouseParaMundo] Mouse:', { mouseX, mouseY });
-
         const resultado = {
             mundoX: (mouseX - uiState.position.x) / uiState.zoom,
             mundoY: (mouseY - uiState.position.y) / uiState.zoom
         };
-
-        console.log('✅ [converterMouseParaMundo] Mundo:', resultado);
+        
+        console.log(`🖱️ [converterMouseParaMundo]`, {
+            mouse: { x: mouseX, y: mouseY },
+            camera: uiState.position,
+            zoom: uiState.zoom,
+            mundo: resultado
+        });
+        
         return resultado;
     }, [uiState.position, uiState.zoom]);
 
+    // Ve se o mouse ta em cima de um elemento
     const calcularSeMouseEstaDentro = useCallback((mouseX, mouseY, elemX, elemY, largura, altura) => {
         const TOLERANCIA = TOLERANCIA_CLIQUE;
 
-        const dentro = mouseX >= elemX - TOLERANCIA &&
+        return mouseX >= elemX - TOLERANCIA &&
             mouseX <= elemX + largura + TOLERANCIA &&
             mouseY >= elemY - TOLERANCIA &&
             mouseY <= elemY + altura + TOLERANCIA;
-
-        console.log('🖱️ [calcularSeMouseEstaDentro]', {
-            mouse: { x: mouseX, y: mouseY },
-            elemento: { x: elemX, y: elemY, largura, altura },
-            tolerancia: TOLERANCIA,
-            dentro
-        });
-
-        return dentro;
     }, []);
 
-    // MEMOS
+    // Filtra as grades baseado no zoom
     const visibleGrids = useMemo(() => {
-        console.log('🔄 [useMemo] Calculando visibleGrids, zoom:', uiState.zoom);
-
         const grids = GRID_CONFIGS
             .filter(config => uiState.zoom >= config.zoomThreshold)
             .map((config, index, array) => {
@@ -139,6 +137,7 @@ function TabletopGrid() {
                 const baseSize = BASE_GRID_SIZE * config.sizeMultiplier;
                 let alpha = config.alpha;
 
+                // Transicao suave entre grades
                 if (index > 0) {
                     const prevConfig = array[index - 1];
                     const transitionRange = (config.zoomThreshold - prevConfig.zoomThreshold) * 0.2;
@@ -147,20 +146,20 @@ function TabletopGrid() {
                     if (uiState.zoom > fadeStart && uiState.zoom < config.zoomThreshold + transitionRange) {
                         const progress = (uiState.zoom - fadeStart) / (transitionRange * 2);
                         alpha = config.alpha * Math.min(1, Math.max(0, progress));
-                        console.log('📊 [grid] Ajuste alpha:', { index, progress, alpha });
                     }
                 }
 
                 return { size: baseSize, alpha, strokeWidth };
             });
-
-        console.log('✅ [useMemo] visibleGrids calculado:', grids.length, 'grades');
+            
+        console.log(`📐 [visibleGrids] zoom: ${uiState.zoom.toFixed(2)}, grades visíveis: ${grids.length}`);
         return grids;
     }, [uiState.zoom]);
 
+    // Prepara os tokens com informacoes de tela
     const tokensComInfo = useMemo(() => {
-        console.log('🔄 [useMemo] Calculando tokensComInfo, total tokens:', tokensState.length);
-
+        console.log(`🔄 [tokensComInfo] Calculando posições de ${tokensState.length} tokens`);
+        
         const tokens = tokensState.map((token, indice) => {
             const larguraOriginal = token.larguraOriginal || 50;
             const alturaOriginal = token.alturaOriginal || 50;
@@ -181,17 +180,6 @@ function TabletopGrid() {
                 uiState.tokensSelecionados.includes(indice);
             const estaBloqueado = uiState.tokensBloqueados[token.id] === true;
 
-            if (indice === 0) {
-                console.log('📊 [tokenInfo] Exemplo primeiro token:', {
-                    indice,
-                    nome: token.nome,
-                    posicaoMundo: { x: token.x, y: token.y },
-                    posicaoTela,
-                    selecionado: estaSelecionado,
-                    bloqueado: estaBloqueado
-                });
-            }
-
             return {
                 ...token,
                 indice,
@@ -211,50 +199,44 @@ function TabletopGrid() {
                 estaSelecionado
             };
         });
-
-        console.log('✅ [useMemo] tokensComInfo calculado, total:', tokens.length);
+        
+        if (tokens.length > 0) {
+            console.log(`📊 Exemplo primeiro token:`, {
+                nome: tokens[0].nome,
+                posMundo: { x: tokens[0].x, y: tokens[0].y },
+                posTela: tokens[0].posicaoTela,
+                tamanhoTela: tokens[0].tamanhoTela.larguraTela.toFixed(0) + 'x' + tokens[0].tamanhoTela.alturaTela.toFixed(0)
+            });
+        }
+        
         return tokens;
     }, [tokensState, uiState.zoom, uiState.position, uiState.visibilidadeTokens,
         uiState.tokensBloqueados, uiState.tokenSelecionado, uiState.tokensSelecionados]);
 
-    // Hooks de seleção
-    console.log('🔌 [TabletopGrid] Inicializando useSelecaoToken...');
+    // Hook de selecao
     const { verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, tokenEstaNaAreaSelecao } =
         useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeMouseEstaDentro);
-    console.log('✅ [TabletopGrid] useSelecaoToken inicializado');
 
-    // FUNÇÕES DE RENDERIZAÇÃO
+    // Pega o contexto do canvas
     const getCanvasContext = useCallback(() => {
-        console.log('🖌️ [getCanvasContext] Obtendo contexto do canvas');
-
-        if (contextRef.current) {
-            console.log('✅ [getCanvasContext] Usando contexto existente');
-            return contextRef.current;
-        }
+        if (contextRef.current) return contextRef.current;
 
         const canvas = canvasRef.current;
-        if (!canvas) {
-            console.log('❌ [getCanvasContext] Canvas não encontrado');
-            return null;
-        }
+        if (!canvas) return null;
 
         contextRef.current = canvas.getContext('2d', {
             willReadFrequently: true,
             alpha: true
         });
 
-        console.log('✅ [getCanvasContext] Novo contexto criado');
+        console.log(`🖌️ [getCanvasContext] Novo contexto criado`);
         return contextRef.current;
     }, []);
 
+    // Desenha a grade
     const drawGrid = useCallback(() => {
-        console.log('📐 [drawGrid] Desenhando grade');
-
         const context = getCanvasContext();
-        if (!context) {
-            console.log('❌ [drawGrid] Contexto inválido');
-            return;
-        }
+        if (!context) return;
 
         context.save();
         context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -262,13 +244,7 @@ function TabletopGrid() {
         context.translate(uiState.position.x, uiState.position.y);
         context.scale(uiState.zoom, uiState.zoom);
 
-        console.log('📐 [drawGrid] Transformação aplicada:', {
-            translate: uiState.position,
-            zoom: uiState.zoom
-        });
-
         for (const grid of visibleGrids) {
-            console.log('📐 [drawGrid] Desenhando grade:', grid);
             context.strokeStyle = `rgba(255, 255, 255, ${grid.alpha})`;
             context.lineWidth = grid.strokeWidth;
 
@@ -288,19 +264,16 @@ function TabletopGrid() {
         }
 
         context.restore();
-        console.log('✅ [drawGrid] Grade desenhada');
     }, [uiState.zoom, uiState.position, visibleGrids, getCanvasContext]);
 
+    // Agenda renderizacao (performance)
     const scheduleRender = useCallback(() => {
         const now = Date.now();
-        console.log('⏰ [scheduleRender] Iniciando, tempo desde último render:', now - lastRenderTime.current);
 
         if (now - lastRenderTime.current < RENDER_INTERVAL) {
-            console.log('⏰ [scheduleRender] Intervalo mínimo não atingido, agendando...');
             if (!renderScheduled.current) {
                 renderScheduled.current = true;
                 requestAnimationFrame(() => {
-                    console.log('⏰ [scheduleRender] Executando render agendado');
                     renderScheduled.current = false;
                     lastRenderTime.current = Date.now();
                     if (renderGridToCanvasRef.current) {
@@ -311,15 +284,13 @@ function TabletopGrid() {
             return;
         }
 
-        console.log('⏰ [scheduleRender] Renderizando imediatamente');
         lastRenderTime.current = now;
         if (renderGridToCanvasRef.current) {
             renderGridToCanvasRef.current();
         }
     }, []);
 
-    // Hook de renderização de tokens
-    console.log('🔌 [TabletopGrid] Inicializando useRenderizacaoToken...');
+    // Hook de renderizacao de tokens
     const { drawTokenWithCache } = useRenderizacaoToken(
         uiState,
         imageCache,
@@ -329,26 +300,17 @@ function TabletopGrid() {
         desenharBordaDeArrasto,
         desenharSelecao
     );
-    console.log('✅ [TabletopGrid] useRenderizacaoToken inicializado');
 
+    // Render principal
     const renderGridToCanvas = useCallback(() => {
-        console.log('🎨 [renderGridToCanvas] INICIANDO RENDER COMPLETO');
-
         const canvas = canvasRef.current;
         const container = containerRef.current;
-        if (!canvas || !container) {
-            console.log('❌ [renderGridToCanvas] Canvas ou container não disponível');
-            return;
-        }
+        if (!canvas || !container) return;
 
         const rect = container.getBoundingClientRect();
-        console.log('📏 [renderGridToCanvas] Dimensões container:', rect);
 
         if (canvas.width !== rect.width || canvas.height !== rect.height) {
-            console.log('📏 [renderGridToCanvas] Redimensionando canvas:', {
-                antes: { w: canvas.width, h: canvas.height },
-                depois: { w: rect.width, h: rect.height }
-            });
+            console.log(`📏 [render] Redimensionando canvas: ${rect.width} x ${rect.height}`);
             canvas.width = rect.width;
             canvas.height = rect.height;
         }
@@ -359,17 +321,15 @@ function TabletopGrid() {
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.setTransform(1, 0, 0, 1, 0, 0);
 
-        console.log('🎨 [renderGridToCanvas] Desenhando grade...');
         drawGrid();
 
-        console.log('🎨 [renderGridToCanvas] Desenhando', tokensComInfo.length, 'tokens...');
         for (let i = 0; i < tokensComInfo.length; i++) {
             const token = tokensComInfo[i];
             drawTokenWithCache(token, i, context);
         }
 
+        // Desenha selecao multipla
         if (uiState.tokensSelecionados.length > 1) {
-            console.log('🎨 [renderGridToCanvas] Desenhando seleção múltipla:', uiState.tokensSelecionados);
             const tokensSelecionadosInfo = uiState.tokensSelecionados
                 .map(indice => tokensComInfo[indice])
                 .filter(token => token && !token.bloqueado);
@@ -379,8 +339,8 @@ function TabletopGrid() {
             }
         }
 
+        // Desenha area de selecao
         if (uiState.areaSelecao.ativo) {
-            console.log('🎨 [renderGridToCanvas] Desenhando área de seleção:', uiState.areaSelecao);
             const tokenVirtual = {
                 posicaoTela: {
                     x: Math.min(uiState.areaSelecao.inicioX, uiState.areaSelecao.fimX),
@@ -394,37 +354,25 @@ function TabletopGrid() {
 
             desenharSelecao(context, [tokenVirtual], uiState.zoom, 'individual', false);
         }
-
-        console.log('✅ [renderGridToCanvas] RENDER COMPLETO FINALIZADO');
+        
+        console.log(`✅ [render] Frame renderizado, câmera: (${uiState.position.x.toFixed(0)}, ${uiState.position.y.toFixed(0)}) zoom: ${uiState.zoom.toFixed(2)}`);
     }, [tokensComInfo, drawGrid, drawTokenWithCache, getCanvasContext, uiState.areaSelecao,
         uiState.tokensSelecionados, uiState.zoom, desenharSelecao]);
 
     useEffect(() => {
-        console.log('🔗 [useEffect] Atualizando renderGridToCanvasRef');
         renderGridToCanvasRef.current = renderGridToCanvas;
     }, [renderGridToCanvas]);
 
     // Eventos do mouse
-    console.log('🔌 [TabletopGrid] Inicializando useEventosMouse...');
     const { handleWheel, handleDragOver } = useEventosMouse(uiState, uiDispatch, containerRef, dragStartRef, restringirPosicao);
-    console.log('✅ [TabletopGrid] useEventosMouse inicializado');
 
     const handleMouseDown = useCallback((event) => {
-        console.log('🖱️ [handleMouseDown] INÍCIO - Botão:', event.button, 'Tipo:', event.type);
-        console.log('📊 [handleMouseDown] uiState:', {
-            ignoreMouseMove: uiState.ignoreMouseMove,
-            tokenSelecionado: uiState.tokenSelecionado,
-            tokensSelecionados: uiState.tokensSelecionados.length,
-            zoom: uiState.zoom
-        });
-
         if (uiState.ignoreMouseMove) {
-            console.log('🖱️ [handleMouseDown] Ignorando mouse move ativo, resetando');
             uiDispatch({ type: 'SET_IGNORE_MOUSE_MOVE', payload: false });
         }
 
+        // Botao direito
         if (event.button === 2) {
-            console.log('🖱️ [handleMouseDown] Clique DIREITO detectado');
             event.preventDefault();
 
             const container = containerRef.current;
@@ -434,22 +382,15 @@ function TabletopGrid() {
             const mouseX = event.clientX - rect.left;
             const mouseY = event.clientY - rect.top;
 
-            console.log('🖱️ [handleMouseDown] Mouse posição (clique direito):', { mouseX, mouseY });
-
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'direito');
-            console.log('🔍 [handleMouseDown] Token sobre (direito):', tokenSobre ? tokenSobre.token.nome : 'nenhum');
 
             if (tokenSobre) {
                 const tokenBloqueado = uiState.tokensBloqueados[tokenSobre.token.id] === true;
-                console.log('🔒 [handleMouseDown] Token bloqueado?', tokenBloqueado);
 
                 if (tokenBloqueado) {
-                    console.log('📝 [handleMouseDown] Token bloqueado - guardando info para decisão');
-
-                    // Reseta flag de movimento
+                    console.log(`🔒 [mouseDown] Token BLOQUEADO: ${tokenSobre.token.nome}`);
                     isRightClickDragRef.current = false;
 
-                    // Guarda info para usar no mouseMove e mouseUp
                     uiDispatch({
                         type: 'SET_MOUSE_DOWN_INFO',
                         payload: {
@@ -462,11 +403,8 @@ function TabletopGrid() {
                             isBlocked: true
                         }
                     });
-
-                    // NÃO inicia arrasto ainda - aguarda mouseMove decidir
                 } else {
-                    // Token não bloqueado - menu normal
-                    console.log('✅ [handleMouseDown] Token não bloqueado, preparando menu');
+                    console.log(`✅ [mouseDown] Token: ${tokenSobre.token.nome}`);
                     uiDispatch({
                         type: 'SET_MOUSE_DOWN_INFO',
                         payload: {
@@ -482,8 +420,7 @@ function TabletopGrid() {
                     uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: true } });
                 }
             } else {
-                // Sem token - arrasto imediato do mapa
-                console.log('🖱️ [handleMouseDown] Nenhum token, iniciando arrasto do mapa');
+                console.log(`🗺️ [mouseDown] Iniciando arrasto do mapa`);
                 uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
                 dragStartRef.current = {
                     x: event.clientX - uiState.position.x,
@@ -493,9 +430,8 @@ function TabletopGrid() {
             return;
         }
 
+        // Botao esquerdo
         if (event.button === 0) {
-            console.log('🖱️ [handleMouseDown] Clique ESQUERDO detectado');
-
             const container = containerRef.current;
             if (!container) return;
 
@@ -503,20 +439,17 @@ function TabletopGrid() {
             const mouseX = event.clientX - rect.left;
             const mouseY = event.clientY - rect.top;
 
-            console.log('🖱️ [handleMouseDown] Mouse posição (clique esquerdo):', { mouseX, mouseY });
-
             teveMovimentoRef.current = false;
 
-            // PRIMEIRO: Verificar se tem grupo selecionado
+            // Grupo selecionado
             if (uiState.tokensSelecionados.length > 1) {
-                console.log('👥 [handleMouseDown] Grupo selecionado detectado:', uiState.tokensSelecionados);
-
+                console.log(`👥 [mouseDown] Grupo selecionado: ${uiState.tokensSelecionados.length} tokens`);
                 const tokensSelecionadosInfo = uiState.tokensSelecionados
                     .map(indice => tokensComInfo[indice])
                     .filter(token => token && !token.bloqueado);
 
                 if (tokensSelecionadosInfo.length > 0) {
-                    // Calcular bounding box do grupo na tela
+                    // Calcula bounding box do grupo
                     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
                     tokensSelecionadosInfo.forEach(token => {
@@ -526,9 +459,7 @@ function TabletopGrid() {
                         maxY = Math.max(maxY, token.posicaoTela.y + token.tamanhoTela.alturaTela);
                     });
 
-                    console.log('📐 [handleMouseDown] Bounding box grupo:', { minX, minY, maxX, maxY });
-
-                    // Verificar se o mouse está DENTRO de algum token do grupo (MOVIMENTO)
+                    // Ve se clicou em algum token do grupo
                     const tokenClicadoDoGrupo = tokensSelecionadosInfo.find(token =>
                         mouseX >= token.posicaoTela.x &&
                         mouseX <= token.posicaoTela.x + token.tamanhoTela.larguraTela &&
@@ -537,8 +468,7 @@ function TabletopGrid() {
                     );
 
                     if (tokenClicadoDoGrupo) {
-                        console.log('🎯 [handleMouseDown] INICIANDO MOVIMENTO DE GRUPO - Token clicado:', tokenClicadoDoGrupo.nome);
-
+                        console.log(`🎯 [mouseDown] Movendo grupo`);
                         const primeiroTokenGrupo = tokensSelecionadosInfo[0];
 
                         const grupoTokenInfo = {
@@ -551,8 +481,6 @@ function TabletopGrid() {
 
                         const offsetX = mouseX - primeiroTokenGrupo.posicaoTela.x;
                         const offsetY = mouseY - primeiroTokenGrupo.posicaoTela.y;
-
-                        console.log('📊 [handleMouseDown] Offset grupo:', { offsetX, offsetY });
 
                         uiDispatch({
                             type: 'START_TOKEN_DRAG',
@@ -568,7 +496,7 @@ function TabletopGrid() {
                         return;
                     }
 
-                    // Se NÃO clicou em um token, verificar se está na área de REDIMENSIONAMENTO (bordas)
+                    // Ve se clicou na borda do grupo (redimensionamento)
                     const padding = 16;
                     const areaBorda = {
                         x: minX - padding,
@@ -582,15 +510,9 @@ function TabletopGrid() {
                         mouseY >= areaBorda.y &&
                         mouseY <= areaBorda.y + areaBorda.height;
 
-                    console.log('📐 [handleMouseDown] Verificando borda grupo:', {
-                        areaBorda,
-                        mouseNaBorda
-                    });
-
                     if (mouseNaBorda) {
-                        console.log('📏 [handleMouseDown] INICIANDO REDIMENSIONAMENTO DE GRUPO');
-
-                        // Calcular bounding box em coordenadas de mundo
+                        console.log(`📏 [mouseDown] Redimensionando grupo`);
+                        // Bounding box em coordenadas de mundo
                         let minXMundo = Infinity, minYMundo = Infinity,
                             maxXMundo = -Infinity, maxYMundo = -Infinity;
 
@@ -643,10 +565,8 @@ function TabletopGrid() {
                 }
             }
 
-            // SEGUNDO: Verificar redimensionamento de token individual
+            // Redimensionamento individual
             if (uiState.tokenSelecionado !== null) {
-                console.log('🔍 [handleMouseDown] Verificando redimensionamento individual');
-
                 const token = tokensState[uiState.tokenSelecionado];
                 const tokenBloqueado = uiState.tokensBloqueados[token?.id] === true;
 
@@ -667,11 +587,8 @@ function TabletopGrid() {
                         tokenBloqueado
                     );
 
-                    console.log('🔍 [handleMouseDown] Resultado verificação redimensionamento:', canto);
-
                     if (canto) {
-                        console.log('📏 [handleMouseDown] INICIANDO REDIMENSIONAMENTO INDIVIDUAL, canto:', canto);
-
+                        console.log(`📏 [mouseDown] Redimensionando token individual: ${token.nome}`);
                         resizeStartStateRef.current = {
                             tokenIndice: uiState.tokenSelecionado,
                             escalaInicial: token.escala || 1
@@ -701,17 +618,14 @@ function TabletopGrid() {
                 }
             }
 
-            // TERCEIRO: Verificar clique em token individual
-            console.log('🔍 [handleMouseDown] Verificando clique em token individual');
+            // Clique em token individual
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'esquerdo');
-            console.log('🔍 [handleMouseDown] Token sobre (esquerdo):', tokenSobre ? tokenSobre.token.nome : 'nenhum');
 
             if (tokenSobre) {
                 const tokenBloqueado = uiState.tokensBloqueados[tokenSobre.token.id] === true;
-                console.log('🔒 [handleMouseDown] Token bloqueado?', tokenBloqueado);
 
                 if (tokenBloqueado) {
-                    console.log('⚠️ [handleMouseDown] Token bloqueado, mostrando feedback');
+                    console.log(`🔒 [mouseDown] Token bloqueado: ${tokenSobre.token.nome}`);
                     uiDispatch({
                         type: 'SET_FEEDBACK',
                         payload: { message: 'Token bloqueado', type: 'warning' }
@@ -727,11 +641,8 @@ function TabletopGrid() {
                     false
                 );
 
-                console.log('🔍 [handleMouseDown] Verificação redimensionamento token:', canto);
-
                 if (canto) {
-                    console.log('📏 [handleMouseDown] INICIANDO REDIMENSIONAMENTO INDIVIDUAL (clique direto), canto:', canto);
-
+                    console.log(`📏 [mouseDown] Redimensionando token: ${tokenSobre.token.nome}`);
                     resizeStartStateRef.current = {
                         tokenIndice: tokenSobre.indice,
                         escalaInicial: tokenSobre.token.escala || 1
@@ -762,12 +673,8 @@ function TabletopGrid() {
                 const tokenJaSelecionado = uiState.tokensSelecionados.includes(tokenSobre.indice) ||
                     uiState.tokenSelecionado === tokenSobre.indice;
 
-                console.log('🔍 [handleMouseDown] Token já selecionado?', tokenJaSelecionado);
-
                 if (tokenJaSelecionado && uiState.tokensSelecionados.length > 0) {
-
-                    console.log('🎯 [handleMouseDown] Token já selecionado, INICIANDO MOVIMENTO');
-
+                    console.log(`🎯 [mouseDown] Movendo token já selecionado: ${tokenSobre.token.nome}`);
                     const novosTokens = trazerTokenParaFrente(tokensState, tokenSobre.indice);
                     setStateDirect(novosTokens);
 
@@ -782,8 +689,6 @@ function TabletopGrid() {
 
                     const offsetX = mouseX - tokenSobre.telaX;
                     const offsetY = mouseY - tokenSobre.telaY;
-
-                    console.log('📊 [handleMouseDown] Offset movimento:', { offsetX, offsetY });
 
                     uiDispatch({
                         type: 'SELECT_TOKEN',
@@ -803,8 +708,7 @@ function TabletopGrid() {
                     event.preventDefault();
                     return;
                 } else {
-                    console.log('🎯 [handleMouseDown] INICIANDO MOVIMENTO INDIVIDUAL');
-
+                    console.log(`🎯 [mouseDown] Movendo token: ${tokenSobre.token.nome}`);
                     const novosTokens = trazerTokenParaFrente(tokensState, tokenSobre.indice);
                     setStateDirect(novosTokens);
 
@@ -819,8 +723,6 @@ function TabletopGrid() {
 
                     const offsetX = mouseX - tokenSobre.telaX;
                     const offsetY = mouseY - tokenSobre.telaY;
-
-                    console.log('📊 [handleMouseDown] Offset movimento individual:', { offsetX, offsetY });
 
                     uiDispatch({
                         type: 'SELECT_TOKEN',
@@ -841,10 +743,7 @@ function TabletopGrid() {
                     return;
                 }
             } else {
-
-                console.log('🖱️ [handleMouseDown] Nenhum token - aguardando movimento');
-
-                // Apenas guarda que começou em área vazia
+                console.log(`🟦 [mouseDown] Clique em área vazia`);
                 uiDispatch({
                     type: 'SET_MOUSE_DOWN_INFO',
                     payload: {
@@ -860,7 +759,7 @@ function TabletopGrid() {
             }
         }
     }, [uiState.tokenSelecionado, uiState.position, uiState.zoom, uiState.ignoreMouseMove,
-    uiState.tokensBloqueados, uiState.tokensSelecionados, tokensState, tokensComInfo,
+        uiState.tokensBloqueados, uiState.tokensSelecionados, tokensState, tokensComInfo,
         verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, setStateDirect, resizeStartStateRef, uiDispatch]);
 
     const handleMouseMove = useCallback((event) => {
@@ -876,8 +775,9 @@ function TabletopGrid() {
 
             if (uiState.ignoreMouseMove) return;
 
+            // Inicia selecao por area
             if (uiState.mouseDownInfo?.isBlankArea && !uiState.ui.isSelectingArea && !uiState.ui.isDragging) {
-                console.log('🖱️ [handleMouseMove] Movimento em área vazia - INICIANDO SELEÇÃO POR ÁREA');
+                console.log(`🔲 [mouseMove] Iniciando seleção por área`);
                 uiDispatch({
                     type: 'START_AREA_SELECTION',
                     payload: {
@@ -887,9 +787,9 @@ function TabletopGrid() {
                 });
             }
 
-            // DETECÇÃO DE MOVIMENTO PARA TOKENS BLOQUEADOS
+            // Token bloqueado vira arrasto do mapa
             if (uiState.mouseDownInfo?.isBlocked && !uiState.ui.isDragging && !uiState.ui.isSelectingArea) {
-                console.log('🖱️ [handleMouseMove] Movimento detectado em token bloqueado - INICIANDO ARRASTO DO MAPA');
+                console.log(`🗺️ [mouseMove] Token bloqueado -> arrasto do mapa`);
                 uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
                 dragStartRef.current = {
                     x: event.clientX - uiState.position.x,
@@ -898,6 +798,7 @@ function TabletopGrid() {
                 isRightClickDragRef.current = true;
             }
 
+            // Selecao por area
             if (uiState.ui.isSelectingArea) {
                 uiDispatch({
                     type: 'UPDATE_AREA_SELECTION',
@@ -921,6 +822,7 @@ function TabletopGrid() {
                 return;
             }
 
+            // Arrastando token(s)
             if (uiState.tokenSendoArrastado) {
                 teveMovimentoRef.current = true;
 
@@ -944,6 +846,7 @@ function TabletopGrid() {
                 return;
             }
 
+            // Redimensionando token(s)
             if (uiState.tokenRedimensionando && uiState.modoRedimensionamento) {
                 const isGroupResize = uiState.tokenRedimensionando.isGroupResize || false;
                 const indicesGrupo = isGroupResize ? uiState.tokensSelecionados : [];
@@ -971,6 +874,7 @@ function TabletopGrid() {
                 return;
             }
 
+            // Arrastando mapa
             if (uiState.ui.isDragging) {
                 const constrained = restringirPosicao(
                     event.clientX - dragStartRef.current.x,
@@ -986,18 +890,9 @@ function TabletopGrid() {
         processarArrastoToken, processarRedimensionamento, setStateDirect, uiDispatch]);
 
     const finalizarArrasto = useCallback(() => {
-        console.log('🏁 [finalizarArrasto] INICIANDO FINALIZAÇÃO');
-        console.log('📊 [finalizarArrasto] Estado:', {
-            dragInProgress: dragInProgressRef.current,
-            tokenSendoArrastado: !!uiState.tokenSendoArrastado,
-            tokensSelecionados: uiState.tokensSelecionados.length,
-            teveMovimento: teveMovimentoRef.current
-        });
-
         if (dragInProgressRef.current && (uiState.tokenSendoArrastado || uiState.tokensSelecionados.length > 0)) {
+            console.log(`🏁 [finalizarArrasto] Salvando movimento no histórico`);
             const novosTokens = [...tokensState];
-            console.log('💾 [finalizarArrasto] Salvando estado no histórico, tokens:', novosTokens.length);
-
             pushTokens(novosTokens);
 
             uiDispatch({
@@ -1009,52 +904,32 @@ function TabletopGrid() {
             });
 
             if (teveMovimentoRef.current) {
-                console.log('🎯 [finalizarArrasto] Houve movimento, desselecionando token');
                 uiDispatch({ type: 'SELECT_TOKEN', payload: null });
             }
 
             dragInProgressRef.current = false;
             teveMovimentoRef.current = false;
         }
-
-        console.log('✅ [finalizarArrasto] FINALIZADO');
     }, [tokensState, uiState.tokenSendoArrastado, uiState.tokensSelecionados, pushTokens, uiDispatch]);
 
     const finalizarRedimensionamento = useCallback(() => {
-        console.log('🏁 [finalizarRedimensionamento] INICIANDO FINALIZAÇÃO');
-        console.log('📊 [finalizarRedimensionamento] Estado:', {
-            resizeInProgress: resizeInProgressRef.current,
-            tokenRedimensionando: !!uiState.tokenRedimensionando
-        });
-
         if (resizeInProgressRef.current && uiState.tokenRedimensionando) {
+            console.log(`🏁 [finalizarRedimensionamento] Salvando redimensionamento no histórico`);
             const novosTokens = [...tokensState];
-            console.log('💾 [finalizarRedimensionamento] Salvando estado no histórico, tokens:', novosTokens.length);
-
             pushTokens(novosTokens);
             resizeInProgressRef.current = false;
             resizeStartStateRef.current = null;
         }
-
-        console.log('✅ [finalizarRedimensionamento] FINALIZADO');
     }, [tokensState, uiState.tokenRedimensionando, pushTokens, resizeStartStateRef]);
 
     const handleMouseUp = useCallback((event) => {
-        console.log('🖱️ [handleMouseUp] INÍCIO - Botão:', event.button);
-        console.log('📊 [handleMouseUp] Estado mouseDownInfo:', uiState.mouseDownInfo);
+        console.log(`🖱️ [mouseUp] Botão: ${event.button}`);
 
+        // Botao direito
         if (event.button === 2) {
-            console.log('🖱️ [handleMouseUp] Soltou botão DIREITO');
-
             if (uiState.mouseDownInfo?.isBlocked) {
-                if (isRightClickDragRef.current) {
-                    // TEVE MOVIMENTO - já arrastou, não faz nada
-                    console.log('🎯 [handleMouseUp] Arrasto concluído');
-                } else {
-                    // NÃO TEVE MOVIMENTO - clique puro em token bloqueado
-                    console.log('🎯 [handleMouseUp] Clique puro em token bloqueado - ABRINDO MENU');
-
-                    // ABRE O MENU DIRETAMENTE!
+                if (!isRightClickDragRef.current) {
+                    console.log(`📋 [mouseUp] Abrindo menu de token bloqueado`);
                     const tokenSobre = uiState.mouseDownInfo.token;
                     uiDispatch({
                         type: 'SELECT_TOKEN',
@@ -1075,10 +950,9 @@ function TabletopGrid() {
                 }
             }
 
-            // Menu normal para token não bloqueado
             if (uiState.mouseDownInfo && uiState.ui.isClickingToken && uiState.mouseDownInfo.isRightClick && !uiState.mouseDownInfo.isBlocked) {
+                console.log(`📋 [mouseUp] Abrindo menu de token`);
                 const tokenSobre = uiState.mouseDownInfo.token;
-                console.log('🎯 [handleMouseUp] Abrindo menu contexto para token:', tokenSobre.token.nome);
 
                 uiDispatch({
                     type: 'SELECT_TOKEN',
@@ -1098,73 +972,62 @@ function TabletopGrid() {
                 });
             }
 
-            // Reset
             isRightClickDragRef.current = false;
         }
 
+        // Botao esquerdo
         if (event.button === 0) {
-            console.log('🖱️ [handleMouseUp] Soltou botão ESQUERDO');
-
             if (uiState.mouseDownInfo?.isBlankArea && !uiState.ui.isSelectingArea) {
-                console.log('🖱️ [handleMouseUp] Clique puro em área vazia - DESSELECIONANDO');
+                console.log(`🟦 [mouseUp] Desselecionando tokens`);
                 uiDispatch({ type: 'SELECT_TOKEN', payload: null });
             }
 
             if (uiState.ui.isSelectingArea) {
-                console.log('📐 [handleMouseUp] Finalizando seleção por área');
+                console.log(`🔲 [mouseUp] Finalizando seleção por área`);
                 uiDispatch({ type: 'END_AREA_SELECTION' });
 
                 if (uiState.tokensSelecionados.length === 0) {
-                    console.log('📐 [handleMouseUp] Nenhum token selecionado, limpando seleção');
                     uiDispatch({ type: 'SELECT_TOKEN', payload: null });
                 }
             }
 
             if (isDraggingRef.current || dragInProgressRef.current) {
-                console.log('🖱️ [handleMouseUp] Finalizando arrasto');
                 finalizarArrasto();
                 isDraggingRef.current = false;
             }
 
             if (resizeInProgressRef.current || uiState.tokenRedimensionando) {
-                console.log('📏 [handleMouseUp] Finalizando redimensionamento');
                 finalizarRedimensionamento();
             }
         }
 
         if (uiState.tokenRedimensionando) {
-            console.log('📏 [handleMouseUp] Parando redimensionamento');
             uiDispatch({ type: 'STOP_RESIZE' });
         }
 
         if (uiState.ui.isDragging) {
-            console.log('🖱️ [handleMouseUp] Parando arrasto do mapa');
             uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: false } });
         }
 
         if (uiState.tokenSendoArrastado) {
-            console.log('🎯 [handleMouseUp] Parando arrasto de token');
             uiDispatch({ type: 'STOP_TOKEN_DRAG' });
         }
 
-        console.log('🖱️ [handleMouseUp] Resetando estados de mouse');
         uiDispatch({ type: 'SET_MOUSE_DOWN_INFO', payload: null });
         uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: false } });
-
-        console.log('✅ [handleMouseUp] FINALIZADO');
     }, [uiState, finalizarArrasto, finalizarRedimensionamento, uiDispatch]);
 
     const handleDrop = useCallback((event) => {
-        console.log('📥 [handleDrop] INÍCIO');
+        console.log(`📥 [handleDrop] Drop detectado`);
         event.preventDefault();
         event.stopPropagation();
 
         try {
             const dados = JSON.parse(event.dataTransfer.getData('application/json'));
-            console.log('📦 [handleDrop] Dados recebidos:', dados);
+            console.log(`📦 Dados do drop:`, dados);
 
             if (dados.origem !== 'grid' && dados.tipo === 'token') {
-                console.log('✅ [handleDrop] Token válido para adicionar');
+                console.log(`✅ Token válido para adicionar à mesa`);
                 setModalOpen(false);
 
                 const rect = containerRef.current.getBoundingClientRect();
@@ -1180,23 +1043,20 @@ function TabletopGrid() {
                     escala: 1.0
                 };
 
-                console.log('➕ [handleDrop] Novo token criado:', novoToken);
+                console.log(`✨ Novo token criado em: (${novoToken.x.toFixed(0)}, ${novoToken.y.toFixed(0)})`);
 
                 const novosTokens = [...tokensState, novoToken];
                 pushTokens(novosTokens);
-
-                console.log('✅ [handleDrop] Token adicionado com sucesso');
+                console.log(`📊 Total de tokens agora: ${novosTokens.length}`);
             }
         } catch (erro) {
-            console.error('❌ [handleDrop] Erro:', erro);
+            console.log(`❌ Erro no drop:`, erro);
         }
     }, [tokensState, pushTokens, converterMouseParaMundo]);
 
     const handleUndo = useCallback(() => {
-        console.log('↩️ [handleUndo] INÍCIO, canUndo:', canUndo);
-
+        console.log(`↩️ [undo] canUndo: ${canUndo}`);
         if (!canUndo) {
-            console.log('⚠️ [handleUndo] Fim do histórico');
             uiDispatch({
                 type: 'SET_FEEDBACK',
                 payload: { message: 'Fim do histórico', type: 'warning' }
@@ -1205,7 +1065,6 @@ function TabletopGrid() {
             return;
         }
 
-        console.log('🔄 [handleUndo] Parando ações em progresso');
         uiDispatch({ type: 'STOP_TOKEN_DRAG' });
         uiDispatch({ type: 'STOP_RESIZE' });
         uiDispatch({ type: 'SET_MOUSE_DOWN_INFO', payload: null });
@@ -1217,30 +1076,23 @@ function TabletopGrid() {
 
         uiDispatch({ type: 'SET_IGNORE_MOUSE_MOVE', payload: true });
 
-        console.log('🖱️ [handleUndo] Disparando mouseup virtual');
         window.dispatchEvent(new MouseEvent('mouseup', {
             view: window,
             bubbles: true,
             cancelable: true
         }));
 
-        console.log('↩️ [handleUndo] Executando undo');
         undo();
 
         if (ignoreMouseTimeoutRef.current) clearTimeout(ignoreMouseTimeoutRef.current);
         ignoreMouseTimeoutRef.current = setTimeout(() => {
-            console.log('⏰ [handleUndo] Reativando mouse move');
             uiDispatch({ type: 'SET_IGNORE_MOUSE_MOVE', payload: false });
         }, 100);
-
-        console.log('✅ [handleUndo] FINALIZADO');
     }, [canUndo, undo, uiDispatch, resizeStartStateRef]);
 
     const handleRedo = useCallback(() => {
-        console.log('↪️ [handleRedo] INÍCIO, canRedo:', canRedo);
-
+        console.log(`↪️ [redo] canRedo: ${canRedo}`);
         if (!canRedo) {
-            console.log('⚠️ [handleRedo] Fim do histórico de refazer');
             uiDispatch({
                 type: 'SET_FEEDBACK',
                 payload: { message: 'Fim do histórico de refazer', type: 'warning' }
@@ -1249,7 +1101,6 @@ function TabletopGrid() {
             return;
         }
 
-        console.log('🔄 [handleRedo] Parando ações em progresso');
         uiDispatch({ type: 'STOP_TOKEN_DRAG' });
         uiDispatch({ type: 'STOP_RESIZE' });
         uiDispatch({ type: 'SET_MOUSE_DOWN_INFO', payload: null });
@@ -1261,66 +1112,56 @@ function TabletopGrid() {
 
         uiDispatch({ type: 'SET_IGNORE_MOUSE_MOVE', payload: true });
 
-        console.log('🖱️ [handleRedo] Disparando mouseup virtual');
         window.dispatchEvent(new MouseEvent('mouseup', {
             view: window,
             bubbles: true,
             cancelable: true
         }));
 
-        console.log('↪️ [handleRedo] Executando redo');
         redo();
 
         if (ignoreMouseTimeoutRef.current) clearTimeout(ignoreMouseTimeoutRef.current);
         ignoreMouseTimeoutRef.current = setTimeout(() => {
-            console.log('⏰ [handleRedo] Reativando mouse move');
             uiDispatch({ type: 'SET_IGNORE_MOUSE_MOVE', payload: false });
         }, 100);
-
-        console.log('✅ [handleRedo] FINALIZADO');
     }, [canRedo, redo, uiDispatch, resizeStartStateRef]);
 
-    // Keyboard shortcuts
-    console.log('🔌 [TabletopGrid] Inicializando useAtalhosTeclado...');
+    // Atalhos de teclado
     useAtalhosTeclado(handleUndo, handleRedo);
-    console.log('✅ [TabletopGrid] useAtalhosTeclado inicializado');
 
     // Efeitos
     useEffect(() => {
-        console.log('🔄 [useEffect] Inicializando contexto do canvas');
+        console.log(`🎨 [useEffect] Inicializando canvas`);
         getCanvasContext();
         return () => {
-            console.log('🧹 [useEffect] Limpando contexto do canvas');
+            console.log(`🧹 [useEffect] Limpando canvas`);
             contextRef.current = null;
         };
     }, [getCanvasContext]);
 
     useEffect(() => {
-        console.log('🔄 [useEffect] Agendando render por mudanças');
+        console.log(`🔄 [useEffect] Agendando render`);
         scheduleRender();
     }, [tokensComInfo, uiState.tokenSendoArrastado, uiState.ui.usuarioInteragindo,
         uiState.tokenSelecionado, uiState.zoom, uiState.position, uiState.areaSelecao,
         uiState.tokensSelecionados, scheduleRender]);
 
     useEffect(() => {
-        console.log('🔄 [useEffect] Agendando render por visibilidade');
         scheduleRender();
     }, [uiState.visibilidadeTokens, scheduleRender]);
 
     useEffect(() => {
         if (uiState.ui.mostrarFeedback) {
-            console.log('💬 [useEffect] Feedback visível:', uiState.ui.feedbackMessage);
+            console.log(`💬 Feedback: ${uiState.ui.feedbackMessage}`);
             const timer = setTimeout(() => {
-                console.log('⏰ [useEffect] Resetando feedback');
                 uiDispatch({ type: 'RESET_UI_FEEDBACK' });
             }, 500);
             return () => clearTimeout(timer);
         }
     }, [uiState.ui.mostrarFeedback, uiDispatch]);
 
+    // Event listeners
     useEffect(() => {
-        console.log('🔌 [useEffect] Configurando event listeners');
-
         const container = containerRef.current;
         if (!container) return;
 
@@ -1330,26 +1171,25 @@ function TabletopGrid() {
         window.addEventListener('mouseup', handleMouseUp);
         container.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        console.log('✅ [useEffect] Event listeners configurados');
+        console.log(`🎧 [useEffect] Event listeners configurados`);
 
         return () => {
-            console.log('🧹 [useEffect] Removendo event listeners');
             container.removeEventListener('wheel', handleWheel);
             container.removeEventListener('mousedown', handleMouseDown);
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
+            console.log(`🧹 [useEffect] Event listeners removidos`);
         };
     }, [handleWheel, handleMouseDown, handleMouseMove, handleMouseUp]);
 
+    // Fecha menu ao clicar fora
     useEffect(() => {
         if (!uiState.menuContexto.aberto) return;
-
-        console.log('🔌 [useEffect] Menu contexto aberto, configurando listener para fechar');
 
         const handleClickFora = (event) => {
             if (event.button === 2) return;
             if (menuRef.current && !menuRef.current.contains(event.target)) {
-                console.log('🖱️ [useEffect] Clique fora do menu, fechando');
+                console.log(`❌ [menu] Fechando menu por clique fora`);
                 uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
             }
         };
@@ -1358,31 +1198,30 @@ function TabletopGrid() {
         return () => document.removeEventListener('mousedown', handleClickFora);
     }, [uiState.menuContexto.aberto, uiDispatch]);
 
+    // Bloqueia menu padrao do browser
     useEffect(() => {
-        console.log('🔌 [useEffect] Bloqueando menu de contexto global');
         const bloquearMenu = (e) => e.preventDefault();
         document.addEventListener('contextmenu', bloquearMenu);
         return () => document.removeEventListener('contextmenu', bloquearMenu);
     }, []);
 
+    // Limpa cache de imagens
     useEffect(() => {
-        console.log('🧹 [useEffect] Limpando cache de imagens');
         const tokenIds = new Set(tokensState.map(t => t.id));
         for (const [id] of imageCache.current.entries()) {
             if (!tokenIds.has(id)) {
-                console.log('🗑️ [useEffect] Removendo imagem do cache:', id);
+                console.log(`🗑️ Removendo imagem do cache: ${id}`);
                 imageCache.current.delete(id);
             }
         }
     }, [tokensState]);
 
+    // Sistema de drag and drop
     useEffect(() => {
-        console.log('🔌 [useEffect] Registrando DragDropSystem');
-
+        console.log(`📦 [DragDrop] Registrando TabletopGrid`);
         DragDropSystem.register('TabletopGrid', containerRef.current, (dados, event) => {
-            console.log('📥 [DragDropSystem] Callback recebido:', dados);
-
             if (dados.tipo === 'token') {
+                console.log(`📥 [DragDrop] Callback recebido para token`);
                 setModalOpen(false);
 
                 const rect = containerRef.current.getBoundingClientRect();
@@ -1398,22 +1237,21 @@ function TabletopGrid() {
                     escala: 1.0
                 };
 
-                console.log('➕ [DragDropSystem] Novo token criado:', novoToken);
-
+                console.log(`✨ Token criado via DragDropSystem: ${novoToken.nome}`);
                 const novosTokens = [...tokensState, novoToken];
                 pushTokens(novosTokens);
             }
         });
 
         return () => {
-            console.log('🧹 [useEffect] Removendo DragDropSystem');
+            console.log(`🧹 [DragDrop] Removendo TabletopGrid`);
             DragDropSystem.unregister('TabletopGrid');
         };
     }, [tokensState, pushTokens, converterMouseParaMundo]);
 
+    // Limpa timeout no unmount
     useEffect(() => {
         return () => {
-            console.log('🧹 [useEffect] Limpando timeout ignoreMouse');
             if (ignoreMouseTimeoutRef.current) {
                 clearTimeout(ignoreMouseTimeoutRef.current);
             }
@@ -1421,26 +1259,24 @@ function TabletopGrid() {
     }, []);
 
     const handleDeleteToken = useCallback((tokenIndice) => {
-        console.log('🗑️ [handleDeleteToken] Deletando token índice:', tokenIndice);
+        console.log(`🗑️ [handleDeleteToken] Deletando token índice: ${tokenIndice}`);
         const novosTokens = tokensState.filter((_, i) => i !== tokenIndice);
         pushTokens(novosTokens);
         uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
-        console.log('✅ [handleDeleteToken] Token deletado');
     }, [tokensState, pushTokens, uiDispatch]);
 
     const handleToggleVisibility = useCallback((tokenId) => {
-        console.log('👁️ [handleToggleVisibility] Toggling visibilidade token:', tokenId);
+        console.log(`👁️ [handleToggleVisibility] Token: ${tokenId}`);
         uiDispatch({ type: 'TOGGLE_VISIBILITY', payload: tokenId });
         uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
     }, [uiDispatch]);
 
     const handleToggleLock = useCallback((tokenId) => {
-        console.log('🔒 [handleToggleLock] Toggling bloqueio token:', tokenId);
+        console.log(`🔒 [handleToggleLock] Token: ${tokenId}`);
         uiDispatch({ type: 'TOGGLE_LOCK', payload: tokenId });
         uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
 
         const estaBloqueado = !uiState.tokensBloqueados[tokenId];
-        console.log('🔒 [handleToggleLock] Novo estado:', estaBloqueado ? 'BLOQUEADO' : 'DESBLOQUEADO');
 
         uiDispatch({
             type: 'SET_FEEDBACK',
@@ -1451,8 +1287,6 @@ function TabletopGrid() {
         });
     }, [uiState.tokensBloqueados, uiDispatch]);
 
-    console.log('🎨 [TabletopGrid] Renderizando JSX');
-
     return (
         <>
             <GridContainer
@@ -1462,14 +1296,14 @@ function TabletopGrid() {
                 onDrop={handleDrop}
             >
                 <BarraLateral onAbrirModal={() => {
-                    console.log('📂 [BarraLateral] Abrindo modal');
+                    console.log(`📂 [BarraLateral] Abrindo modal`);
                     setModalOpen(true);
                 }} />
                 <CanvasDesenho canvasRef={canvasRef} />
                 <TokenModal
                     open={modalOpen}
                     onClose={() => {
-                        console.log('❌ [TokenModal] Fechando modal');
+                        console.log(`❌ [TokenModal] Fechando modal`);
                         setModalOpen(false);
                     }}
                 />
@@ -1485,7 +1319,7 @@ function TabletopGrid() {
                 estaOculto={uiState.visibilidadeTokens[uiState.menuContexto.tokenId] === true}
                 estaBloqueado={uiState.tokensBloqueados[uiState.menuContexto.tokenId] === true}
                 onFechar={() => {
-                    console.log('❌ [MenuContextoToken] Fechando menu');
+                    console.log(`❌ [Menu] Fechando`);
                     uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
                 }}
                 onDeletar={() => handleDeleteToken(uiState.menuContexto.tokenIndice)}

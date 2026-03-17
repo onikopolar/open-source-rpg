@@ -7,7 +7,7 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import { PastaVisual, MenuContextualPasta } from "./PastaComponents";
+import { PastaVisual, TokenVisual, MenuContextualPasta } from "./PastaComponents";
 import { DragDropSystem } from "./TokenModal";
 
 function TokenDesign({
@@ -16,43 +16,49 @@ function TokenDesign({
     onClose,
     modalRef,
     pastaModalRef,
-    
+
     //abas
     activeTab,
     setActiveTab,
-    
+
     //token atual sendo importado
     imagemSelecionada,
     setImagemSelecionada,
     nomeToken,
     setNomeToken,
-    
+
     //dados da biblioteca
     bibliotecaTokens,
     setBibliotecaTokens,
-    
+
     //pasta atual e seu modal
     modalPastaAberto,
     setModalPastaAberto,
     pastaAtual,
     setPastaAtual,
-    
+
     //menus contextuais
     menuContextual,
     setMenuContextual,
     menuContextualPasta,
     setMenuContextualPasta,
-    
-    //renomeacao
+
+    //renomeacao de pasta
     pastaRenomeando,
     setPastaRenomeando,
     novoNomePasta,
     setNovoNomePasta,
-    
+
+    //renomeacao de token
+    tokenRenomeando,
+    setTokenRenomeando,
+    novoNomeToken,
+    setNovoNomeToken,
+
     //flags de estado
     criandoSubPasta,
     setCriandoSubPasta,
-    
+
     //funcoes da biblioteca
     salvarTokenNaBiblioteca,
     criarPasta,
@@ -61,12 +67,18 @@ function TokenDesign({
     excluirPasta,
     renomearPasta,
     buscarItensPorPastaPai,
-    
-    //funcoes de renomeacao
+
+    //funcoes de renomeacao de pasta
     iniciarRenomeacaoPasta,
     salvarRenomeacaoPasta,
     cancelarRenomeacaoPasta,
-    
+
+    //funcoes de renomeacao de token
+    iniciarRenomeacaoToken,
+    salvarRenomeacaoToken,
+    cancelarRenomeacaoToken,
+    excluirToken,
+
     //funcoes do modal da pasta
     adicionarItemNaPastaAtual,
     removerItemDaPastaAtual,
@@ -86,6 +98,8 @@ function TokenDesign({
         if (!isOpen) {
             setPastaRenomeando(null);
             setNovoNomePasta('');
+            setTokenRenomeando(null);
+            setNovoNomeToken('');
             setMenuContextual({
                 aberto: false, x: 0, y: 0, idPasta: null, nomePasta: null
             });
@@ -93,7 +107,7 @@ function TokenDesign({
                 aberto: false, x: 0, y: 0, idToken: null, nomeToken: null
             });
         }
-    }, [isOpen, setPastaRenomeando, setNovoNomePasta, setMenuContextual]);
+    }, [isOpen, setPastaRenomeando, setNovoNomePasta, setTokenRenomeando, setNovoNomeToken, setMenuContextual]);
 
     const handleModalClick = (e) => e.stopPropagation();
 
@@ -107,7 +121,7 @@ function TokenDesign({
             img.src = dados.imagemUrl;
             img.onload = () => {
                 const size = Math.min(60, dados.larguraOriginal || 60);
-                e.dataTransfer.setDragImage(img, size/2, size/2);
+                e.dataTransfer.setDragImage(img, size / 2, size / 2);
             };
         }
     };
@@ -135,7 +149,7 @@ function TokenDesign({
         if (!pastaAtual) return null;
 
         const itensDaPasta = pastaAtual.itens || [];
-        const subPastas = bibliotecaTokens.filter(item => 
+        const subPastas = bibliotecaTokens.filter(item =>
             item.tipo === "pasta" && item.pastaPai === pastaAtual.id
         );
         const tokens = itensDaPasta.filter(item => item.tipo !== "pasta");
@@ -154,7 +168,7 @@ function TokenDesign({
                     backdrop: {
                         onDragOver: handleDragOver,
                         onDrop: handleDrop,
-                        sx: { 
+                        sx: {
                             pointerEvents: 'auto',
                             backgroundColor: 'rgba(0, 0, 0, 0.7)'
                         }
@@ -179,7 +193,7 @@ function TokenDesign({
                     onDrop={handleDrop}
                 >
                     {/* cabeçalho com gradiente */}
-                    <Box sx={{ 
+                    <Box sx={{
                         background: 'linear-gradient(135deg, #2a313c 0%, #1f252e 100%)',
                         borderBottom: '1px solid #3f4b5a',
                         px: 3,
@@ -188,11 +202,11 @@ function TokenDesign({
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography
                                 variant="h6"
-                                sx={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    gap: 1.5, 
-                                    cursor: 'pointer', 
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1.5,
+                                    cursor: 'pointer',
                                     color: '#e6e9f0',
                                     fontWeight: 600,
                                     letterSpacing: '0.3px',
@@ -210,11 +224,11 @@ function TokenDesign({
                                     setPastaAtual(null);
                                 }}
                                 variant="text"
-                                sx={{ 
-                                    minWidth: 'auto', 
+                                sx={{
+                                    minWidth: 'auto',
                                     color: '#a0a8b8',
                                     fontSize: 20,
-                                    '&:hover': { 
+                                    '&:hover': {
                                         color: '#fff',
                                         backgroundColor: 'rgba(255,255,255,0.1)'
                                     }
@@ -223,7 +237,7 @@ function TokenDesign({
                                 ✕
                             </Button>
                         </Box>
-                        
+
                         {/* breadcrumb ou info adicional */}
                         {pastaAtual.pastaPai && (
                             <Typography sx={{ color: '#7e8a9a', fontSize: 12, mt: 0.5, ml: 5 }}>
@@ -234,13 +248,13 @@ function TokenDesign({
 
                     <Box sx={{ p: 3, bgcolor: '#1e232c' }}>
                         {itensOrdenados.length === 0 ? (
-                            <Box sx={{ 
-                                textAlign: 'center', 
-                                py: 6, 
+                            <Box sx={{
+                                textAlign: 'center',
+                                py: 6,
                                 px: 3,
-                                color: '#7e8a9a', 
-                                border: '2px dashed #3a4050', 
-                                borderRadius: 3, 
+                                color: '#7e8a9a',
+                                border: '2px dashed #3a4050',
+                                borderRadius: 3,
                                 backgroundColor: '#252b35',
                                 transition: 'all 0.2s',
                                 '&:hover': {
@@ -327,42 +341,43 @@ function TokenDesign({
                                                 />
                                             </Box>
                                         ) : (
-                                            <Box
+                                            <TokenVisual
                                                 key={item.id}
-                                                draggable
-                                                onDragStart={(e) => handleDragStart(e, {
-                                                    ...item,
-                                                    tipo: "token",
-                                                    larguraOriginal: item.larguraOriginal,
-                                                    alturaOriginal: item.alturaOriginal
+                                                token={item}
+                                                estaRenomeando={tokenRenomeando === item.id}
+                                                novoNome={novoNomeToken}
+                                                onNomeChange={setNovoNomeToken}
+                                                onSalvarRenomeacao={salvarRenomeacaoToken}
+                                                onCancelarRenomeacao={cancelarRenomeacaoToken}
+                                                onContextMenu={(dados) => setMenuContextualToken({
+                                                    aberto: true,
+                                                    x: dados.x,
+                                                    y: dados.y,
+                                                    idToken: dados.idToken,
+                                                    nomeToken: dados.nomeToken
                                                 })}
-                                                onDragOver={(e) => {
+                                                onDragStart={(e, token) => handleDragStart(e, {
+                                                    ...token,
+                                                    tipo: "token",
+                                                    larguraOriginal: token.larguraOriginal,
+                                                    alturaOriginal: token.alturaOriginal
+                                                })}
+                                                onDragOver={(e, token) => {
                                                     e.preventDefault();
-                                                    setDragOverItem(item.id);
+                                                    setDragOverItem(token.id);
                                                 }}
                                                 onDragLeave={() => setDragOverItem(null)}
-                                                onContextMenu={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    setMenuContextualToken({
-                                                        aberto: true,
-                                                        x: e.clientX,
-                                                        y: e.clientY,
-                                                        idToken: item.id,
-                                                        nomeToken: item.nome
-                                                    });
-                                                }}
-                                                onDrop={(e) => {
+                                                onDrop={(e, tokenDestino) => {
                                                     e.preventDefault();
                                                     setDragOverItem(null);
                                                     if (criandoSubPasta) return;
 
                                                     try {
                                                         const tokenArrastado = JSON.parse(e.dataTransfer.getData('application/json'));
-                                                        if (tokenArrastado.id !== item.id) {
+                                                        if (tokenArrastado.id !== tokenDestino.id) {
                                                             setCriandoSubPasta(true);
                                                             removerItemDaPastaAtual(pastaAtual.id, tokenArrastado.id);
-                                                            removerItemDaPastaAtual(pastaAtual.id, item.id);
+                                                            removerItemDaPastaAtual(pastaAtual.id, tokenDestino.id);
 
                                                             setTimeout(() => {
                                                                 const novaSubPasta = {
@@ -370,7 +385,7 @@ function TokenDesign({
                                                                     tipo: "pasta",
                                                                     nome: "Nova subpasta",
                                                                     pastaPai: pastaAtual.id,
-                                                                    itens: [tokenArrastado, item],
+                                                                    itens: [tokenArrastado, tokenDestino],
                                                                     dataCriacao: new Date().toISOString()
                                                                 };
                                                                 setBibliotecaTokens(prev => [...prev, novaSubPasta]);
@@ -383,60 +398,22 @@ function TokenDesign({
                                                         setCriandoSubPasta(false);
                                                     }
                                                 }}
-                                                sx={{
-                                                    border: `2px solid ${dragOverItem === item.id ? '#5b8cff' : 'transparent'}`,
-                                                    borderRadius: 3,
-                                                    p: 1.5,
-                                                    textAlign: 'center',
-                                                    bgcolor: dragOverItem === item.id ? '#2a3440' : '#252b35',
-                                                    cursor: 'grab',
-                                                    transition: 'all 0.2s ease',
-                                                    transform: dragOverItem === item.id ? 'scale(1.02)' : 'scale(1)',
-                                                    boxShadow: dragOverItem === item.id ? '0 8px 16px rgba(91,140,255,0.2)' : '0 4px 8px rgba(0,0,0,0.2)',
-                                                    position: 'relative',
-                                                    zIndex: dragOverItem === item.id ? 10 : 1,
-                                                    '&:hover': {
-                                                        bgcolor: '#2f3642',
-                                                        boxShadow: '0 8px 16px rgba(0,0,0,0.3)'
-                                                    }
-                                                }}
-                                            >
-                                                <img
-                                                    src={item.imagemUrl}
-                                                    alt={item.nome}
-                                                    style={{
-                                                        width: 70,
-                                                        height: 70,
-                                                        objectFit: 'cover',
-                                                        borderRadius: 8,
-                                                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                                                        pointerEvents: 'none'
-                                                    }}
-                                                />
-                                                <Typography sx={{ 
-                                                    mt: 1, 
-                                                    fontSize: 12, 
-                                                    fontWeight: 600, 
-                                                    color: '#e6e9f0'
-                                                }}>
-                                                    {item.nome}
-                                                </Typography>
-                                            </Box>
+                                            />
                                         )
                                     ))}
                                 </Box>
                             </>
                         )}
 
-                        <Box sx={{ 
-                            display: 'flex', 
-                            justifyContent: 'flex-end', 
-                            borderTop: '1px solid #3a4050', 
-                            mt: 2, 
-                            pt: 2 
+                        <Box sx={{
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            borderTop: '1px solid #3a4050',
+                            mt: 2,
+                            pt: 2
                         }}>
-                            <Button 
-                                onClick={voltarPasta} 
+                            <Button
+                                onClick={voltarPasta}
                                 variant="outlined"
                                 sx={{
                                     color: '#b0b8c8',
@@ -489,9 +466,9 @@ function TokenDesign({
 
                 if (itensRaiz.length === 0) {
                     return (
-                        <Box sx={{ 
-                            color: '#a0a8b8', 
-                            textAlign: 'center', 
+                        <Box sx={{
+                            color: '#a0a8b8',
+                            textAlign: 'center',
                             py: 6,
                             px: 3,
                             backgroundColor: '#252b35',
@@ -511,15 +488,15 @@ function TokenDesign({
 
                 return (
                     <Box>
-                        <Box sx={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center', 
+                        <Box sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
                             mb: 2,
                             px: 1
                         }}>
-                            <Typography sx={{ 
-                                color: '#b0b8c8', 
+                            <Typography sx={{
+                                color: '#b0b8c8',
                                 fontWeight: 600,
                                 fontSize: 14,
                                 textTransform: 'uppercase',
@@ -612,40 +589,41 @@ function TokenDesign({
                                 }
 
                                 return (
-                                    <Box
+                                    <TokenVisual
                                         key={key}
-                                        draggable
-                                        onDragStart={(e) => handleDragStart(e, {
-                                            ...item,
-                                            tipo: "token",
-                                            larguraOriginal: item.larguraOriginal,
-                                            alturaOriginal: item.alturaOriginal
+                                        token={item}
+                                        estaRenomeando={tokenRenomeando === item.id}
+                                        novoNome={novoNomeToken}
+                                        onNomeChange={setNovoNomeToken}
+                                        onSalvarRenomeacao={salvarRenomeacaoToken}
+                                        onCancelarRenomeacao={cancelarRenomeacaoToken}
+                                        onContextMenu={(dados) => setMenuContextualToken({
+                                            aberto: true,
+                                            x: dados.x,
+                                            y: dados.y,
+                                            idToken: dados.idToken,
+                                            nomeToken: dados.nomeToken
                                         })}
-                                        onDragOver={(e) => {
+                                        onDragStart={(e, token) => handleDragStart(e, {
+                                            ...token,
+                                            tipo: "token",
+                                            larguraOriginal: token.larguraOriginal,
+                                            alturaOriginal: token.alturaOriginal
+                                        })}
+                                        onDragOver={(e, token) => {
                                             e.preventDefault();
-                                            setDragOverItem(item.id);
+                                            setDragOverItem(token.id);
                                         }}
                                         onDragLeave={() => setDragOverItem(null)}
-                                        onContextMenu={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setMenuContextualToken({
-                                                aberto: true,
-                                                x: e.clientX,
-                                                y: e.clientY,
-                                                idToken: item.id,
-                                                nomeToken: item.nome
-                                            });
-                                        }}
-                                        onDrop={(e) => {
+                                        onDrop={(e, tokenDestino) => {
                                             e.preventDefault();
                                             setDragOverItem(null);
 
                                             try {
                                                 const dados = JSON.parse(e.dataTransfer.getData('application/json'));
-                                                if (dados.tipo === "token" && dados.id !== item.id) {
+                                                if (dados.tipo === "token" && dados.id !== tokenDestino.id) {
                                                     const token1 = bibliotecaTokens.find(t => t.id === dados.id);
-                                                    const token2 = bibliotecaTokens.find(t => t.id === item.id);
+                                                    const token2 = bibliotecaTokens.find(t => t.id === tokenDestino.id);
 
                                                     if (token1 && token2) {
                                                         setBibliotecaTokens(prev => prev.filter(t => t.id !== token1.id && t.id !== token2.id));
@@ -657,45 +635,7 @@ function TokenDesign({
                                                 console.error("erro no drop sobre token:", erro);
                                             }
                                         }}
-                                        sx={{
-                                            border: `2px solid ${dragOverItem === item.id ? '#5b8cff' : 'transparent'}`,
-                                            borderRadius: 3,
-                                            p: 1.5,
-                                            textAlign: 'center',
-                                            bgcolor: dragOverItem === item.id ? '#2a3440' : '#252b35',
-                                            cursor: 'grab',
-                                            transition: 'all 0.2s ease',
-                                            transform: dragOverItem === item.id ? 'scale(1.02)' : 'scale(1)',
-                                            boxShadow: dragOverItem === item.id ? '0 8px 16px rgba(91,140,255,0.2)' : '0 4px 8px rgba(0,0,0,0.2)',
-                                            position: 'relative',
-                                            zIndex: dragOverItem === item.id ? 10 : 1,
-                                            '&:hover': {
-                                                bgcolor: '#2f3642',
-                                                boxShadow: '0 8px 16px rgba(0,0,0,0.3)'
-                                            }
-                                        }}
-                                    >
-                                        <img
-                                            src={item.imagemUrl}
-                                            alt={item.nome}
-                                            style={{
-                                                width: 70,
-                                                height: 70,
-                                                objectFit: 'cover',
-                                                borderRadius: 8,
-                                                boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                                                pointerEvents: 'none'
-                                            }}
-                                        />
-                                        <Typography sx={{ 
-                                            mt: 1, 
-                                            fontSize: 12, 
-                                            fontWeight: 600, 
-                                            color: '#e6e9f0'
-                                        }}>
-                                            {item.nome}
-                                        </Typography>
-                                    </Box>
+                                    />
                                 );
                             })}
                         </Box>
@@ -706,9 +646,9 @@ function TokenDesign({
             case 1:
                 return (
                     <Box sx={{ p: 2 }}>
-                        <Typography sx={{ 
-                            color: '#e6e9f0', 
-                            mb: 3, 
+                        <Typography sx={{
+                            color: '#e6e9f0',
+                            mb: 3,
                             fontWeight: 600,
                             fontSize: 16
                         }}>
@@ -743,32 +683,32 @@ function TokenDesign({
                             {imagemSelecionada && (
                                 <Box sx={{ mt: 3 }}>
                                     <Typography sx={{ color: '#b0b8c8', mb: 1, fontSize: 14 }}>Preview:</Typography>
-                                    <Box sx={{ 
-                                        display: 'flex', 
-                                        justifyContent: 'center', 
-                                        bgcolor: '#1a1f27', 
-                                        p: 2, 
+                                    <Box sx={{
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        bgcolor: '#1a1f27',
+                                        p: 2,
                                         borderRadius: 2,
                                         border: '1px solid #3a4050'
                                     }}>
-                                        <img 
-                                            src={imagemSelecionada} 
-                                            alt="Preview" 
-                                            style={{ 
-                                                maxWidth: '100%', 
-                                                maxHeight: 200, 
+                                        <img
+                                            src={imagemSelecionada}
+                                            alt="Preview"
+                                            style={{
+                                                maxWidth: '100%',
+                                                maxHeight: 200,
                                                 objectFit: 'contain',
                                                 borderRadius: 4
-                                            }} 
+                                            }}
                                         />
                                     </Box>
                                 </Box>
                             )}
 
                             <Box sx={{ mt: 3 }}>
-                                <label htmlFor="nomeToken" style={{ 
-                                    color: '#b0b8c8', 
-                                    display: 'block', 
+                                <label htmlFor="nomeToken" style={{
+                                    color: '#b0b8c8',
+                                    display: 'block',
                                     marginBottom: 8,
                                     fontSize: 14,
                                     fontWeight: 500
@@ -796,10 +736,10 @@ function TokenDesign({
                                     onBlur={(e) => e.target.style.borderColor = '#4a5568'}
                                 />
                                 {nomeToken && (
-                                    <p style={{ 
-                                        color: '#7e8a9a', 
-                                        marginTop: 8, 
-                                        fontSize: 13 
+                                    <p style={{
+                                        color: '#7e8a9a',
+                                        marginTop: 8,
+                                        fontSize: 13
                                     }}>
                                         Token será salvo como: <strong style={{ color: '#5b8cff' }}>{nomeToken}</strong>
                                     </p>
@@ -825,7 +765,7 @@ function TokenDesign({
                     backdrop: {
                         onDragOver: handleDragOver,
                         onDrop: handleDrop,
-                        sx: { 
+                        sx: {
                             pointerEvents: 'auto',
                             backgroundColor: 'rgba(0, 0, 0, 0.9)'
                         }
@@ -861,14 +801,14 @@ function TokenDesign({
                     onDrop={handleDrop}
                 >
                     {/* cabeçalho do modal principal */}
-                    <Box sx={{ 
+                    <Box sx={{
                         background: 'linear-gradient(135deg, #2a313c 0%, #1f252e 100%)',
                         borderBottom: '1px solid #3f4b5a',
                         px: 3,
                         py: 2
                     }}>
-                        <Typography variant="h6" sx={{ 
-                            color: '#e6e9f0', 
+                        <Typography variant="h6" sx={{
+                            color: '#e6e9f0',
                             fontWeight: 600,
                             letterSpacing: '0.5px',
                             display: 'flex',
@@ -888,18 +828,18 @@ function TokenDesign({
                             px: 2,
                             pt: 1,
                             bgcolor: '#1e232c',
-                            '& .MuiTab-root': { 
-                                color: '#a0a8b8', 
+                            '& .MuiTab-root': {
+                                color: '#a0a8b8',
                                 fontWeight: 600,
                                 textTransform: 'none',
                                 fontSize: 15,
                                 minHeight: 40,
-                                '&.Mui-selected': { 
+                                '&.Mui-selected': {
                                     color: '#5b8cff',
                                     fontWeight: 700
                                 }
                             },
-                            '& .MuiTabs-indicator': { 
+                            '& .MuiTabs-indicator': {
                                 bgcolor: '#5b8cff',
                                 height: 3,
                                 borderRadius: '3px 3px 0 0'
@@ -957,14 +897,14 @@ function TokenDesign({
                             onRenomear={() => {
                                 if (menuContextualToken.idToken && menuContextualToken.nomeToken) {
                                     console.log("renomear token:", menuContextualToken.idToken);
-                                    //iniciarRenomeacaoToken(menuContextualToken.idToken, menuContextualToken.nomeToken);
+                                    iniciarRenomeacaoToken(menuContextualToken.idToken, menuContextualToken.nomeToken);
                                 }
                                 setMenuContextualToken({ aberto: false, x: 0, y: 0, idToken: null, nomeToken: null });
                             }}
                             onExcluir={() => {
                                 if (menuContextualToken.idToken) {
                                     console.log("excluir token:", menuContextualToken.idToken);
-                                    //excluirToken(menuContextualToken.idToken);
+                                    excluirToken(menuContextualToken.idToken);
                                 }
                                 setMenuContextualToken({ aberto: false, x: 0, y: 0, idToken: null, nomeToken: null });
                             }}
@@ -972,19 +912,19 @@ function TokenDesign({
                         />
                     )}
 
-                    <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'flex-end', 
-                        gap: 1.5, 
+                    <Box sx={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 1.5,
                         p: 2,
                         bgcolor: '#1a1f27',
                         borderTop: '1px solid #3a4050'
                     }}>
-                        <Button 
-                            onClick={onClose} 
-                            variant="outlined" 
-                            sx={{ 
-                                color: '#b0b8c8', 
+                        <Button
+                            onClick={onClose}
+                            variant="outlined"
+                            sx={{
+                                color: '#b0b8c8',
                                 borderColor: '#4a5568',
                                 borderRadius: 2,
                                 px: 3,
@@ -1005,14 +945,14 @@ function TokenDesign({
                                 onClick={salvarTokenNaBiblioteca}
                                 disabled={!imagemSelecionada || !nomeToken?.trim()}
                                 variant="contained"
-                                sx={{ 
-                                    bgcolor: '#5b8cff', 
+                                sx={{
+                                    bgcolor: '#5b8cff',
                                     borderRadius: 2,
                                     px: 4,
                                     textTransform: 'none',
                                     fontWeight: 600,
                                     boxShadow: '0 4px 12px rgba(91,140,255,0.3)',
-                                    '&:hover': { 
+                                    '&:hover': {
                                         bgcolor: '#4a7ae0',
                                         boxShadow: '0 6px 16px rgba(91,140,255,0.4)'
                                     },

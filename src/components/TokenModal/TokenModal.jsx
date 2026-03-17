@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import TokenDesign from "./TokenDesign";
 
-// ========== SISTEMA CENTRAL DE DRAG & DROP ==========
+// Sistema central de drag & drop
 const DragDropSystem = {
     listeners: new Map(),
 
@@ -17,8 +17,8 @@ const DragDropSystem = {
         event.preventDefault();
         event.stopPropagation();
 
-        //filtra listeners válidos e calcula área
         const listenersValidos = [];
+
         for (let [id, listener] of this.listeners) {
             if (!listener.element || !document.body.contains(listener.element)) {
                 this.listeners.delete(id);
@@ -28,70 +28,144 @@ const DragDropSystem = {
             try {
                 const rect = listener.element.getBoundingClientRect();
                 const area = rect.width * rect.height;
-
                 listenersValidos.push({ id, ...listener, rect, area });
             } catch (e) {
-                //ignora erro e continua
+                // Silencia erro
             }
         }
 
-        //só considera listeners com o mouse dentro
-        const listenersComMouseDentro = listenersValidos.filter(l =>
-            event.clientX >= l.rect.left &&
-            event.clientX <= l.rect.right &&
-            event.clientY >= l.rect.top &&
-            event.clientY <= l.rect.bottom
-        );
+        const listenersComMouseDentro = listenersValidos.filter(l => {
+            const dentro = event.clientX >= l.rect.left &&
+                event.clientX <= l.rect.right &&
+                event.clientY >= l.rect.top &&
+                event.clientY <= l.rect.bottom;
+            return dentro;
+        });
 
-        //ordena do mais específico (menor área) pro menos específico
-        const listenersOrdenados = listenersComMouseDentro.sort((a, b) => a.area - b.area);
-        const alvo = listenersOrdenados[0];
+        if (listenersComMouseDentro.length === 0) {
+            if (this.listeners.has('BibliotecaRaiz')) {
+                this.listeners.get('BibliotecaRaiz').handler(dados, event);
+            }
+            return;
+        }
 
-        if (alvo) {
+        let elementoMaisProfundo = null;
+        let maiorProfundidade = -1;
+
+        listenersComMouseDentro.forEach(l => {
+            try {
+                if (l.element.contains(event.target) || event.target.contains(l.element)) {
+                    let profundidade = 0;
+                    let elemento = l.element;
+                    while (elemento.parentElement) {
+                        profundidade++;
+                        elemento = elemento.parentElement;
+                    }
+
+                    if (profundidade > maiorProfundidade) {
+                        maiorProfundidade = profundidade;
+                        elementoMaisProfundo = l;
+                    }
+                }
+            } catch (e) {
+                // Silencia erro
+            }
+        });
+
+        const alvo = elementoMaisProfundo || listenersComMouseDentro.sort((a, b) => a.area - b.area)[0];
+
+        try {
             alvo.handler(dados, event);
-        } else if (this.listeners.has('BibliotecaRaiz')) {
-            this.listeners.get('BibliotecaRaiz').handler(dados, event);
+        } catch (erro) {
+            // Silencia erro
         }
     }
 };
 
 //utilitário pra renomear pastas
 function renomearPastaUtil(idPasta, novoNome, setBibliotecaTokens, setPastaAtual) {
-    setBibliotecaTokens(prev => prev.map(item =>
-        item.id === idPasta && item.tipo === "pasta"
-            ? { ...item, nome: novoNome }
-            : item
-    ));
+    setBibliotecaTokens(prev => {
+        return prev.map(item =>
+            item.id === idPasta && item.tipo === "pasta"
+                ? { ...item, nome: novoNome }
+                : item
+        );
+    });
 
     if (setPastaAtual) {
-        setPastaAtual(prev => prev?.id === idPasta ? { ...prev, nome: novoNome } : prev);
+        setPastaAtual(prev => {
+            if (prev?.id === idPasta) {
+                return { ...prev, nome: novoNome };
+            }
+            return prev;
+        });
     }
+}
+
+//utilitário pra renomear tokens
+function renomearTokenUtil(idToken, novoNome, setBibliotecaTokens) {
+    setBibliotecaTokens(prev => {
+        return prev.map(item =>
+            item.id === idToken && item.tipo === "token"
+                ? { ...item, nome: novoNome }
+                : item
+        );
+    });
 }
 
 function TokenModal(props) {
     const [open, setOpen] = useState(props.open || false);
+    const [isDragging, setIsDragging] = useState(false);
     const modalRef = useRef(null);
 
-    useEffect(() => setOpen(props.open || false), [props.open]);
+    useEffect(() => {
+        if (isDragging && props.open === false) {
+            return;
+        }
+        setOpen(props.open || false);
+    }, [props.open, isDragging]);
 
     const onClose = () => {
+        setIsDragging(false);
         setOpen(false);
         props.onClose?.();
     };
 
-    //estados principais
+    useEffect(() => {
+        const handleDragStart = () => {
+            setIsDragging(true);
+        };
+
+        const handleDragEnd = () => {
+            setIsDragging(false);
+            if (!props.open) {
+                setOpen(false);
+            }
+        };
+
+        window.addEventListener('dragstart', handleDragStart);
+        window.addEventListener('dragend', handleDragEnd);
+        document.addEventListener('dragstart', handleDragStart);
+        document.addEventListener('dragend', handleDragEnd);
+
+        return () => {
+            window.removeEventListener('dragstart', handleDragStart);
+            window.removeEventListener('dragend', handleDragEnd);
+            document.removeEventListener('dragstart', handleDragStart);
+            document.removeEventListener('dragend', handleDragEnd);
+        };
+    }, [props.open]);
+
     const [activeTab, setActiveTab] = useState(0);
     const [imagemSelecionada, setImagemSelecionada] = useState(null);
     const [nomeToken, setNomeToken] = useState("");
     const [bibliotecaTokens, setBibliotecaTokens] = useState([]);
 
-    //estados de navegação entre pastas
     const [modalPastaAberto, setModalPastaAberto] = useState(false);
     const [pastaAtual, setPastaAtual] = useState(null);
     const [historicoPastas, setHistoricoPastas] = useState([]);
     const pastaModalRef = useRef(null);
 
-    //menus contextuais
     const [menuContextual, setMenuContextual] = useState({
         aberto: false, x: 0, y: 0, idPasta: null, nomePasta: null
     });
@@ -100,12 +174,14 @@ function TokenModal(props) {
         aberto: false, x: 0, y: 0, idPasta: null
     });
 
-    //renomeação
     const [pastaRenomeando, setPastaRenomeando] = useState(null);
     const [novoNomePasta, setNovoNomePasta] = useState("");
+
+    const [tokenRenomeando, setTokenRenomeando] = useState(null);
+    const [novoNomeToken, setNovoNomeToken] = useState("");
+
     const [criandoSubPasta, setCriandoSubPasta] = useState(false);
 
-    //registra o modal principal pra receber drops
     useEffect(() => {
         if (open && modalRef.current) {
             DragDropSystem.register('BibliotecaRaiz', modalRef.current, (dados) => {
@@ -122,9 +198,9 @@ function TokenModal(props) {
                         item => item.id === dados.id && item.tipo === "token"
                     );
 
-                    return tokenJaExiste
-                        ? semPasta
-                        : [...semPasta, { ...dados, pastaPai: null }];
+                    if (tokenJaExiste) return semPasta;
+
+                    return [...semPasta, { ...dados, pastaPai: null }];
                 });
 
                 if (pastaAtual?.itens?.some(i => i.id === dados.id)) {
@@ -136,27 +212,32 @@ function TokenModal(props) {
             });
         }
 
-        return () => DragDropSystem.unregister('BibliotecaRaiz');
+        return () => {
+            DragDropSystem.unregister('BibliotecaRaiz');
+        };
     }, [open, pastaAtual]);
 
-    //registra o modal da pasta pra receber drops
     useEffect(() => {
         if (modalPastaAberto && pastaAtual && pastaModalRef.current) {
             DragDropSystem.register(`Pasta-${pastaAtual.id}`, pastaModalRef.current, (dados) => {
                 if (dados.tipo !== "token" || !dados.id) return;
 
-                setBibliotecaTokens(prev => prev.map(item =>
-                    item.id === pastaAtual.id && item.tipo === "pasta"
-                        ? { ...item, itens: item.itens.filter(i => i.id !== dados.id) }
-                        : item
-                ));
+                setBibliotecaTokens(prev => {
+                    return prev.map(item =>
+                        item.id === pastaAtual.id && item.tipo === "pasta"
+                            ? { ...item, itens: item.itens.filter(i => i.id !== dados.id) }
+                            : item
+                    );
+                });
 
                 setTimeout(() => {
-                    setBibliotecaTokens(prev => prev.map(item =>
-                        item.id === pastaAtual.id && item.tipo === "pasta"
-                            ? { ...item, itens: [...item.itens, dados] }
-                            : item
-                    ));
+                    setBibliotecaTokens(prev => {
+                        return prev.map(item =>
+                            item.id === pastaAtual.id && item.tipo === "pasta"
+                                ? { ...item, itens: [...item.itens, dados] }
+                                : item
+                        );
+                    });
 
                     setPastaAtual(prev => ({
                         ...prev,
@@ -167,12 +248,14 @@ function TokenModal(props) {
         }
 
         return () => {
-            if (pastaAtual) DragDropSystem.unregister(`Pasta-${pastaAtual.id}`);
+            if (pastaAtual) {
+                DragDropSystem.unregister(`Pasta-${pastaAtual.id}`);
+            }
         };
     }, [modalPastaAberto, pastaAtual]);
 
-    //handlers globais de drag
     const handleDragStart = (e, dados) => {
+        setIsDragging(true);
         e.dataTransfer.setData('application/json', JSON.stringify(dados));
         e.dataTransfer.effectAllowed = 'move';
 
@@ -199,13 +282,15 @@ function TokenModal(props) {
         try {
             const dados = JSON.parse(e.dataTransfer.getData('application/json'));
             DragDropSystem.processDrop(e, dados);
-            if (e.target.closest('.MuiModal-root')) setOpen(true);
+
+            if (e.target.closest('.MuiModal-root')) {
+                setOpen(true);
+            }
         } catch (erro) {
-            console.log("erro no drop:", erro);
+            // Silencia erro
         }
     };
 
-    //funções da biblioteca
     const salvarTokenNaBiblioteca = () => {
         if (!imagemSelecionada || !nomeToken.trim()) return;
 
@@ -242,27 +327,38 @@ function TokenModal(props) {
     };
 
     const adicionarItemNaPasta = (idPasta, item) => {
-        setBibliotecaTokens(prev => prev.map(p =>
-            p.id === idPasta && p.tipo === "pasta"
-                ? { ...p, itens: [...p.itens, item] }
-                : p
-        ));
+        setBibliotecaTokens(prev => {
+            return prev.map(p =>
+                p.id === idPasta && p.tipo === "pasta"
+                    ? { ...p, itens: [...p.itens, item] }
+                    : p
+            );
+        });
     };
 
     const removerItemDaPasta = (idPasta, idItem) => {
-        setBibliotecaTokens(prev => prev.map(p =>
-            p.id === idPasta && p.tipo === "pasta"
-                ? { ...p, itens: p.itens.filter(i => i.id !== idItem) }
-                : p
-        ));
+        setBibliotecaTokens(prev => {
+            return prev.map(p =>
+                p.id === idPasta && p.tipo === "pasta"
+                    ? { ...p, itens: p.itens.filter(i => i.id !== idItem) }
+                    : p
+            );
+        });
     };
 
     const excluirPasta = (idPasta) => {
         setBibliotecaTokens(prev => {
             const pasta = prev.find(item => item.id === idPasta && item.tipo === "pasta");
-            return pasta
-                ? [...prev.filter(item => item.id !== idPasta), ...(pasta.itens || [])]
-                : prev;
+            if (pasta) {
+                return [...prev.filter(item => item.id !== idPasta), ...(pasta.itens || [])];
+            }
+            return prev;
+        });
+    };
+
+    const excluirToken = (idToken) => {
+        setBibliotecaTokens(prev => {
+            return prev.filter(item => item.id !== idToken || item.tipo !== "token");
         });
     };
 
@@ -270,10 +366,20 @@ function TokenModal(props) {
         renomearPastaUtil(id, novoNome, setBibliotecaTokens, setPastaAtual);
     };
 
+    const renomearToken = (id, novoNome) => {
+        renomearTokenUtil(id, novoNome, setBibliotecaTokens);
+    };
+
     const iniciarRenomeacaoPasta = (id, nomeAtual) => {
         setPastaRenomeando(id);
         setNovoNomePasta(nomeAtual);
         setMenuContextual({ aberto: false, x: 0, y: 0, idPasta: null, nomePasta: null });
+    };
+
+    const iniciarRenomeacaoToken = (id, nomeAtual) => {
+        setTokenRenomeando(id);
+        setNovoNomeToken(nomeAtual);
+        setMenuContextualToken({ aberto: false, x: 0, y: 0, idToken: null, nomeToken: null });
     };
 
     const salvarRenomeacaoPasta = () => {
@@ -284,9 +390,22 @@ function TokenModal(props) {
         setNovoNomePasta("");
     };
 
+    const salvarRenomeacaoToken = () => {
+        if (tokenRenomeando && novoNomeToken?.trim()) {
+            renomearToken(tokenRenomeando, novoNomeToken.trim());
+        }
+        setTokenRenomeando(null);
+        setNovoNomeToken("");
+    };
+
     const cancelarRenomeacaoPasta = () => {
         setPastaRenomeando(null);
         setNovoNomePasta("");
+    };
+
+    const cancelarRenomeacaoToken = () => {
+        setTokenRenomeando(null);
+        setNovoNomeToken("");
     };
 
     const buscarItensPorPastaPai = (idPastaPai) => {
@@ -295,38 +414,48 @@ function TokenModal(props) {
         );
     };
 
-    //funções do modal da pasta com histórico
-    const adicionarItemNaPastaAtual = (idPasta, item) => {
-        setBibliotecaTokens(prev => prev.map(p =>
-            p.id === idPasta && p.tipo === "pasta"
-                ? { ...p, itens: [...p.itens, item] }
-                : p
-        ));
+    const [menuContextualToken, setMenuContextualToken] = useState({
+        aberto: false, x: 0, y: 0, idToken: null, nomeToken: null
+    });
 
-        setPastaAtual(prev => prev?.id === idPasta
-            ? { ...prev, itens: [...prev.itens, item] }
-            : prev
-        );
+    const adicionarItemNaPastaAtual = (idPasta, item) => {
+        setBibliotecaTokens(prev => {
+            return prev.map(p =>
+                p.id === idPasta && p.tipo === "pasta"
+                    ? { ...p, itens: [...p.itens, item] }
+                    : p
+            );
+        });
+
+        setPastaAtual(prev => {
+            if (prev?.id === idPasta) {
+                return { ...prev, itens: [...prev.itens, item] };
+            }
+            return prev;
+        });
     };
 
     const removerItemDaPastaAtual = (idPasta, idItem) => {
-        setBibliotecaTokens(prev => prev.map(p =>
-            p.id === idPasta && p.tipo === "pasta"
-                ? { ...p, itens: p.itens.filter(i => i.id !== idItem) }
-                : p
-        ));
+        setBibliotecaTokens(prev => {
+            return prev.map(p =>
+                p.id === idPasta && p.tipo === "pasta"
+                    ? { ...p, itens: p.itens.filter(i => i.id !== idItem) }
+                    : p
+            );
+        });
 
-        setPastaAtual(prev => prev?.id === idPasta
-            ? { ...prev, itens: prev.itens.filter(i => i.id !== idItem) }
-            : prev
-        );
+        setPastaAtual(prev => {
+            if (prev?.id === idPasta) {
+                return { ...prev, itens: prev.itens.filter(i => i.id !== idItem) };
+            }
+            return prev;
+        });
     };
 
     const abrirSubPasta = (subPasta) => {
-        //guarda a pasta atual no histórico antes de abrir a subpasta
         setHistoricoPastas(prev => [...prev, pastaAtual]);
-
         setModalPastaAberto(false);
+
         setTimeout(() => {
             setPastaAtual(subPasta);
             setModalPastaAberto(true);
@@ -335,14 +464,11 @@ function TokenModal(props) {
 
     const voltarPasta = () => {
         if (historicoPastas.length === 0) {
-            //sem histórico, volta pra raiz
             setModalPastaAberto(false);
             setPastaAtual(null);
         } else {
-            //pega a última pasta do histórico e remove
             const pastaAnterior = historicoPastas[historicoPastas.length - 1];
             setHistoricoPastas(prev => prev.slice(0, -1));
-
             setModalPastaAberto(false);
             setTimeout(() => {
                 setPastaAtual(pastaAnterior);
@@ -352,16 +478,22 @@ function TokenModal(props) {
     };
 
     const renomearPastaAtual = () => {
-        iniciarRenomeacaoPasta(pastaAtual.id, pastaAtual.nome);
+        if (pastaAtual) {
+            iniciarRenomeacaoPasta(pastaAtual.id, pastaAtual.nome);
+        }
     };
 
     const excluirPastaAtual = () => {
-        excluirPasta(pastaAtual.id);
-        setModalPastaAberto(false);
-        setPastaAtual(null);
+        if (pastaAtual) {
+            excluirPasta(pastaAtual.id);
+            setModalPastaAberto(false);
+            setPastaAtual(null);
+        }
     };
 
     const criarSubPastaAqui = () => {
+        if (!pastaAtual) return;
+
         const novaSubPasta = {
             id: `pasta-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             tipo: "pasta",
@@ -375,7 +507,6 @@ function TokenModal(props) {
         adicionarItemNaPastaAtual(pastaAtual.id, novaSubPasta);
     };
 
-    //evento global pra abrir pasta de outros componentes
     useEffect(() => {
         const handleAbrirPasta = (e) => {
             setPastaAtual(e.detail.pasta);
@@ -387,72 +518,75 @@ function TokenModal(props) {
         return () => window.removeEventListener("abrirPasta", handleAbrirPasta);
     }, []);
 
+    useEffect(() => {
+        if (!open) {
+            setPastaRenomeando(null);
+            setNovoNomePasta('');
+            setTokenRenomeando(null);
+            setNovoNomeToken('');
+            setMenuContextual({
+                aberto: false, x: 0, y: 0, idPasta: null, nomePasta: null
+            });
+            setMenuContextualToken({
+                aberto: false, x: 0, y: 0, idToken: null, nomeToken: null
+            });
+        }
+    }, [open]);
+
     if (!open) return null;
 
     return (
         <TokenDesign
-            //controle do modal
             isOpen={open}
             onClose={onClose}
             modalRef={modalRef}
             pastaModalRef={pastaModalRef}
-
-            //abas
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-
-            //token atual sendo importado
             imagemSelecionada={imagemSelecionada}
             setImagemSelecionada={setImagemSelecionada}
             nomeToken={nomeToken}
             setNomeToken={setNomeToken}
-
-            //dados da biblioteca
             bibliotecaTokens={bibliotecaTokens}
             setBibliotecaTokens={setBibliotecaTokens}
-
-            //pasta atual e seu modal
             modalPastaAberto={modalPastaAberto}
             setModalPastaAberto={setModalPastaAberto}
             pastaAtual={pastaAtual}
             setPastaAtual={setPastaAtual}
-
-            //menus contextuais
             menuContextual={menuContextual}
             setMenuContextual={setMenuContextual}
             menuContextualPasta={menuContextualPasta}
             setMenuContextualPasta={setMenuContextualPasta}
-
-            //renomeação
+            menuContextualToken={menuContextualToken}
+            setMenuContextualToken={setMenuContextualToken}
             pastaRenomeando={pastaRenomeando}
             setPastaRenomeando={setPastaRenomeando}
             novoNomePasta={novoNomePasta}
             setNovoNomePasta={setNovoNomePasta}
-
-            //flags de estado
+            tokenRenomeando={tokenRenomeando}
+            setTokenRenomeando={setTokenRenomeando}
+            novoNomeToken={novoNomeToken}
+            setNovoNomeToken={setNovoNomeToken}
             criandoSubPasta={criandoSubPasta}
             setCriandoSubPasta={setCriandoSubPasta}
-
-            //handlers de drag global
             handleDragStart={handleDragStart}
             handleDragOver={handleDragOver}
             handleDrop={handleDrop}
-
-            //funções da biblioteca
             salvarTokenNaBiblioteca={salvarTokenNaBiblioteca}
             criarPasta={criarPasta}
             adicionarItemNaPasta={adicionarItemNaPasta}
             removerItemDaPasta={removerItemDaPasta}
             excluirPasta={excluirPasta}
+            excluirToken={excluirToken}
             renomearPasta={renomearPasta}
+            renomearToken={renomearToken}
             buscarItensPorPastaPai={buscarItensPorPastaPai}
-
-            //funções de renomeação
             iniciarRenomeacaoPasta={iniciarRenomeacaoPasta}
             salvarRenomeacaoPasta={salvarRenomeacaoPasta}
             cancelarRenomeacaoPasta={cancelarRenomeacaoPasta}
-
-            //funções do modal da pasta
+            iniciarRenomeacaoToken={iniciarRenomeacaoToken}
+            salvarRenomeacaoToken={salvarRenomeacaoToken}
+            cancelarRenomeacaoToken={cancelarRenomeacaoToken}
             adicionarItemNaPastaAtual={adicionarItemNaPastaAtual}
             removerItemDaPastaAtual={removerItemDaPastaAtual}
             abrirSubPasta={abrirSubPasta}

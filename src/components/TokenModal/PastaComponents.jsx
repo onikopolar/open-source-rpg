@@ -2,8 +2,11 @@ import React, { useRef, useEffect, useState } from "react";
 import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import EditIcon from '@mui/icons-material/Edit'; // ícone de lápis
+import DeleteIcon from '@mui/icons-material/Delete'; // ícone de lixeira
 import ReactDOM from 'react-dom';
 
+// Mostra o ícone da pasta com badge de quantidade e input de renomeação
 export function IconePasta(props) {
     const quantidade = props.quantidade || 0;
     const nomePasta = props.nome || "Pasta";
@@ -134,6 +137,7 @@ export function IconePasta(props) {
     );
 }
 
+// Menu flutuante que aparece ao clicar com botão direito na pasta
 export function MenuContextualPasta(props) {
     const {
         x,
@@ -146,6 +150,7 @@ export function MenuContextualPasta(props) {
     const menuRef = useRef(null);
     const [position, setPosition] = useState({ top: y, left: x });
 
+    // Ajusta a posição do menu pra não vazar da tela
     useEffect(() => {
         function ajustarPosicao() {
             if (menuRef.current) {
@@ -187,6 +192,7 @@ export function MenuContextualPasta(props) {
         };
     }, [x, y]);
 
+    // Fecha o menu se clicar fora ou apertar ESC
     useEffect(() => {
         function handleClickOutside(event) {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -270,7 +276,7 @@ export function MenuContextualPasta(props) {
                     e.currentTarget.style.color = '#e6e9f0';
                 }}
             >
-                ✏️ Renomear
+                <EditIcon fontSize="small" /> Renomear
             </button>
 
             <div style={{ height: '1px', backgroundColor: '#3a4050', margin: '4px 0' }} />
@@ -305,7 +311,7 @@ export function MenuContextualPasta(props) {
                     e.currentTarget.style.color = '#ff8a8a';
                 }}
             >
-                🗑️ Excluir pasta
+                <DeleteIcon fontSize="small" /> Excluir pasta
             </button>
         </div>
     );
@@ -316,6 +322,7 @@ export function MenuContextualPasta(props) {
     );
 }
 
+// Componente principal que representa visualmente uma pasta no grid
 export function PastaVisual(props) {
     const {
         pasta,
@@ -335,6 +342,7 @@ export function PastaVisual(props) {
     const [isHovered, setIsHovered] = useState(false);
     const containerRef = useRef(null);
 
+    // Foca e seleciona o input quando entra em modo renomeação
     useEffect(() => {
         if (estaRenomeando && inputRef.current) {
             inputRef.current.focus();
@@ -465,6 +473,214 @@ export function PastaVisual(props) {
                 onCancelarRenomeacao={onCancelarRenomeacao}
                 inputRef={inputRef}
             />
+
+            {isHovered && !estaRenomeando && (
+                <MoreVertIcon
+                    style={{
+                        position: 'absolute',
+                        bottom: '8px',
+                        right: '8px',
+                        fontSize: '18px',
+                        color: '#a0a8b8',
+                        cursor: 'context-menu',
+                        transition: 'color 0.2s ease',
+                        opacity: 0.8
+                    }}
+                />
+            )}
+        </div>
+    );
+}
+
+export function TokenVisual(props) {
+    const {
+        token,
+        estaRenomeando,
+        novoNome,
+        onNomeChange,
+        onSalvarRenomeacao,
+        onCancelarRenomeacao,
+        onContextMenu,
+        onDragStart,
+        onDragOver,
+        onDrop
+    } = props;
+
+    const inputRef = useRef(null);
+    const [isHovered, setIsHovered] = useState(false);
+
+    // Foca e seleciona o input quando entra em modo renomeação
+    useEffect(() => {
+        if (estaRenomeando && inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
+    }, [estaRenomeando]);
+
+    function handleContextMenu(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const coordenadas = {
+            x: event.clientX,
+            y: event.clientY,
+            idToken: token.id,
+            nomeToken: token.nome
+        };
+
+        if (onContextMenu) {
+            onContextMenu(coordenadas);
+        }
+    }
+
+    function handleDragStart(event) {
+        event.stopPropagation();
+
+        if (estaRenomeando) {
+            event.preventDefault();
+            return;
+        }
+
+        const tokenData = {
+            id: token.id,
+            tipo: "token",
+            nome: token.nome,
+            imagemUrl: token.imagemUrl,
+            larguraOriginal: token.larguraOriginal,
+            alturaOriginal: token.alturaOriginal
+        };
+
+        event.dataTransfer.setData('application/json', JSON.stringify(tokenData));
+        event.dataTransfer.effectAllowed = 'move';
+
+        if (onDragStart) {
+            onDragStart(event, token);
+        }
+    }
+
+    function handleDragOver(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = 'move';
+
+        if (onDragOver) {
+            onDragOver(event, token);
+        }
+    }
+
+    function handleDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (onDrop) {
+            onDrop(event, token);
+        }
+    }
+
+    function handleKeyDown(event) {
+        if (event.key === 'Enter') {
+            onSalvarRenomeacao();
+        } else if (event.key === 'Escape') {
+            onCancelarRenomeacao();
+        }
+    }
+
+    const containerStyle = {
+        border: estaRenomeando
+            ? '2px solid #5b8cff'
+            : isHovered
+                ? '1px solid #7a9eb3'
+                : '1px solid #3a4050',
+        borderRadius: '12px',
+        padding: '12px',
+        textAlign: 'center',
+        backgroundColor: estaRenomeando ? '#2a3440' : '#252b35',
+        cursor: estaRenomeando ? 'default' : 'grab',
+        transition: 'all 0.2s ease',
+        position: 'relative',
+        opacity: estaRenomeando ? 0.95 : 1,
+        boxShadow: estaRenomeando 
+            ? '0 0 12px rgba(91,140,255,0.5)' 
+            : isHovered 
+                ? '0 8px 16px rgba(0,0,0,0.3)' 
+                : '0 4px 8px rgba(0,0,0,0.2)',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center'
+    };
+
+    const inputStyle = {
+        marginTop: '8px',
+        padding: '6px 8px',
+        width: '90%',
+        fontSize: '12px',
+        fontWeight: '600',
+        textAlign: 'center',
+        backgroundColor: '#fff',
+        color: '#000',
+        border: '2px solid #5b8cff',
+        borderRadius: '6px',
+        outline: 'none',
+        fontFamily: 'inherit'
+    };
+
+    const nomeStyle = {
+        marginTop: '8px',
+        fontSize: '12px',
+        fontWeight: '600',
+        textAlign: 'center',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        width: '100%',
+        color: '#e6e9f0',
+        textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+    };
+
+    return (
+        <div
+            style={containerStyle}
+            onContextMenu={handleContextMenu}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            draggable={!estaRenomeando}
+        >
+            <img
+                src={token.imagemUrl}
+                alt={token.nome}
+                style={{
+                    width: 70,
+                    height: 70,
+                    objectFit: 'cover',
+                    borderRadius: 8,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                    pointerEvents: 'none',
+                    opacity: estaRenomeando ? 0.8 : 1
+                }}
+            />
+
+            {estaRenomeando ? (
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={novoNome}
+                    onChange={(e) => onNomeChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onBlur={onSalvarRenomeacao}
+                    style={inputStyle}
+                    autoFocus
+                />
+            ) : (
+                <div style={nomeStyle}>
+                    {token.nome}
+                </div>
+            )}
 
             {isHovered && !estaRenomeando && (
                 <MoreVertIcon
