@@ -477,10 +477,10 @@ function TokenDesign({
                         }}>
                             <FolderOpenIcon sx={{ fontSize: 64, color: '#4a5568', mb: 2 }} />
                             <Typography sx={{ color: '#e6e9f0', fontWeight: 500, mb: 1 }}>
-                                Nenhum token ou pasta na biblioteca
+                                Nenhum token na biblioteca
                             </Typography>
                             <Typography sx={{ color: '#7e8a9a', fontSize: 14 }}>
-                                Importe um token na aba "Importar" ou arraste tokens um sobre o outro para criar pastas
+                                Importe um token na aba "Importar"
                             </Typography>
                         </Box>
                     );
@@ -720,7 +720,7 @@ function TokenDesign({
                                     id="nomeToken"
                                     value={nomeToken}
                                     onChange={(e) => setNomeToken(e.target.value)}
-                                    placeholder="Ex: Guerreiro, Ladrao, NPC, Inimigo, Carlos"
+                                    placeholder="Ex: Mapa, Objeto, NPC, Inimigo, Carlos"
                                     style={{
                                         width: '100%',
                                         padding: 12,
@@ -761,16 +761,6 @@ function TokenDesign({
                 onClose={onClose}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
-                slotProps={{
-                    backdrop: {
-                        onDragOver: handleDragOver,
-                        onDrop: handleDrop,
-                        sx: {
-                            pointerEvents: 'auto',
-                            backgroundColor: 'rgba(0, 0, 0, 0.9)'
-                        }
-                    }
-                }}
                 disablePortal={false}
                 disableEnforceFocus
                 disableAutoFocus

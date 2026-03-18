@@ -7,6 +7,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import BrushIcon from '@mui/icons-material/Brush';
 
 // FUNÇÕES DE DESENHO
 
@@ -185,8 +186,8 @@ export function desenharFallbackToken(ctx, x, y, zoomAtual, nomeToken) {
 
 // COMPONENTES DE UI
 
-// Barra lateral de ferramentas
-export function BarraLateral({ onAbrirModal }) {
+// Barra lateral de ferramentas (AGORA COM BOTÃO DA NÉVOA)
+export function BarraLateral({ onAbrirModal, onAbrirModalNevoa }) {
     return (
         <Box sx={{
             width: '60px',
@@ -207,6 +208,7 @@ export function BarraLateral({ onAbrirModal }) {
                 flexDirection: 'column',
                 alignItems: 'center'
             }}>
+                {/* Botão da biblioteca (existente) */}
                 <button
                     onClick={onAbrirModal}
                     style={{
@@ -220,10 +222,35 @@ export function BarraLateral({ onAbrirModal }) {
                         marginBottom: '10px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        transition: 'all 0.2s'
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#5a6ec9'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3F51b5'}
                 >
                     <PersonAddIcon fontSize="small" />
+                </button>
+
+                {/* NOVO: Botão da névoa */}
+                <button
+                    onClick={onAbrirModalNevoa}
+                    style={{
+                        width: '50px',
+                        height: '50px',
+                        backgroundColor: '#2c3e50',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3e5a6f'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2c3e50'}
+                >
+                    <BrushIcon fontSize="small" />
                 </button>
             </Box>
         </Box>
@@ -270,14 +297,38 @@ export function CanvasDesenho({ canvasRef }) {
     );
 }
 
-// Menu de contexto pra opções do token
+// Menu de contexto pra opções do token (AGORA TAMBÉM PARA NÉVOA)
 export const MenuContextoToken = React.forwardRef(({
-    x, y, aberto, onFechar, onDeletar, onOcultar, onBloquear, tokenNome, estaOculto, estaBloqueado
+    x, y, aberto, onFechar, onDeletar, onOcultar, onBloquear, 
+    tokenNome, estaOculto, estaBloqueado, tipo = 'token' // 'token' ou 'nevoa'
 }, ref) => {
-    if (!aberto) return null;
+    console.log('[MenuContextoToken] Renderizando com props:', {
+        aberto,
+        x,
+        y,
+        tipo,
+        tokenNome,
+        estaOculto,
+        estaBloqueado,
+        temOnDeletar: !!onDeletar,
+        temOnOcultar: !!onOcultar,
+        temOnBloquear: !!onBloquear
+    });
+
+    if (!aberto) {
+        console.log('[MenuContextoToken] Menu fechado, não renderizando');
+        return null;
+    }
 
     const textoOcultar = estaOculto ? "Mostrar (todos veem)" : "Ocultar (só eu vejo)";
     const textoBloquear = estaBloqueado ? "Desbloquear token" : "Bloquear token";
+    const isNevoa = tipo === 'nevoa';
+
+    console.log('[MenuContextoToken] Renderizando menu:', {
+        isNevoa,
+        textoOcultar: isNevoa ? 'ocultado' : textoOcultar,
+        textoBloquear: isNevoa ? (estaBloqueado ? 'Desbloquear camada' : 'Bloquear camada') : textoBloquear
+    });
 
     return (
         <div
@@ -303,41 +354,49 @@ export const MenuContextoToken = React.forwardRef(({
                 alignItems: 'center',
                 gap: '8px'
             }}>
-                <span style={{ color: '#fff', fontWeight: 'bold' }}>{tokenNome}</span>
+                <span style={{ color: '#fff', fontWeight: 'bold' }}>
+                    {isNevoa ? 'Camada de Névoa' : tokenNome}
+                </span>
             </div>
 
-            <button
-                onClick={() => {
-                    onOcultar();
-                    onFechar();
-                }}
-                style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    borderBottom: '1px solid #333',
-                    color: '#fff',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-                {estaOculto ? (
-                    <VisibilityOffIcon sx={{ fontSize: 18 }} />
-                ) : (
-                    <VisibilityIcon sx={{ fontSize: 18 }} />
-                )}
-                {textoOcultar}
-            </button>
+            {/* SÓ OCULTA A OPÇÃO DE OCULTAR QUANDO FOR NÉVOA */}
+            {!isNevoa && (
+                <button
+                    onClick={() => {
+                        console.log('[MenuContextoToken] Botão Ocultar clicado');
+                        onOcultar();
+                        onFechar();
+                    }}
+                    style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        borderBottom: '1px solid #333',
+                        color: '#fff',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                    {estaOculto ? (
+                        <VisibilityOffIcon sx={{ fontSize: 18 }} />
+                    ) : (
+                        <VisibilityIcon sx={{ fontSize: 18 }} />
+                    )}
+                    {textoOcultar}
+                </button>
+            )}
 
+            {/* BLOQUEAR/DESBLOQUEAR - sempre disponível (para névoa pode travar a camada) */}
             <button
                 onClick={() => {
+                    console.log('[MenuContextoToken] Botão Bloquear clicado');
                     onBloquear();
                     onFechar();
                 }}
@@ -367,11 +426,16 @@ export const MenuContextoToken = React.forwardRef(({
                 ) : (
                     <LockIcon sx={{ fontSize: 18, color: '#ffa726' }} />
                 )}
-                {textoBloquear}
+                {isNevoa 
+                    ? (estaBloqueado ? 'Desbloquear camada' : 'Bloquear camada')
+                    : textoBloquear
+                }
             </button>
 
+            {/* DELETAR - sempre disponível */}
             <button
                 onClick={() => {
+                    console.log('[MenuContextoToken] Botão Deletar clicado');
                     onDeletar();
                     onFechar();
                 }}
@@ -398,7 +462,7 @@ export const MenuContextoToken = React.forwardRef(({
                 }}
             >
                 <DeleteIcon sx={{ fontSize: 18 }} />
-                Deletar token
+                {isNevoa ? 'Deletar camada' : 'Deletar token'}
             </button>
         </div>
     );

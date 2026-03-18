@@ -12,6 +12,7 @@ import {
     desenharFallbackToken,
     desenharSelecao
 } from "../../components/TabletopDesign";
+import { ModalNevoa } from "../../components/Tabletop/ModalNevoa";
 
 // Importa as paradas da mesa
 import { WORLD_WIDTH, WORLD_HEIGHT, TOLERANCIA_CLIQUE, RENDER_INTERVAL, BASE_GRID_SIZE, GRID_CONFIGS, clamp } from "../../components/Tabletop/ConstantesMesa";
@@ -24,15 +25,18 @@ import { useAtalhosTeclado } from "../../components/Tabletop/useAtalhosTeclado";
 import { useSelecaoToken } from "../../components/Tabletop/useSelecaoToken";
 import { useRenderizacaoToken } from "../../components/Tabletop/useRenderizacaoToken";
 import { trazerTokenParaFrente } from "../../components/Tabletop/UtilitariosToken";
+import { useNuvemFOV } from "../../components/Tabletop/NuvemFOV";
 
 // Componente principal da mesa
 function TabletopGrid() {
-    console.log('🏁 [TabletopGrid] INICIALIZANDO');
-    console.log(`📏 Mundo configurado: ${WORLD_WIDTH} x ${WORLD_HEIGHT} pixels`);
-    console.log(`🔲 Grade base: ${BASE_GRID_SIZE}px, células: ${WORLD_WIDTH/BASE_GRID_SIZE} x ${WORLD_HEIGHT/BASE_GRID_SIZE}`);
-
+    console.log('[TabletopGrid] Renderizando');
+    
     const [modalOpen, setModalOpen] = useState(false);
-    console.log(`📂 modalOpen: ${modalOpen}`);
+    const [menuNevoaAberto, setMenuNevoaAberto] = useState(false);
+    const [menuNevoaPosicao, setMenuNevoaPosicao] = useState({ x: 0, y: 0 });
+
+    // Hook da névoa
+    const fov = useNuvemFOV();
 
     // Historico de ações (ctrl+z)
     const {
@@ -44,11 +48,8 @@ function TabletopGrid() {
         canRedo,
         setStateDirect
     } = useDesfazerRefazer([]);
-    
-    console.log(`🎲 tokensState inicializado, total: ${tokensState.length}`);
 
     const [uiState, uiDispatch] = useReducer(uiReducer, initialUIState);
-    console.log(`🎛️ uiState inicializado`);
 
     // Refs pra caramba
     const isDraggingRef = useRef(false);
@@ -83,39 +84,18 @@ function TabletopGrid() {
         const worldWidthScaled = WORLD_WIDTH * uiState.zoom;
         const worldHeightScaled = WORLD_HEIGHT * uiState.zoom;
 
-        const resultado = {
+        return {
             x: clamp(newX, rect.width - worldWidthScaled, 0),
             y: clamp(newY, rect.height - worldHeightScaled, 0)
         };
-        
-        console.log(`🔄 [restringirPosicao]`, {
-            novoX: newX,
-            novoY: newY,
-            limitadoX: resultado.x,
-            limitadoY: resultado.y,
-            zoom: uiState.zoom,
-            mundoEscalado: `${worldWidthScaled.toFixed(0)} x ${worldHeightScaled.toFixed(0)}`,
-            tela: `${rect.width.toFixed(0)} x ${rect.height.toFixed(0)}`
-        });
-        
-        return resultado;
     }, [uiState.zoom]);
 
     // Converte pixel da tela pra coordenada do mundo
     const converterMouseParaMundo = useCallback((mouseX, mouseY) => {
-        const resultado = {
+        return {
             mundoX: (mouseX - uiState.position.x) / uiState.zoom,
             mundoY: (mouseY - uiState.position.y) / uiState.zoom
         };
-        
-        console.log(`🖱️ [converterMouseParaMundo]`, {
-            mouse: { x: mouseX, y: mouseY },
-            camera: uiState.position,
-            zoom: uiState.zoom,
-            mundo: resultado
-        });
-        
-        return resultado;
     }, [uiState.position, uiState.zoom]);
 
     // Ve se o mouse ta em cima de um elemento
@@ -130,7 +110,7 @@ function TabletopGrid() {
 
     // Filtra as grades baseado no zoom
     const visibleGrids = useMemo(() => {
-        const grids = GRID_CONFIGS
+        return GRID_CONFIGS
             .filter(config => uiState.zoom >= config.zoomThreshold)
             .map((config, index, array) => {
                 const strokeWidth = Math.max(0.5, 1 / uiState.zoom);
@@ -151,16 +131,11 @@ function TabletopGrid() {
 
                 return { size: baseSize, alpha, strokeWidth };
             });
-            
-        console.log(`📐 [visibleGrids] zoom: ${uiState.zoom.toFixed(2)}, grades visíveis: ${grids.length}`);
-        return grids;
     }, [uiState.zoom]);
 
     // Prepara os tokens com informacoes de tela
     const tokensComInfo = useMemo(() => {
-        console.log(`🔄 [tokensComInfo] Calculando posições de ${tokensState.length} tokens`);
-        
-        const tokens = tokensState.map((token, indice) => {
+        return tokensState.map((token, indice) => {
             const larguraOriginal = token.larguraOriginal || 50;
             const alturaOriginal = token.alturaOriginal || 50;
             const escala = token.escala || 1;
@@ -199,17 +174,6 @@ function TabletopGrid() {
                 estaSelecionado
             };
         });
-        
-        if (tokens.length > 0) {
-            console.log(`📊 Exemplo primeiro token:`, {
-                nome: tokens[0].nome,
-                posMundo: { x: tokens[0].x, y: tokens[0].y },
-                posTela: tokens[0].posicaoTela,
-                tamanhoTela: tokens[0].tamanhoTela.larguraTela.toFixed(0) + 'x' + tokens[0].tamanhoTela.alturaTela.toFixed(0)
-            });
-        }
-        
-        return tokens;
     }, [tokensState, uiState.zoom, uiState.position, uiState.visibilidadeTokens,
         uiState.tokensBloqueados, uiState.tokenSelecionado, uiState.tokensSelecionados]);
 
@@ -229,7 +193,6 @@ function TabletopGrid() {
             alpha: true
         });
 
-        console.log(`🖌️ [getCanvasContext] Novo contexto criado`);
         return contextRef.current;
     }, []);
 
@@ -301,6 +264,12 @@ function TabletopGrid() {
         desenharSelecao
     );
 
+    // Registra o callback de render no hook da névoa
+    useEffect(() => {
+        console.log('[TabletopGrid] Registrando callback de render');
+        fov.registrarCallbackRender(scheduleRender);
+    }, [fov, scheduleRender]);
+
     // Render principal
     const renderGridToCanvas = useCallback(() => {
         const canvas = canvasRef.current;
@@ -310,7 +279,6 @@ function TabletopGrid() {
         const rect = container.getBoundingClientRect();
 
         if (canvas.width !== rect.width || canvas.height !== rect.height) {
-            console.log(`📏 [render] Redimensionando canvas: ${rect.width} x ${rect.height}`);
             canvas.width = rect.width;
             canvas.height = rect.height;
         }
@@ -354,10 +322,11 @@ function TabletopGrid() {
 
             desenharSelecao(context, [tokenVirtual], uiState.zoom, 'individual', false);
         }
-        
-        console.log(`✅ [render] Frame renderizado, câmera: (${uiState.position.x.toFixed(0)}, ${uiState.position.y.toFixed(0)}) zoom: ${uiState.zoom.toFixed(2)}`);
+
+        // Desenha a névoa por cima de tudo
+        fov.renderizarNevoa(context, uiState.zoom, uiState.position);
     }, [tokensComInfo, drawGrid, drawTokenWithCache, getCanvasContext, uiState.areaSelecao,
-        uiState.tokensSelecionados, uiState.zoom, desenharSelecao]);
+        uiState.tokensSelecionados, uiState.zoom, desenharSelecao, fov]);
 
     useEffect(() => {
         renderGridToCanvasRef.current = renderGridToCanvas;
@@ -367,12 +336,20 @@ function TabletopGrid() {
     const { handleWheel, handleDragOver } = useEventosMouse(uiState, uiDispatch, containerRef, dragStartRef, restringirPosicao);
 
     const handleMouseDown = useCallback((event) => {
+        console.log('[handleMouseDown] Evento:', {
+            button: event.button,
+            modoDesenho: fov.modoDesenho,
+            x: event.clientX,
+            y: event.clientY
+        });
+
         if (uiState.ignoreMouseMove) {
             uiDispatch({ type: 'SET_IGNORE_MOUSE_MOVE', payload: false });
         }
 
-        // Botao direito
-        if (event.button === 2) {
+        // Se estiver em modo desenho com PINCEL (botão esquerdo)
+        if (fov.modoDesenho && event.button === 0) {
+            console.log('[handleMouseDown] Modo pincel detectado, iniciando desenho');
             event.preventDefault();
 
             const container = containerRef.current;
@@ -382,13 +359,51 @@ function TabletopGrid() {
             const mouseX = event.clientX - rect.left;
             const mouseY = event.clientY - rect.top;
 
+            fov.iniciarDesenho(mouseX, mouseY);
+            return;
+        }
+
+        // Botao direito - verifica PRIMEIRO se clicou em camada de névoa
+        if (event.button === 2) {
+            console.log('[handleMouseDown] Botão direito detectado');
+            event.preventDefault();
+
+            const container = containerRef.current;
+            if (!container) return;
+
+            const rect = container.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            // Converte para coordenadas do mundo
+            const { mundoX, mundoY } = converterMouseParaMundo(mouseX, mouseY);
+
+            // Verifica se clicou em alguma camada de névoa
+            const camada = fov.encontrarCamadaNaPosicao(mundoX, mundoY);
+            
+            if (camada) {
+                console.log('[handleMouseDown] Clicou em camada de névoa:', camada.id);
+                uiDispatch({
+                    type: 'OPEN_CONTEXT_MENU',
+                    payload: {
+                        aberto: true,
+                        x: event.clientX,
+                        y: event.clientY,
+                        tipo: 'nevoa',
+                        camadaId: camada.id,
+                        camada: camada
+                    }
+                });
+                return;
+            }
+
+            // Se não clicou em névoa, verifica se clicou em token
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'direito');
 
             if (tokenSobre) {
                 const tokenBloqueado = uiState.tokensBloqueados[tokenSobre.token.id] === true;
 
                 if (tokenBloqueado) {
-                    console.log(`🔒 [mouseDown] Token BLOQUEADO: ${tokenSobre.token.nome}`);
                     isRightClickDragRef.current = false;
 
                     uiDispatch({
@@ -404,7 +419,6 @@ function TabletopGrid() {
                         }
                     });
                 } else {
-                    console.log(`✅ [mouseDown] Token: ${tokenSobre.token.nome}`);
                     uiDispatch({
                         type: 'SET_MOUSE_DOWN_INFO',
                         payload: {
@@ -420,7 +434,7 @@ function TabletopGrid() {
                     uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: true } });
                 }
             } else {
-                console.log(`🗺️ [mouseDown] Iniciando arrasto do mapa`);
+                // Se não clicou em nada, inicia arrasto do mapa
                 uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
                 dragStartRef.current = {
                     x: event.clientX - uiState.position.x,
@@ -430,8 +444,9 @@ function TabletopGrid() {
             return;
         }
 
-        // Botao esquerdo
-        if (event.button === 0) {
+        // Botao esquerdo (só executa se NÃO estiver em modo desenho)
+        if (event.button === 0 && !fov.modoDesenho) {
+            console.log('[handleMouseDown] Botão esquerdo fora do modo desenho');
             const container = containerRef.current;
             if (!container) return;
 
@@ -443,7 +458,6 @@ function TabletopGrid() {
 
             // Grupo selecionado
             if (uiState.tokensSelecionados.length > 1) {
-                console.log(`👥 [mouseDown] Grupo selecionado: ${uiState.tokensSelecionados.length} tokens`);
                 const tokensSelecionadosInfo = uiState.tokensSelecionados
                     .map(indice => tokensComInfo[indice])
                     .filter(token => token && !token.bloqueado);
@@ -468,7 +482,6 @@ function TabletopGrid() {
                     );
 
                     if (tokenClicadoDoGrupo) {
-                        console.log(`🎯 [mouseDown] Movendo grupo`);
                         const primeiroTokenGrupo = tokensSelecionadosInfo[0];
 
                         const grupoTokenInfo = {
@@ -511,7 +524,6 @@ function TabletopGrid() {
                         mouseY <= areaBorda.y + areaBorda.height;
 
                     if (mouseNaBorda) {
-                        console.log(`📏 [mouseDown] Redimensionando grupo`);
                         // Bounding box em coordenadas de mundo
                         let minXMundo = Infinity, minYMundo = Infinity,
                             maxXMundo = -Infinity, maxYMundo = -Infinity;
@@ -588,7 +600,6 @@ function TabletopGrid() {
                     );
 
                     if (canto) {
-                        console.log(`📏 [mouseDown] Redimensionando token individual: ${token.nome}`);
                         resizeStartStateRef.current = {
                             tokenIndice: uiState.tokenSelecionado,
                             escalaInicial: token.escala || 1
@@ -625,7 +636,6 @@ function TabletopGrid() {
                 const tokenBloqueado = uiState.tokensBloqueados[tokenSobre.token.id] === true;
 
                 if (tokenBloqueado) {
-                    console.log(`🔒 [mouseDown] Token bloqueado: ${tokenSobre.token.nome}`);
                     uiDispatch({
                         type: 'SET_FEEDBACK',
                         payload: { message: 'Token bloqueado', type: 'warning' }
@@ -642,7 +652,6 @@ function TabletopGrid() {
                 );
 
                 if (canto) {
-                    console.log(`📏 [mouseDown] Redimensionando token: ${tokenSobre.token.nome}`);
                     resizeStartStateRef.current = {
                         tokenIndice: tokenSobre.indice,
                         escalaInicial: tokenSobre.token.escala || 1
@@ -674,7 +683,6 @@ function TabletopGrid() {
                     uiState.tokenSelecionado === tokenSobre.indice;
 
                 if (tokenJaSelecionado && uiState.tokensSelecionados.length > 0) {
-                    console.log(`🎯 [mouseDown] Movendo token já selecionado: ${tokenSobre.token.nome}`);
                     const novosTokens = trazerTokenParaFrente(tokensState, tokenSobre.indice);
                     setStateDirect(novosTokens);
 
@@ -708,7 +716,6 @@ function TabletopGrid() {
                     event.preventDefault();
                     return;
                 } else {
-                    console.log(`🎯 [mouseDown] Movendo token: ${tokenSobre.token.nome}`);
                     const novosTokens = trazerTokenParaFrente(tokensState, tokenSobre.indice);
                     setStateDirect(novosTokens);
 
@@ -743,7 +750,6 @@ function TabletopGrid() {
                     return;
                 }
             } else {
-                console.log(`🟦 [mouseDown] Clique em área vazia`);
                 uiDispatch({
                     type: 'SET_MOUSE_DOWN_INFO',
                     payload: {
@@ -760,7 +766,8 @@ function TabletopGrid() {
         }
     }, [uiState.tokenSelecionado, uiState.position, uiState.zoom, uiState.ignoreMouseMove,
         uiState.tokensBloqueados, uiState.tokensSelecionados, tokensState, tokensComInfo,
-        verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, setStateDirect, resizeStartStateRef, uiDispatch]);
+        verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, setStateDirect,
+        resizeStartStateRef, uiDispatch, fov, converterMouseParaMundo]);
 
     const handleMouseMove = useCallback((event) => {
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -775,9 +782,14 @@ function TabletopGrid() {
 
             if (uiState.ignoreMouseMove) return;
 
+            // Atualiza desenho da névoa se estiver desenhando
+            if (fov.modoDesenho && fov.desenhando) {
+                fov.atualizarDesenho(mouseX, mouseY);
+                return;
+            }
+
             // Inicia selecao por area
             if (uiState.mouseDownInfo?.isBlankArea && !uiState.ui.isSelectingArea && !uiState.ui.isDragging) {
-                console.log(`🔲 [mouseMove] Iniciando seleção por área`);
                 uiDispatch({
                     type: 'START_AREA_SELECTION',
                     payload: {
@@ -789,7 +801,6 @@ function TabletopGrid() {
 
             // Token bloqueado vira arrasto do mapa
             if (uiState.mouseDownInfo?.isBlocked && !uiState.ui.isDragging && !uiState.ui.isSelectingArea) {
-                console.log(`🗺️ [mouseMove] Token bloqueado -> arrasto do mapa`);
                 uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
                 dragStartRef.current = {
                     x: event.clientX - uiState.position.x,
@@ -887,11 +898,10 @@ function TabletopGrid() {
             }
         });
     }, [uiState, tokensState, tokensComInfo, tokenEstaNaAreaSelecao, restringirPosicao,
-        processarArrastoToken, processarRedimensionamento, setStateDirect, uiDispatch]);
+        processarArrastoToken, processarRedimensionamento, setStateDirect, uiDispatch, fov]);
 
     const finalizarArrasto = useCallback(() => {
         if (dragInProgressRef.current && (uiState.tokenSendoArrastado || uiState.tokensSelecionados.length > 0)) {
-            console.log(`🏁 [finalizarArrasto] Salvando movimento no histórico`);
             const novosTokens = [...tokensState];
             pushTokens(novosTokens);
 
@@ -914,7 +924,6 @@ function TabletopGrid() {
 
     const finalizarRedimensionamento = useCallback(() => {
         if (resizeInProgressRef.current && uiState.tokenRedimensionando) {
-            console.log(`🏁 [finalizarRedimensionamento] Salvando redimensionamento no histórico`);
             const novosTokens = [...tokensState];
             pushTokens(novosTokens);
             resizeInProgressRef.current = false;
@@ -922,14 +931,24 @@ function TabletopGrid() {
         }
     }, [tokensState, uiState.tokenRedimensionando, pushTokens, resizeStartStateRef]);
 
+    const handleDeleteCamada = useCallback((camadaId) => {
+        console.log('[handleDeleteCamada] Deletando camada:', camadaId);
+        fov.deletarCamada(camadaId);
+        uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
+    }, [fov]);
+
     const handleMouseUp = useCallback((event) => {
-        console.log(`🖱️ [mouseUp] Botão: ${event.button}`);
+        console.log('[handleMouseUp] Evento:', { button: event.button });
+        
+        // Finaliza desenho da névoa se estiver desenhando
+        if (fov.modoDesenho && fov.desenhando) {
+            fov.finalizarDesenho();
+        }
 
         // Botao direito
         if (event.button === 2) {
             if (uiState.mouseDownInfo?.isBlocked) {
                 if (!isRightClickDragRef.current) {
-                    console.log(`📋 [mouseUp] Abrindo menu de token bloqueado`);
                     const tokenSobre = uiState.mouseDownInfo.token;
                     uiDispatch({
                         type: 'SELECT_TOKEN',
@@ -951,7 +970,6 @@ function TabletopGrid() {
             }
 
             if (uiState.mouseDownInfo && uiState.ui.isClickingToken && uiState.mouseDownInfo.isRightClick && !uiState.mouseDownInfo.isBlocked) {
-                console.log(`📋 [mouseUp] Abrindo menu de token`);
                 const tokenSobre = uiState.mouseDownInfo.token;
 
                 uiDispatch({
@@ -978,12 +996,10 @@ function TabletopGrid() {
         // Botao esquerdo
         if (event.button === 0) {
             if (uiState.mouseDownInfo?.isBlankArea && !uiState.ui.isSelectingArea) {
-                console.log(`🟦 [mouseUp] Desselecionando tokens`);
                 uiDispatch({ type: 'SELECT_TOKEN', payload: null });
             }
 
             if (uiState.ui.isSelectingArea) {
-                console.log(`🔲 [mouseUp] Finalizando seleção por área`);
                 uiDispatch({ type: 'END_AREA_SELECTION' });
 
                 if (uiState.tokensSelecionados.length === 0) {
@@ -1015,19 +1031,16 @@ function TabletopGrid() {
 
         uiDispatch({ type: 'SET_MOUSE_DOWN_INFO', payload: null });
         uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: false } });
-    }, [uiState, finalizarArrasto, finalizarRedimensionamento, uiDispatch]);
+    }, [uiState, finalizarArrasto, finalizarRedimensionamento, uiDispatch, fov]);
 
     const handleDrop = useCallback((event) => {
-        console.log(`📥 [handleDrop] Drop detectado`);
         event.preventDefault();
         event.stopPropagation();
 
         try {
             const dados = JSON.parse(event.dataTransfer.getData('application/json'));
-            console.log(`📦 Dados do drop:`, dados);
 
             if (dados.origem !== 'grid' && dados.tipo === 'token') {
-                console.log(`✅ Token válido para adicionar à mesa`);
                 setModalOpen(false);
 
                 const rect = containerRef.current.getBoundingClientRect();
@@ -1043,19 +1056,15 @@ function TabletopGrid() {
                     escala: 1.0
                 };
 
-                console.log(`✨ Novo token criado em: (${novoToken.x.toFixed(0)}, ${novoToken.y.toFixed(0)})`);
-
                 const novosTokens = [...tokensState, novoToken];
                 pushTokens(novosTokens);
-                console.log(`📊 Total de tokens agora: ${novosTokens.length}`);
             }
         } catch (erro) {
-            console.log(`❌ Erro no drop:`, erro);
+            // Silencia erro
         }
     }, [tokensState, pushTokens, converterMouseParaMundo]);
 
     const handleUndo = useCallback(() => {
-        console.log(`↩️ [undo] canUndo: ${canUndo}`);
         if (!canUndo) {
             uiDispatch({
                 type: 'SET_FEEDBACK',
@@ -1091,7 +1100,6 @@ function TabletopGrid() {
     }, [canUndo, undo, uiDispatch, resizeStartStateRef]);
 
     const handleRedo = useCallback(() => {
-        console.log(`↪️ [redo] canRedo: ${canRedo}`);
         if (!canRedo) {
             uiDispatch({
                 type: 'SET_FEEDBACK',
@@ -1131,20 +1139,17 @@ function TabletopGrid() {
 
     // Efeitos
     useEffect(() => {
-        console.log(`🎨 [useEffect] Inicializando canvas`);
         getCanvasContext();
         return () => {
-            console.log(`🧹 [useEffect] Limpando canvas`);
             contextRef.current = null;
         };
     }, [getCanvasContext]);
 
     useEffect(() => {
-        console.log(`🔄 [useEffect] Agendando render`);
         scheduleRender();
     }, [tokensComInfo, uiState.tokenSendoArrastado, uiState.ui.usuarioInteragindo,
         uiState.tokenSelecionado, uiState.zoom, uiState.position, uiState.areaSelecao,
-        uiState.tokensSelecionados, scheduleRender]);
+        uiState.tokensSelecionados, scheduleRender, fov.camadasNevoa]);
 
     useEffect(() => {
         scheduleRender();
@@ -1152,7 +1157,6 @@ function TabletopGrid() {
 
     useEffect(() => {
         if (uiState.ui.mostrarFeedback) {
-            console.log(`💬 Feedback: ${uiState.ui.feedbackMessage}`);
             const timer = setTimeout(() => {
                 uiDispatch({ type: 'RESET_UI_FEEDBACK' });
             }, 500);
@@ -1171,14 +1175,11 @@ function TabletopGrid() {
         window.addEventListener('mouseup', handleMouseUp);
         container.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        console.log(`🎧 [useEffect] Event listeners configurados`);
-
         return () => {
             container.removeEventListener('wheel', handleWheel);
             container.removeEventListener('mousedown', handleMouseDown);
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
-            console.log(`🧹 [useEffect] Event listeners removidos`);
         };
     }, [handleWheel, handleMouseDown, handleMouseMove, handleMouseUp]);
 
@@ -1189,7 +1190,6 @@ function TabletopGrid() {
         const handleClickFora = (event) => {
             if (event.button === 2) return;
             if (menuRef.current && !menuRef.current.contains(event.target)) {
-                console.log(`❌ [menu] Fechando menu por clique fora`);
                 uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
             }
         };
@@ -1210,7 +1210,6 @@ function TabletopGrid() {
         const tokenIds = new Set(tokensState.map(t => t.id));
         for (const [id] of imageCache.current.entries()) {
             if (!tokenIds.has(id)) {
-                console.log(`🗑️ Removendo imagem do cache: ${id}`);
                 imageCache.current.delete(id);
             }
         }
@@ -1218,10 +1217,8 @@ function TabletopGrid() {
 
     // Sistema de drag and drop
     useEffect(() => {
-        console.log(`📦 [DragDrop] Registrando TabletopGrid`);
         DragDropSystem.register('TabletopGrid', containerRef.current, (dados, event) => {
             if (dados.tipo === 'token') {
-                console.log(`📥 [DragDrop] Callback recebido para token`);
                 setModalOpen(false);
 
                 const rect = containerRef.current.getBoundingClientRect();
@@ -1237,14 +1234,12 @@ function TabletopGrid() {
                     escala: 1.0
                 };
 
-                console.log(`✨ Token criado via DragDropSystem: ${novoToken.nome}`);
                 const novosTokens = [...tokensState, novoToken];
                 pushTokens(novosTokens);
             }
         });
 
         return () => {
-            console.log(`🧹 [DragDrop] Removendo TabletopGrid`);
             DragDropSystem.unregister('TabletopGrid');
         };
     }, [tokensState, pushTokens, converterMouseParaMundo]);
@@ -1259,20 +1254,20 @@ function TabletopGrid() {
     }, []);
 
     const handleDeleteToken = useCallback((tokenIndice) => {
-        console.log(`🗑️ [handleDeleteToken] Deletando token índice: ${tokenIndice}`);
+        console.log('[handleDeleteToken] Deletando token índice:', tokenIndice);
         const novosTokens = tokensState.filter((_, i) => i !== tokenIndice);
         pushTokens(novosTokens);
         uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
     }, [tokensState, pushTokens, uiDispatch]);
 
     const handleToggleVisibility = useCallback((tokenId) => {
-        console.log(`👁️ [handleToggleVisibility] Token: ${tokenId}`);
+        console.log('[handleToggleVisibility] Toggle visibilidade:', tokenId);
         uiDispatch({ type: 'TOGGLE_VISIBILITY', payload: tokenId });
         uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
     }, [uiDispatch]);
 
     const handleToggleLock = useCallback((tokenId) => {
-        console.log(`🔒 [handleToggleLock] Token: ${tokenId}`);
+        console.log('[handleToggleLock] Toggle lock:', tokenId);
         uiDispatch({ type: 'TOGGLE_LOCK', payload: tokenId });
         uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
 
@@ -1287,6 +1282,8 @@ function TabletopGrid() {
         });
     }, [uiState.tokensBloqueados, uiDispatch]);
 
+    console.log('[TabletopGrid] Renderizando com uiState.menuContexto:', uiState.menuContexto);
+
     return (
         <>
             <GridContainer
@@ -1295,17 +1292,18 @@ function TabletopGrid() {
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
             >
-                <BarraLateral onAbrirModal={() => {
-                    console.log(`📂 [BarraLateral] Abrindo modal`);
-                    setModalOpen(true);
-                }} />
+                <BarraLateral
+                    onAbrirModal={() => setModalOpen(true)}
+                    onAbrirModalNevoa={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        setMenuNevoaPosicao({ x: rect.right, y: rect.top });
+                        setMenuNevoaAberto(true);
+                    }}
+                />
                 <CanvasDesenho canvasRef={canvasRef} />
                 <TokenModal
                     open={modalOpen}
-                    onClose={() => {
-                        console.log(`❌ [TokenModal] Fechando modal`);
-                        setModalOpen(false);
-                    }}
+                    onClose={() => setModalOpen(false)}
                 />
             </GridContainer>
 
@@ -1314,17 +1312,34 @@ function TabletopGrid() {
                 aberto={uiState.menuContexto.aberto}
                 x={uiState.menuContexto.x}
                 y={uiState.menuContexto.y}
-                tokenNome={uiState.menuContexto.token?.nome || 'Token'}
-                tokenId={uiState.menuContexto.tokenId}
-                estaOculto={uiState.visibilidadeTokens[uiState.menuContexto.tokenId] === true}
-                estaBloqueado={uiState.tokensBloqueados[uiState.menuContexto.tokenId] === true}
-                onFechar={() => {
-                    console.log(`❌ [Menu] Fechando`);
-                    uiDispatch({ type: 'CLOSE_CONTEXT_MENU' });
+                tokenNome={uiState.menuContexto.tipo === 'nevoa' ? 'Camada de Névoa' : (uiState.menuContexto.token?.nome || 'Token')}
+                tokenId={uiState.menuContexto.tipo === 'nevoa' ? uiState.menuContexto.camadaId : uiState.menuContexto.tokenId}
+                estaOculto={uiState.menuContexto.tipo === 'nevoa' ? false : uiState.visibilidadeTokens[uiState.menuContexto.tokenId] === true}
+                estaBloqueado={uiState.menuContexto.tipo === 'nevoa' ? false : uiState.tokensBloqueados[uiState.menuContexto.tokenId] === true}
+                tipo={uiState.menuContexto.tipo || 'token'}
+                onFechar={() => uiDispatch({ type: 'CLOSE_CONTEXT_MENU' })}
+                onDeletar={() => {
+                    console.log('[MenuContextoToken] onDeletar chamado com tipo:', uiState.menuContexto.tipo);
+                    if (uiState.menuContexto.tipo === 'nevoa') {
+                        handleDeleteCamada(uiState.menuContexto.camadaId);
+                    } else {
+                        handleDeleteToken(uiState.menuContexto.tokenIndice);
+                    }
                 }}
-                onDeletar={() => handleDeleteToken(uiState.menuContexto.tokenIndice)}
                 onOcultar={() => handleToggleVisibility(uiState.menuContexto.tokenId)}
                 onBloquear={() => handleToggleLock(uiState.menuContexto.tokenId)}
+            />
+
+            <ModalNevoa
+                aberto={menuNevoaAberto}
+                onClose={() => setMenuNevoaAberto(false)}
+                posicao={menuNevoaPosicao}
+                ferramenta={fov.ferramenta}
+                setFerramenta={fov.setFerramenta}
+                ativarModoDesenho={() => fov.setModoDesenho(true)}
+                desativarModoDesenho={() => fov.setModoDesenho(false)}
+                limparTudo={fov.limparTudo}
+                desfazer={fov.desfazer}
             />
         </>
     );
