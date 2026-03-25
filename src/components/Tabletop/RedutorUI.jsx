@@ -1,3 +1,4 @@
+// src/components/Tabletop/RedutorUI.jsx
 import { clamp, MIN_ZOOM, MAX_ZOOM } from "./ConstantesMesa";
 
 export const initialUIState = {
@@ -7,6 +8,11 @@ export const initialUIState = {
     tokensSelecionados: [],
     tokenSendoArrastado: null,
     tokenRedimensionando: null,
+    // PROPRIEDADES PARA NÉVOA
+    camadaSelecionada: null,
+    camadasSelecionadas: [],
+    camadaSendoArrastada: null,
+    camadaRedimensionando: null,
     modoRedimensionamento: null,
     tamanhoInicialRedimensionamento: { largura: 0, altura: 0, escala: 1 },
     boundingBoxGrupo: null,
@@ -26,7 +32,10 @@ export const initialUIState = {
         y: 0,
         tokenIndice: null,
         tokenId: null,
-        token: null
+        token: null,
+        camadaId: null,
+        camada: null,
+        tipo: null
     },
     ui: {
         usuarioInteragindo: null,
@@ -39,7 +48,8 @@ export const initialUIState = {
     },
     mouseDownInfo: null,
     dragStartPosition: null,
-    ignoreMouseMove: false
+    ignoreMouseMove: false,
+    debugMode: false   // NOVA FLAG
 };
 
 export function uiReducer(state, action) {
@@ -50,6 +60,7 @@ export function uiReducer(state, action) {
         case 'SET_POSITION':
             return { ...state, position: action.payload };
 
+        // ===== AÇÕES PARA TOKENS =====
         case 'SELECT_TOKEN':
             if (action.payload === null) {
                 return {
@@ -92,7 +103,87 @@ export function uiReducer(state, action) {
                 offsetArrasto: { x: 0, y: 0 }
             };
 
+        // ===== AÇÕES PARA CAMADAS DE NÉVOA =====
+        case 'SELECT_CAMADA':
+            console.log('[Reducer] SELECT_CAMADA:', action.payload);
+            if (action.payload === null) {
+                return {
+                    ...state,
+                    camadaSelecionada: null,
+                    camadasSelecionadas: []
+                };
+            }
+            return {
+                ...state,
+                camadaSelecionada: action.payload,
+                camadasSelecionadas: [action.payload]
+            };
+
+        case 'SELECT_MULTIPLE_CAMADAS':
+            console.log('[Reducer] SELECT_MULTIPLE_CAMADAS:', action.payload);
+            return {
+                ...state,
+                camadasSelecionadas: action.payload,
+                camadaSelecionada: action.payload.length > 0 ? action.payload[0] : null
+            };
+
+        case 'START_CAMADA_DRAG':
+            console.log('[Reducer] START_CAMADA_DRAG:', action.payload);
+            if (!action.payload.camada) {
+                console.log('[Reducer] START_CAMADA_DRAG: sem camada');
+                return state;
+            }
+            return {
+                ...state,
+                camadaSendoArrastada: {
+                    camada: action.payload.camada,
+                    indice: action.payload.indice,
+                    offsetX: action.payload.offsetX,
+                    offsetY: action.payload.offsetY,
+                    mouseInicialX: action.payload.mouseInicialX,
+                    mouseInicialY: action.payload.mouseInicialY
+                }
+            };
+
+        case 'STOP_CAMADA_DRAG':
+            console.log('[Reducer] STOP_CAMADA_DRAG');
+            return {
+                ...state,
+                camadaSendoArrastada: null
+            };
+
+        case 'START_CAMADA_RESIZE':
+            console.log('[Reducer] START_CAMADA_RESIZE:', action.payload);
+            return {
+                ...state,
+                camadaRedimensionando: {
+                    camada: action.payload.camada,
+                    indice: action.payload.indice,
+                    canto: action.payload.canto,
+                    isGroupResize: action.payload.isGroupResize || false
+                },
+                modoRedimensionamento: action.payload.canto,
+                tamanhoInicialRedimensionamento: {
+                    largura: action.payload.camada.larguraOriginal,
+                    altura: action.payload.camada.alturaOriginal,
+                    escala: action.payload.camada.escala
+                },
+                offsetArrasto: action.payload.offset || { x: 0, y: 0 }
+            };
+
+        case 'STOP_CAMADA_RESIZE':
+            console.log('[Reducer] STOP_CAMADA_RESIZE');
+            return {
+                ...state,
+                camadaRedimensionando: null,
+                modoRedimensionamento: null,
+                tamanhoInicialRedimensionamento: { largura: 0, altura: 0, escala: 1 },
+                offsetArrasto: { x: 0, y: 0 }
+            };
+
+        // ===== AÇÕES COMPARTILHADAS (REDIMENSIONAMENTO) =====
         case 'START_RESIZE':
+            console.log('[Reducer] START_RESIZE:', action.payload);
             return {
                 ...state,
                 tokenRedimensionando: {
@@ -107,6 +198,7 @@ export function uiReducer(state, action) {
             };
 
         case 'STOP_RESIZE':
+            console.log('[Reducer] STOP_RESIZE');
             return {
                 ...state,
                 tokenRedimensionando: null,
@@ -135,9 +227,11 @@ export function uiReducer(state, action) {
             };
 
         case 'OPEN_CONTEXT_MENU':
+            console.log('[Reducer] OPEN_CONTEXT_MENU:', action.payload);
             return { ...state, menuContexto: action.payload };
 
         case 'CLOSE_CONTEXT_MENU':
+            console.log('[Reducer] CLOSE_CONTEXT_MENU');
             return {
                 ...state,
                 menuContexto: {
@@ -146,7 +240,10 @@ export function uiReducer(state, action) {
                     y: 0,
                     tokenIndice: null,
                     tokenId: null,
-                    token: null
+                    token: null,
+                    camadaId: null,
+                    camada: null,
+                    tipo: null
                 }
             };
 
@@ -229,6 +326,13 @@ export function uiReducer(state, action) {
             return {
                 ...state,
                 ignoreMouseMove: action.payload
+            };
+
+        // NOVA AÇÃO PARA DEBUG
+        case 'TOGGLE_DEBUG_MODE':
+            return {
+                ...state,
+                debugMode: !state.debugMode
             };
 
         default:

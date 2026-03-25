@@ -1,6 +1,60 @@
-// src/components/Tabletop/useSelecaoToken.jsx
+// components/Tabletop/useSelecaoToken.jsx
 import { useCallback } from "react";
 import { TOLERANCIA_CLIQUE } from "./ConstantesMesa";
+
+// ===== CONSTANTES EXPORTADAS PARA REUSO NO DESENHO =====
+// Agora em PIXELS NA TELA (fixo, não escala com zoom)
+export const CONFIG_BOLINHAS = {
+    TAMANHO_BOLINHA_TELA: 20,        // tamanho fixo em pixels na tela
+    DISTANCIA_EXTERNA_TELA: 4,      // distância fixa em pixels da borda do token
+    PADDING_DETECCAO_TELA: 4         // padding extra para detecção em pixels
+};
+
+// ===== FUNÇÃO PARA CALCULAR POSIÇÕES DAS BOLINHAS (AGORA COM TAMANHO FIXO NA TELA) =====
+export function calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, alturaTela, zoom) {
+    const { TAMANHO_BOLINHA_TELA, DISTANCIA_EXTERNA_TELA, PADDING_DETECCAO_TELA } = CONFIG_BOLINHAS;
+    
+    // Tamanhos fixos em pixels na tela (não escalam com zoom)
+    const raioBolinha = TAMANHO_BOLINHA_TELA / 2;
+    const distanciaExternaTela = DISTANCIA_EXTERNA_TELA;
+    const raioDetecao = raioBolinha + PADDING_DETECCAO_TELA;
+
+    const posicoes = [
+        { nome: 'SE', x: tokenTelaX + larguraTela + distanciaExternaTela, y: tokenTelaY + alturaTela + distanciaExternaTela },
+        { nome: 'SW', x: tokenTelaX - distanciaExternaTela, y: tokenTelaY + alturaTela + distanciaExternaTela },
+        { nome: 'NE', x: tokenTelaX + larguraTela + distanciaExternaTela, y: tokenTelaY - distanciaExternaTela },
+        { nome: 'NW', x: tokenTelaX - distanciaExternaTela, y: tokenTelaY - distanciaExternaTela }
+    ];
+
+    return {
+        posicoes,
+        raioBolinha,
+        raioDetecao,
+        distanciaExternaTela,
+        tamanhoBolinhaTela: TAMANHO_BOLINHA_TELA
+    };
+}
+
+// ===== FUNÇÃO PARA CALCULAR BOUNDING BOX DO GRUPO =====
+export function calcularBoundingBoxGrupo(itensSelecionados) {
+    if (!itensSelecionados || itensSelecionados.length === 0) return null;
+    
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    
+    itensSelecionados.forEach((item) => {
+        minX = Math.min(minX, item.posicaoTela.x);
+        minY = Math.min(minY, item.posicaoTela.y);
+        maxX = Math.max(maxX, item.posicaoTela.x + item.tamanhoTela.larguraTela);
+        maxY = Math.max(maxY, item.posicaoTela.y + item.tamanhoTela.alturaTela);
+    });
+    
+    return {
+        x: minX,
+        y: minY,
+        largura: maxX - minX,
+        altura: maxY - minY
+    };
+}
 
 export function useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeMouseEstaDentro) {
     const verificarSeMouseSobreToken = useCallback((mouseX, mouseY, modo = 'esquerdo') => {
@@ -57,28 +111,31 @@ export function useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeM
     }, [tokensComInfo, tokensState, calcularSeMouseEstaDentro]);
 
     const verificarSeMousePodeRedimensionar = useCallback((mouseX, mouseY, tokenTelaX, tokenTelaY, larguraTela, alturaTela, tokenBloqueado) => {
-        if (tokenBloqueado) return null;
+        const DEBUG = false;
+        
+        if (tokenBloqueado) {
+            return null;
+        }
 
-        const TAMANHO_BOLINHA = Math.max(8, 16 * uiState.zoom);
-        const DISTANCIA_EXTERNA = Math.max(4, 8 * Math.min(uiState.zoom, 1));
-        const RAIO = TAMANHO_BOLINHA / 2;
+        const { posicoes, raioDetecao } = calcularPosicoesBolinhas(
+            tokenTelaX, tokenTelaY, larguraTela, alturaTela, uiState.zoom
+        );
 
-        const DETECT_MULTIPLIER = 1.5;
-        const DETECT_RAIO = RAIO * DETECT_MULTIPLIER;
-
-        const posicoes = [
-            { nome: 'se', x: tokenTelaX + larguraTela + DISTANCIA_EXTERNA, y: tokenTelaY + alturaTela + DISTANCIA_EXTERNA },
-            { nome: 'sw', x: tokenTelaX - DISTANCIA_EXTERNA, y: tokenTelaY + alturaTela + DISTANCIA_EXTERNA },
-            { nome: 'ne', x: tokenTelaX + larguraTela + DISTANCIA_EXTERNA, y: tokenTelaY - DISTANCIA_EXTERNA },
-            { nome: 'nw', x: tokenTelaX - DISTANCIA_EXTERNA, y: tokenTelaY - DISTANCIA_EXTERNA }
-        ];
+        if (DEBUG) {
+            console.log('[verificarSeMousePodeRedimensionar] posições:', posicoes);
+            console.log('[verificarSeMousePodeRedimensionar] raioDetecao:', raioDetecao);
+        }
 
         for (const bolinha of posicoes) {
-            if (mouseX >= (bolinha.x - DETECT_RAIO) && mouseX <= (bolinha.x + DETECT_RAIO) &&
-                mouseY >= (bolinha.y - DETECT_RAIO) && mouseY <= (bolinha.y + DETECT_RAIO)) {
+            const dx = mouseX - bolinha.x;
+            const dy = mouseY - bolinha.y;
+            const distancia = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distancia <= raioDetecao) {
                 return bolinha.nome;
             }
         }
+
         return null;
     }, [uiState.zoom]);
 
@@ -98,5 +155,10 @@ export function useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeM
         return !(tokenX2 < x1 || tokenX1 > x2 || tokenY2 < y1 || tokenY1 > y2);
     }, []);
 
-    return { verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, tokenEstaNaAreaSelecao };
+    return { 
+        verificarSeMouseSobreToken, 
+        verificarSeMousePodeRedimensionar, 
+        tokenEstaNaAreaSelecao,
+        calcularBoundingBoxGrupo
+    };
 }

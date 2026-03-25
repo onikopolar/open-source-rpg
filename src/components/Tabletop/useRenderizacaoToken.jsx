@@ -49,15 +49,37 @@ export function useRenderizacaoToken(
             context.globalAlpha = 0.3;
         }
 
-        context.drawImage(
-            img,
-            token.posicaoTela.x,
-            token.posicaoTela.y,
-            token.tamanhoTela.larguraTela,
-            token.tamanhoTela.alturaTela
-        );
+        // ===== LÓGICA DE INVERSÃO =====
+        const x = token.posicaoTela.x;
+        const y = token.posicaoTela.y;
+        const largura = token.tamanhoTela.larguraTela;
+        const altura = token.tamanhoTela.alturaTela;
+
+        if (token.invertido) {
+            // Salva o estado atual do contexto
+            context.save();
+            
+            // Move o contexto para o centro do token
+            context.translate(x + largura / 2, y + altura / 2);
+            
+            // Aplica inversão horizontal (escala -1 no eixo X)
+            context.scale(-1, 1);
+            
+            // Move de volta para a posição original
+            context.translate(-(x + largura / 2), -(y + altura / 2));
+            
+            // Desenha a imagem invertida
+            context.drawImage(img, x, y, largura, altura);
+            
+            // Restaura o contexto original
+            context.restore();
+        } else {
+            // Desenha normalmente
+            context.drawImage(img, x, y, largura, altura);
+        }
 
         context.globalAlpha = 1.0;
+        
         return true;
     }, [uiState.zoom, scheduleRender, desenharFallbackToken]);
 

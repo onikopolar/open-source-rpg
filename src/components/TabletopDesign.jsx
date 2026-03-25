@@ -1,13 +1,9 @@
 // components/TabletopDesign.jsx
-import React from "react";  
+import React from "react";
 import { Box } from "@mui/material";
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import DeleteIcon from '@mui/icons-material/Delete';
-import LockIcon from '@mui/icons-material/Lock';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
 import BrushIcon from '@mui/icons-material/Brush';
+import { calcularPosicoesBolinhas } from "./Tabletop/useSelecaoToken";
 
 // FUNÇÕES DE DESENHO
 
@@ -37,135 +33,83 @@ export function desenharBordaDeArrasto(ctx, x, y, largura, altura, nomeUsuario) 
     ctx.restore();
 }
 
-// FUNÇÃO ÚNICA PARA DESENHAR SELEÇÃO (SUBSTITUI desenharAreaSelecao E desenharBordaGrupoSelecionado)
-export function desenharSelecao(ctx, tokensSelecionados, zoom, tipoSelecao = 'individual', semFundo = false) {
-    if (!tokensSelecionados || tokensSelecionados.length === 0) return;
+// FUNÇÃO PARA DESENHAR SELEÇÃO (MESMO ESTILO PARA INDIVIDUAL E GRUPO)
+export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, semFundo = false) {
+    if (!boundingBox) return;
 
     ctx.save();
 
-    let minX, minY, maxX, maxY;
-    let boundingBox = { x: 0, y: 0, largura: 0, altura: 0 };
+    const padding = 4;
+    const x = boundingBox.x - padding;
+    const y = boundingBox.y - padding;
+    const width = boundingBox.largura + (padding * 2);
+    const height = boundingBox.altura + (padding * 2);
 
-    if (tipoSelecao === 'grupo' && tokensSelecionados.length > 1) {
-        minX = Infinity;
-        minY = Infinity;
-        maxX = -Infinity;
-        maxY = -Infinity;
-
-        tokensSelecionados.forEach(token => {
-            minX = Math.min(minX, token.posicaoTela.x);
-            minY = Math.min(minY, token.posicaoTela.y);
-            maxX = Math.max(maxX, token.posicaoTela.x + token.tamanhoTela.larguraTela);
-            maxY = Math.max(maxY, token.posicaoTela.y + token.tamanhoTela.alturaTela);
-        });
-
-        boundingBox = {
-            x: minX,
-            y: minY,
-            largura: maxX - minX,
-            altura: maxY - minY
-        };
-    } else {
-        const token = tokensSelecionados[0];
-        minX = token.posicaoTela.x;
-        minY = token.posicaoTela.y;
-        maxX = token.posicaoTela.x + token.tamanhoTela.larguraTela;
-        maxY = token.posicaoTela.y + token.tamanhoTela.alturaTela;
-
-        boundingBox = {
-            x: minX,
-            y: minY,
-            largura: maxX - minX,
-            altura: maxY - minY
-        };
-    }
-
-    const padding = (tipoSelecao === 'grupo' && tokensSelecionados.length > 1) ? 8 : 4;
-    const x = minX - padding;
-    const y = minY - padding;
-    const width = (maxX - minX) + (padding * 2);
-    const height = (maxY - minY) + (padding * 2);
-
-    // Só desenha o fundo se não for semFundo
+    // Fundo semitransparente azul
     if (!semFundo) {
         ctx.fillStyle = 'rgba(0, 123, 255, 0.15)';
         ctx.fillRect(x, y, width, height);
     }
 
+    // Borda azul sólida
     ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
-    ctx.lineWidth = (tipoSelecao === 'grupo' && tokensSelecionados.length > 1) ? 2 : 3;
-
-    if (tipoSelecao === 'grupo' && tokensSelecionados.length > 1) {
-        ctx.setLineDash([5, 3]);
-    } else {
-        ctx.setLineDash([]);
-    }
-
-    ctx.strokeRect(x, y, width, height);
+    ctx.lineWidth = 3;
     ctx.setLineDash([]);
+    ctx.strokeRect(x, y, width, height);
 
-    // Desenha os cantos para TODOS os tipos de seleção (individual OU grupo)
+    // Cantos decorativos azuis
     const tamanhoCanto = 8;
     ctx.fillStyle = 'rgba(0, 123, 255, 0.9)';
-
     ctx.fillRect(x - 2, y - 2, tamanhoCanto, tamanhoCanto);
     ctx.fillRect(x + width - tamanhoCanto + 2, y - 2, tamanhoCanto, tamanhoCanto);
     ctx.fillRect(x - 2, y + height - tamanhoCanto + 2, tamanhoCanto, tamanhoCanto);
     ctx.fillRect(x + width - tamanhoCanto + 2, y + height - tamanhoCanto + 2, tamanhoCanto, tamanhoCanto);
 
+    // Texto informativo
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     ctx.shadowBlur = 4;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
 
-    if (tokensSelecionados.length > 1) {
-        ctx.fillText(`${tokensSelecionados.length} tokens selecionados`, x + width / 2, y - 10);
+    if (quantidadeItens > 1) {
+        ctx.fillText(`${quantidadeItens} itens selecionados`, x + width / 2, y - 10);
     } else {
         ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + 5, y - 5);
     }
 
-    // Desenha as bolinhas de redimensionamento para TODOS os tipos de seleção
-    // Verifica se o token não está bloqueado (para grupo, verifica se nenhum está bloqueado)
-    let podeRedimensionar = true;
-    if (tipoSelecao === 'grupo' && tokensSelecionados.length > 1) {
-        // Para grupo, verifica se ALGUM token está bloqueado
-        podeRedimensionar = !tokensSelecionados.some(token => token.bloqueado === true);
-    } else {
-        // Para individual, verifica o primeiro token
-        const primeiroToken = tokensSelecionados[0];
-        podeRedimensionar = primeiroToken && primeiroToken.bloqueado !== undefined ? !primeiroToken.bloqueado : true;
-    }
-
-    if (podeRedimensionar) {
-        desenharBolinhasRedimensionamento(ctx, boundingBox.x, boundingBox.y, boundingBox.largura, boundingBox.altura, zoom);
-    }
+    // Bolinhas de redimensionamento
+    desenharBolinhasRedimensionamento(ctx, boundingBox.x, boundingBox.y, boundingBox.largura, boundingBox.altura, zoom);
 
     ctx.restore();
 }
 
-// FUNÇÃO PARA DESENHAR BOLINHAS DE REDIMENSIONAMENTO EM TOKENS INDIVIDUAIS
+// FUNÇÃO PARA DESENHAR BOLINHAS DE REDIMENSIONAMENTO
 export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zoom) {
     ctx.save();
 
-    const TAMANHO_BOLINHA = Math.max(8, 16 * zoom);
-    const DISTANCIA_EXTERNA = Math.max(4, 8 * Math.min(zoom, 1));
-    const RAIO = TAMANHO_BOLINHA / 2;
-
-    const posicoes = [
-        { x: x + largura + DISTANCIA_EXTERNA, y: y + altura + DISTANCIA_EXTERNA },
-        { x: x - DISTANCIA_EXTERNA, y: y + altura + DISTANCIA_EXTERNA },
-        { x: x + largura + DISTANCIA_EXTERNA, y: y - DISTANCIA_EXTERNA },
-        { x: x - DISTANCIA_EXTERNA, y: y - DISTANCIA_EXTERNA }
-    ];
+    const { posicoes, raioBolinha } = calcularPosicoesBolinhas(x, y, largura, altura, zoom);
 
     posicoes.forEach((pos) => {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 3;
+        
         ctx.beginPath();
-        ctx.arc(pos.x, pos.y, RAIO, 0, Math.PI * 2);
+        ctx.arc(pos.x, pos.y, raioBolinha, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.fill();
         ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(0, 123, 255, 0.8)';
+        ctx.lineWidth = 2;
+        const tamanhoMais = raioBolinha * 0.5;
+        ctx.moveTo(pos.x - tamanhoMais, pos.y);
+        ctx.lineTo(pos.x + tamanhoMais, pos.y);
+        ctx.moveTo(pos.x, pos.y - tamanhoMais);
+        ctx.lineTo(pos.x, pos.y + tamanhoMais);
         ctx.stroke();
     });
 
@@ -186,7 +130,7 @@ export function desenharFallbackToken(ctx, x, y, zoomAtual, nomeToken) {
 
 // COMPONENTES DE UI
 
-// Barra lateral de ferramentas (AGORA COM BOTÃO DA NÉVOA)
+// Barra lateral de ferramentas
 export function BarraLateral({ onAbrirModal, onAbrirModalNevoa }) {
     return (
         <Box sx={{
@@ -208,7 +152,6 @@ export function BarraLateral({ onAbrirModal, onAbrirModalNevoa }) {
                 flexDirection: 'column',
                 alignItems: 'center'
             }}>
-                {/* Botão da biblioteca (existente) */}
                 <button
                     onClick={onAbrirModal}
                     style={{
@@ -231,7 +174,6 @@ export function BarraLateral({ onAbrirModal, onAbrirModalNevoa }) {
                     <PersonAddIcon fontSize="small" />
                 </button>
 
-                {/* NOVO: Botão da névoa */}
                 <button
                     onClick={onAbrirModalNevoa}
                     style={{
@@ -296,174 +238,3 @@ export function CanvasDesenho({ canvasRef }) {
         />
     );
 }
-
-// Menu de contexto pra opções do token (AGORA TAMBÉM PARA NÉVOA)
-export const MenuContextoToken = React.forwardRef(({
-    x, y, aberto, onFechar, onDeletar, onOcultar, onBloquear, 
-    tokenNome, estaOculto, estaBloqueado, tipo = 'token' // 'token' ou 'nevoa'
-}, ref) => {
-    console.log('[MenuContextoToken] Renderizando com props:', {
-        aberto,
-        x,
-        y,
-        tipo,
-        tokenNome,
-        estaOculto,
-        estaBloqueado,
-        temOnDeletar: !!onDeletar,
-        temOnOcultar: !!onOcultar,
-        temOnBloquear: !!onBloquear
-    });
-
-    if (!aberto) {
-        console.log('[MenuContextoToken] Menu fechado, não renderizando');
-        return null;
-    }
-
-    const textoOcultar = estaOculto ? "Mostrar (todos veem)" : "Ocultar (só eu vejo)";
-    const textoBloquear = estaBloqueado ? "Desbloquear token" : "Bloquear token";
-    const isNevoa = tipo === 'nevoa';
-
-    console.log('[MenuContextoToken] Renderizando menu:', {
-        isNevoa,
-        textoOcultar: isNevoa ? 'ocultado' : textoOcultar,
-        textoBloquear: isNevoa ? (estaBloqueado ? 'Desbloquear camada' : 'Bloquear camada') : textoBloquear
-    });
-
-    return (
-        <div
-            ref={ref}
-            style={{
-                position: 'fixed',
-                top: y,
-                left: x,
-                backgroundColor: '#2a2a2a',
-                border: '1px solid #444',
-                borderRadius: '4px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
-                zIndex: 1000,
-                minWidth: '180px'
-            }}
-        >
-            <div style={{
-                padding: '8px 12px',
-                borderBottom: '1px solid #444',
-                color: '#aaa',
-                fontSize: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-            }}>
-                <span style={{ color: '#fff', fontWeight: 'bold' }}>
-                    {isNevoa ? 'Camada de Névoa' : tokenNome}
-                </span>
-            </div>
-
-            {/* SÓ OCULTA A OPÇÃO DE OCULTAR QUANDO FOR NÉVOA */}
-            {!isNevoa && (
-                <button
-                    onClick={() => {
-                        console.log('[MenuContextoToken] Botão Ocultar clicado');
-                        onOcultar();
-                        onFechar();
-                    }}
-                    style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        borderBottom: '1px solid #333',
-                        color: '#fff',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                    {estaOculto ? (
-                        <VisibilityOffIcon sx={{ fontSize: 18 }} />
-                    ) : (
-                        <VisibilityIcon sx={{ fontSize: 18 }} />
-                    )}
-                    {textoOcultar}
-                </button>
-            )}
-
-            {/* BLOQUEAR/DESBLOQUEAR - sempre disponível (para névoa pode travar a camada) */}
-            <button
-                onClick={() => {
-                    console.log('[MenuContextoToken] Botão Bloquear clicado');
-                    onBloquear();
-                    onFechar();
-                }}
-                style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    borderBottom: '1px solid #333',
-                    color: estaBloqueado ? '#4caf50' : '#f9c371ff',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px'
-                }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#3a3a3a';
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-            >
-                {estaBloqueado ? (
-                    <LockOpenIcon sx={{ fontSize: 18, color: '#4caf50' }} />
-                ) : (
-                    <LockIcon sx={{ fontSize: 18, color: '#ffa726' }} />
-                )}
-                {isNevoa 
-                    ? (estaBloqueado ? 'Desbloquear camada' : 'Bloquear camada')
-                    : textoBloquear
-                }
-            </button>
-
-            {/* DELETAR - sempre disponível */}
-            <button
-                onClick={() => {
-                    console.log('[MenuContextoToken] Botão Deletar clicado');
-                    onDeletar();
-                    onFechar();
-                }}
-                style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    color: '#ff6b6b',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px'
-                }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#3a3a3a';
-                    e.currentTarget.style.color = '#ff8a8a';
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#ff6b6b';
-                }}
-            >
-                <DeleteIcon sx={{ fontSize: 18 }} />
-                {isNevoa ? 'Deletar camada' : 'Deletar token'}
-            </button>
-        </div>
-    );
-});

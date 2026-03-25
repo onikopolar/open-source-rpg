@@ -18,32 +18,12 @@ export function useRedimensionamentoToken() {
         isGroupResize = false,
         indicesGrupo = []
     ) => {
-        console.log('========== PROCESSAR REDIMENSIONAMENTO INICIADO ==========');
-        console.log('Dados de entrada:', {
-            mouseX,
-            mouseY,
-            tokenRedimensionando: tokenRedimensionando ? {
-                indice: tokenRedimensionando.indice,
-                isGroupResize: tokenRedimensionando.isGroupResize
-            } : null,
-            modoRedimensionamento,
-            tamanhoInicial,
-            boundingBoxGrupo,
-            tokensAtuais: tokensAtuais?.length,
-            zoom,
-            position,
-            isGroupResize,
-            indicesGrupo
-        });
+        // Normaliza o modo para minúsculas (o calcularNovaEscalaToken espera minúsculas)
+        const modoLower = modoRedimensionamento?.toLowerCase();
 
         if (isGroupResize && indicesGrupo.length > 0) {
-            console.log('CASO: REDIMENSIONAMENTO DE GRUPO');
-            console.log('Índices do grupo:', indicesGrupo);
-
             // PRIMEIRO FRAME - Salvar estado inicial
             if (!resizeStartStateRef.current) {
-                console.log('Primeiro frame - salvando estado inicial...');
-
                 // Calcular bounding box do grupo
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
@@ -58,7 +38,6 @@ export function useRedimensionamentoToken() {
                 });
 
                 if (minX === Infinity || minY === Infinity || maxX === -Infinity || maxY === -Infinity) {
-                    console.log('ERRO: Não foi possível calcular o bounding box do grupo');
                     return tokensAtuais;
                 }
 
@@ -92,7 +71,6 @@ export function useRedimensionamentoToken() {
                     tokens: estadoInicialTokens
                 };
 
-                console.log('Estado inicial salvo:', resizeStartStateRef.current);
                 return tokensAtuais;
             }
 
@@ -100,7 +78,6 @@ export function useRedimensionamentoToken() {
             const estadoInicial = resizeStartStateRef.current;
 
             if (!estadoInicial || !estadoInicial.boundingBox) {
-                console.log('ERRO: Estado inicial inválido');
                 resizeStartStateRef.current = null;
                 return tokensAtuais;
             }
@@ -110,21 +87,19 @@ export function useRedimensionamentoToken() {
                 mundoX: (mouseX - position.x) / zoom,
                 mundoY: (mouseY - position.y) / zoom
             };
-            console.log('Coordenadas mundo:', mundo);
 
             if (isNaN(mundo.mundoX) || isNaN(mundo.mundoY)) {
-                console.log('ERRO: Coordenadas mundo inválidas');
                 return tokensAtuais;
             }
             
-            // Calcular a nova escala usando a função utilitária
+            // Calcular a nova escala usando a função utilitária (com modo em minúsculas)
             const escalaCalculada = calcularNovaEscalaToken(
                 mundo.mundoX, mundo.mundoY,
                 estadoInicial.boundingBox.x, 
                 estadoInicial.boundingBox.y,
                 estadoInicial.boundingBox.width,
                 estadoInicial.boundingBox.height,
-                modoRedimensionamento,
+                modoLower,
                 { 
                     largura: estadoInicial.boundingBox.width, 
                     altura: estadoInicial.boundingBox.height 
@@ -132,17 +107,9 @@ export function useRedimensionamentoToken() {
                 4 // escalaMaxima = 4
             );
 
-            console.log('Escala calculada via utilitário:', {
-                escalaCalculada,
-                direcao: escalaCalculada > 1 ? 'AUMENTANDO' : (escalaCalculada < 1 ? 'DIMINUINDO' : 'MANTENDO')
-            });
-
             if (isNaN(escalaCalculada) || escalaCalculada <= 0) {
-                console.log('ERRO: Escala calculada inválida');
                 return tokensAtuais;
             }
-
-            console.log('Aplicando transformação aos tokens do grupo...');
 
             const novosTokens = [...tokensAtuais];
 
@@ -160,23 +127,6 @@ export function useRedimensionamentoToken() {
                     // Nova escala (escala original * fator de escala)
                     const novaEscala = tokenInicial.escala * escalaCalculada;
 
-                    console.log(`Token ${indice}:`, {
-                        antes: {
-                            x: tokenInicial.x.toFixed(2),
-                            y: tokenInicial.y.toFixed(2),
-                            escala: tokenInicial.escala.toFixed(4)
-                        },
-                        rel: {
-                            x: relX.toFixed(2),
-                            y: relY.toFixed(2)
-                        },
-                        depois: {
-                            x: novoX.toFixed(2),
-                            y: novoY.toFixed(2),
-                            escala: novaEscala.toFixed(4)
-                        }
-                    });
-
                     novosTokens[indice] = {
                         ...novosTokens[indice],
                         x: novoX,
@@ -186,31 +136,19 @@ export function useRedimensionamentoToken() {
                 }
             });
 
-            console.log('Redimensionamento de grupo concluído com sucesso');
-            console.log('========== FIM PROCESSAR REDIMENSIONAMENTO ==========\n');
             return novosTokens;
         }
 
-        console.log('CASO: REDIMENSIONAMENTO INDIVIDUAL');
-
         if (!tokenRedimensionando || !tokenRedimensionando.token) {
-            console.log('Token inválido para redimensionamento individual');
             return tokensAtuais;
         }
-
-        console.log('Token sendo redimensionado:', {
-            indice: tokenRedimensionando.indice,
-            token: tokenRedimensionando.token
-        });
 
         const mundo = {
             mundoX: (mouseX - position.x) / zoom,
             mundoY: (mouseY - position.y) / zoom
         };
-        console.log('Coordenadas mundo:', mundo);
 
         if (isNaN(mundo.mundoX) || isNaN(mundo.mundoY)) {
-            console.log('ERRO: Coordenadas mundo inválidas');
             return tokensAtuais;
         }
 
@@ -218,40 +156,27 @@ export function useRedimensionamentoToken() {
         const tokenAtual = tokensAtuais[tokenRedimensionando.indice];
 
         if (!tokenAtual) {
-            console.log('Token atual não encontrado');
             return tokensAtuais;
         }
 
-        console.log('Calculando nova escala para token individual...');
         const novaEscala = calcularNovaEscalaToken(
             mundo.mundoX, mundo.mundoY,
             tokenAtual.x, tokenAtual.y,
             tokenAtual.larguraOriginal || 50,
             tokenAtual.alturaOriginal || 50,
-            modoRedimensionamento,
+            modoLower,
             tamanhoInicial
         );
 
-        console.log('Nova escala calculada:', novaEscala);
-
         if (isNaN(novaEscala)) {
-            console.log('novaEscala inválida');
             return tokensAtuais;
         }
-
-        console.log(`Token ${tokenRedimensionando.indice}:`, {
-            antes: { escala: tokenAtual.escala.toFixed(4) },
-            depois: { escala: novaEscala.toFixed(4) },
-            mudanca: (novaEscala - tokenAtual.escala).toFixed(4)
-        });
 
         novosTokens[tokenRedimensionando.indice] = {
             ...novosTokens[tokenRedimensionando.indice],
             escala: novaEscala
         };
 
-        console.log('Redimensionamento individual concluído');
-        console.log('========== FIM PROCESSAR REDIMENSIONAMENTO ==========\n');
         return novosTokens;
     }, []);
 
