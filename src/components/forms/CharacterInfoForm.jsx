@@ -12,7 +12,7 @@ const CharacterInfoForm = ({
 }) => {
   const [saveStatus, setSaveStatus] = useState('');
   const [lastSaved, setLastSaved] = useState(null);
-  
+
   const getInitialValues = () => ({
     name: character?.name || '',
     player_name: character?.player_name || '',
@@ -32,21 +32,21 @@ const CharacterInfoForm = ({
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
     try {
       console.log('Enviando dados para API:', values);
-      
+
       const dataToSend = {
         ...values,
         age: values.age ? values.age : null
       };
-      
+
       await onSubmit(dataToSend);
-      
+
       setSaveStatus('success');
       setLastSaved(new Date());
-      
+
       if (onSuccess) {
         onSuccess();
       }
-      
+
     } catch (error) {
       console.error('Erro ao salvar informações:', error);
       setSaveStatus('error');
@@ -87,7 +87,7 @@ const CharacterInfoForm = ({
                 </Alert>
               </Grid>
             )}
-            
+
             {saveStatus === 'error' && (
               <Grid item xs={12}>
                 <Alert severity="error">
@@ -110,7 +110,7 @@ const CharacterInfoForm = ({
                 placeholder="Seu nome real"
               />
             </Grid>
-            
+
             <Grid item xs={12}>
               <TextField
                 variant="outlined"
@@ -125,7 +125,7 @@ const CharacterInfoForm = ({
                 required
               />
             </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <TextField
                 type="number"
@@ -138,15 +138,15 @@ const CharacterInfoForm = ({
                 onBlur={handleBlur}
                 error={touched.age && Boolean(errors.age)}
                 helperText={touched.age && errors.age}
-                inputProps={{ 
-                  min: 0, 
+                inputProps={{
+                  min: 0,
                   max: 1000,
                   step: 1
                 }}
                 placeholder="0"
               />
             </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <TextField
                 variant="outlined"
@@ -161,11 +161,11 @@ const CharacterInfoForm = ({
                 placeholder="Masculino, Feminino, Não-binário, etc."
               />
             </Grid>
-            
+
             <Grid item xs={12}>
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
+              <Box sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 gap: 2,
                 flexWrap: 'wrap'
@@ -176,19 +176,32 @@ const CharacterInfoForm = ({
                       Há alterações não salvas
                     </Alert>
                   )}
-                  
+
                   {lastSaved && !dirty && (
                     <Typography variant="body2" color="text.secondary">
                       {formatLastSaved()}
                     </Typography>
                   )}
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   {isSubmitting && (
                     <Loader size={30} />
                   )}
-                  
+
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={() => {
+                      // Pegar o ID do personagem via prop
+                      window.location.href = `/Tabletop?sheetId=${character.id}`;
+                    }}
+                    size="large"
+                    sx={{ minWidth: 160 }}
+                  >
+                    Modo Tabletop
+                  </Button>
+
                   <Button
                     variant="contained"
                     type="submit"

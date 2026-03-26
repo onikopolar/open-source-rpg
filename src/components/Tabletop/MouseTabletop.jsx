@@ -131,12 +131,6 @@ export function useMouseTabletop({
                     nome: 'Névoa'
                 };
 
-                console.log(`🔍 [MouseDown] Névoa: verificando redimensionamento`);
-                console.log(`   mouse (tela): (${mouseX.toFixed(2)}, ${mouseY.toFixed(2)})`);
-                console.log(`   posicaoTela: (${itemComInfo.posicaoTela.x.toFixed(2)}, ${itemComInfo.posicaoTela.y.toFixed(2)})`);
-                console.log(`   tamanhoTela: (${itemComInfo.tamanhoTela.larguraTela.toFixed(2)}, ${itemComInfo.tamanhoTela.alturaTela.toFixed(2)})`);
-                console.log(`   zoom: ${uiState.zoom.toFixed(4)}`);
-
                 const canto = verificarSeMousePodeRedimensionar(
                     mouseX, mouseY,
                     itemComInfo.posicaoTela.x,
@@ -146,10 +140,7 @@ export function useMouseTabletop({
                     false
                 );
 
-                console.log(`   canto retornado: ${canto || 'null'}`);
-
                 if (canto) {
-                    console.log(`✅ [MouseDown] INICIANDO REDIMENSIONAMENTO NÉVOA: canto=${canto}, indice=${indiceCamada}`);
                     uiDispatch({
                         type: 'START_RESIZE',
                         payload: {
@@ -168,7 +159,6 @@ export function useMouseTabletop({
                             isGroupResize: false
                         }
                     });
-                    console.log(`   Após dispatch, uiState.camadaRedimensionando = ${!!uiState.camadaRedimensionando}`);
                     event.preventDefault();
                     return;
                 }
@@ -197,15 +187,13 @@ export function useMouseTabletop({
                     }
                 });
 
-                console.log(`🚀 [MouseDown] START_DRAG NÉVOA enviado, indice=${indiceCamada}`);
-
                 isDraggingRef.current = true;
                 dragInProgressRef.current = true;
                 event.preventDefault();
                 return;
             }
 
-            // ===== LÓGICA DE TOKENS (idêntica ao original, com logs estratégicos) =====
+            // ===== LÓGICA DE TOKENS =====
 
             // Grupo selecionado
             if (uiState.tokensSelecionados.length > 1) {
@@ -300,7 +288,6 @@ export function useMouseTabletop({
                             isGroupResize: true
                         };
 
-                        console.log(`🔍 [MouseDown] REDIMENSIONAMENTO GRUPO TOKEN detectado`);
                         uiDispatch({
                             type: 'START_RESIZE',
                             payload: {
@@ -340,12 +327,6 @@ export function useMouseTabletop({
                     const larguraMundo = (token.larguraOriginal || 50) * (token.escala || 1);
                     const alturaMundo = (token.alturaOriginal || 50) * (token.escala || 1);
 
-                    console.log(`🔍 [MouseDown] Token: verificando redimensionamento`);
-                    console.log(`   mouse (tela): (${mouseX.toFixed(2)}, ${mouseY.toFixed(2)})`);
-                    console.log(`   posicaoTela: (${posicaoTela.x.toFixed(2)}, ${posicaoTela.y.toFixed(2)})`);
-                    console.log(`   tamanhoTela: (${larguraMundo * uiState.zoom}, ${alturaMundo * uiState.zoom})`);
-                    console.log(`   zoom: ${uiState.zoom.toFixed(4)}`);
-
                     const canto = verificarSeMousePodeRedimensionar(
                         mouseX, mouseY,
                         posicaoTela.x, posicaoTela.y,
@@ -354,10 +335,7 @@ export function useMouseTabletop({
                         tokenBloqueado
                     );
 
-                    console.log(`   canto retornado: ${canto || 'null'}`);
-
                     if (canto) {
-                        console.log(`✅ [MouseDown] INICIANDO REDIMENSIONAMENTO TOKEN: canto=${canto}, indice=${uiState.tokenSelecionado}`);
                         resizeStartStateRef.current = {
                             tokenIndice: uiState.tokenSelecionado,
                             escalaInicial: token.escala || 1
@@ -402,11 +380,6 @@ export function useMouseTabletop({
                     return;
                 }
 
-                console.log(`🔍 [MouseDown] Token individual (clique direto): verificando redimensionamento`);
-                console.log(`   mouse (tela): (${mouseX.toFixed(2)}, ${mouseY.toFixed(2)})`);
-                console.log(`   telaX/Y: (${tokenSobre.telaX.toFixed(2)}, ${tokenSobre.telaY.toFixed(2)})`);
-                console.log(`   larguraTela: ${tokenSobre.larguraTela.toFixed(2)}, alturaTela: ${tokenSobre.alturaTela.toFixed(2)}`);
-
                 const canto = verificarSeMousePodeRedimensionar(
                     mouseX, mouseY,
                     tokenSobre.telaX, tokenSobre.telaY,
@@ -414,10 +387,7 @@ export function useMouseTabletop({
                     false
                 );
 
-                console.log(`   canto retornado: ${canto || 'null'}`);
-
                 if (canto) {
-                    console.log(`✅ [MouseDown] INICIANDO REDIMENSIONAMENTO TOKEN (clique direto): canto=${canto}, indice=${tokenSobre.indice}`);
                     resizeStartStateRef.current = {
                         tokenIndice: tokenSobre.indice,
                         escalaInicial: tokenSobre.token.escala || 1
@@ -594,24 +564,10 @@ export function useMouseTabletop({
                 return;
             }
 
-            // *** LOG IMPORTANTE: estado antes de decidir entre arrasto e redimensionamento ***
-            const isResizingToken = uiState.tokenRedimensionando && uiState.modoRedimensionamento;
-            const isResizingCamada = uiState.camadaRedimensionando && uiState.modoRedimensionamento;
-            if (isResizingToken || isResizingCamada) {
-                console.log(`🔍 [handleMouseMove] Resize em andamento: tokenRedim=${!!uiState.tokenRedimensionando}, camadaRedim=${!!uiState.camadaRedimensionando}, modo=${uiState.modoRedimensionamento}`);
-            }
-
             // Arrasto
             if (uiState.tokenSendoArrastado || uiState.camadaSendoArrastada) {
                 const isNevoa = !!uiState.camadaSendoArrastada;
                 const itemInfo = isNevoa ? uiState.camadaSendoArrastada : uiState.tokenSendoArrastado;
-
-                // Apenas log se for névoa (para não poluir muito)
-                if (isNevoa) {
-                    console.log(`🖱️ [handleMouseMove] ARRASTO NÉVOA, indice=${itemInfo.indice}, mouse (tela): (${mouseX.toFixed(2)}, ${mouseY.toFixed(2)})`);
-                } else {
-                    if (Math.random() < 0.05) console.log(`🖱️ [handleMouseMove] ARRASTO TOKEN`); // amostragem
-                }
 
                 teveMovimentoRef.current = true;
 
@@ -641,10 +597,6 @@ export function useMouseTabletop({
                 const indicesGrupo = itemInfo.isGroupResize ? uiState.tokensSelecionados : [];
                 const arrayAtual = isNevoa ? fov.camadasNevoa : tokensState;
                 const setArrayAtual = isNevoa ? fov.setCamadasNevoa : setStateDirect;
-
-                console.log(`🔄 [handleMouseMove] REDIMENSIONAMENTO EM MOVIMENTO: ${isNevoa ? 'NÉVOA' : 'TOKEN'}, canto=${uiState.modoRedimensionamento}`);
-                console.log(`   mouse (tela): (${mouseX.toFixed(2)}, ${mouseY.toFixed(2)})`);
-                console.log(`   zoom: ${uiState.zoom.toFixed(4)}, position: (${uiState.position.x.toFixed(2)}, ${uiState.position.y.toFixed(2)})`);
 
                 const novosTokens = processarRedimensionamento(
                     mouseX, mouseY,
@@ -689,10 +641,6 @@ export function useMouseTabletop({
         if (fov.modoDesenho && fov.desenhando) {
             fov.finalizarDesenho();
         }
-
-        console.log(`🖱️ [handleMouseUp] BUTTON: ${event.button}, camadaSendoArrastada: ${!!uiState.camadaSendoArrastada}, tokenSendoArrastado: ${!!uiState.tokenSendoArrastado}`);
-        console.log(`   isDraggingRef: ${isDraggingRef.current}, dragInProgressRef: ${dragInProgressRef.current}, teveMovimentoRef: ${teveMovimentoRef.current}`);
-        console.log(`   resizeInProgressRef: ${resizeInProgressRef.current}, tokenRedimensionando: ${!!uiState.tokenRedimensionando}, camadaRedimensionando: ${!!uiState.camadaRedimensionando}`);
 
         if (event.button === 2) {
             if (uiState.mouseDownInfo?.isBlocked) {
@@ -756,16 +704,12 @@ export function useMouseTabletop({
 
             if (isDraggingRef.current || dragInProgressRef.current) {
                 if (teveMovimentoRef.current) {
-                    console.log(`🛑 [handleMouseUp] FINALIZANDO ARRASTO (com movimento)`);
                     finalizarArrasto();
-                } else {
-                    console.log(`⚠️ [handleMouseUp] Arrasto finalizado sem movimento, ignorando finalizarArrasto`);
                 }
                 isDraggingRef.current = false;
             }
 
             if (resizeInProgressRef.current || uiState.tokenRedimensionando || uiState.camadaRedimensionando) {
-                console.log(`🛑 [handleMouseUp] FINALIZANDO REDIMENSIONAMENTO: ${uiState.camadaRedimensionando ? 'NÉVOA' : 'TOKEN'}`);
                 finalizarRedimensionamento();
             }
         }
@@ -779,7 +723,6 @@ export function useMouseTabletop({
         }
 
         if (uiState.tokenSendoArrastado || uiState.camadaSendoArrastada) {
-            console.log(`🛑 [handleMouseUp] STOP_DRAG enviado`);
             uiDispatch({ type: 'STOP_DRAG' });
         }
 

@@ -102,7 +102,7 @@ export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zo
     posicoes.forEach((pos) => {
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
         ctx.shadowBlur = 3;
-        
+
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, raioBolinha, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
@@ -150,7 +150,6 @@ export function BarraLateral({ onAbrirModal, onAbrirModalNevoa }) {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
             height: '100%',
             position: 'relative',
             zIndex: 10
@@ -210,19 +209,20 @@ export function BarraLateral({ onAbrirModal, onAbrirModalNevoa }) {
 }
 
 // Container principal do grid
-export function GridContainer({ children, containerRef, isDragging, onDragOver, onDrop }) {
+export function GridContainer({ children, containerRef, isDragging, onDragOver, onDrop, sx = {} }) {
     return (
         <Box
             ref={containerRef}
             sx={{
-                width: '800px',
-                height: '600px',
+                width: '100%',
+                height: '100%',
                 overflow: 'hidden',
                 position: 'relative',
                 backgroundColor: '#1a1a1a',
                 cursor: isDragging ? 'grabbing' : 'default',
                 userSelect: 'none',
-                display: 'flex'
+                display: 'flex',
+                ...sx
             }}
             onDragOver={onDragOver}
             onDrop={onDrop}

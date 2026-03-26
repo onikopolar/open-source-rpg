@@ -1,6 +1,5 @@
-// schema.prisma - Versão 2.2.1 - FIX: Correção do tipo LongText para PostgreSQL
-// Versão: 2.2.1 - Correção do tipo de dados para PostgreSQL
-// Data: 2024-01-16
+// schema.prisma - Versão 3.0.0 - Adicionado suporte para Tabletop (tokens e névoa)
+// Data: 2024-03-26
 // Autor: Sistema RPG
 
 generator client {
@@ -28,12 +27,11 @@ model Character {
   standard_character_picture_url     String?                         @db.Text
   injured_character_picture_url      String?                         @db.Text
   
-  // CAMPOS CORRIGIDOS: Imagens em base64 salvas diretamente no banco
-  // PostgreSQL usa @db.Text (não @db.LongText)
-  standard_character_image           String?                         @db.Text  // data:image/png;base64,...
-  injured_character_image            String?                         @db.Text  // data:image/png;base64,...
-  standard_image_mime                String?                         // "image/png", "image/jpeg", etc
-  injured_image_mime                 String?                         // "image/png", "image/jpeg", etc
+  // Imagens em base64
+  standard_character_image           String?                         @db.Text
+  injured_character_image            String?                         @db.Text
+  standard_image_mime                String?
+  injured_image_mime                 String?
   
   stress_level                       Int?                            @default(0)
   trauma_level                       Int?                            @default(0)
@@ -95,6 +93,7 @@ model Character {
   rolls                              Roll[]
   yearzero_attributes                YearZeroCharacterAttribute[]
   yearzero_skills                    YearZeroCharacterSkill[]
+  tabletopTokens                     TabletopToken[]
 
   @@index([name])
   @@index([player_name])
@@ -289,4 +288,50 @@ model Config {
 
   @@index([name])
   @@map("config")
+}
+
+// ============================================
+// TABLETOP MODELS
+// ============================================
+
+model TabletopToken {
+  id             String    @id @default(cuid())
+  characterId    Int?      // Referência ao personagem (se for token de personagem)
+  tokenId        String    // ID original do token no sistema
+  nome           String?   // Nome do token
+  x              Float     // Posição X no mundo
+  y              Float     // Posição Y no mundo
+  escala         Float     @default(1)
+  larguraOriginal Int      @default(50)
+  alturaOriginal  Int      @default(50)
+  invertido      Boolean   @default(false)
+  oculto         Boolean   @default(false)
+  bloqueado      Boolean   @default(false)
+  imageUrl       String?   @db.Text // URL da imagem (externa)
+  imageBase64    String?   @db.Text // Base64 da imagem (upload)
+  mimeType       String?   // Tipo MIME da imagem
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  character      Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
+
+  @@index([characterId])
+  @@index([tokenId])
+  @@index([x, y])
+  @@map("tabletop_tokens")
+}
+
+model TabletopNevoa {
+  id             String    @id @default(cuid())
+  nome           String    @default("Camada de Névoa")
+  x              Float     // Posição X no mundo
+  y              Float     // Posição Y no mundo
+  escala         Float     @default(1)
+  larguraOriginal Int      @default(500)
+  alturaOriginal  Int      @default(500)
+  imageData      String?   @db.Text // Dados da imagem da névoa (base64 ou URL)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([x, y])
+  @@map("tabletop_nevoa")
 }

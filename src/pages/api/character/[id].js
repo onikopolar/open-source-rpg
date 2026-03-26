@@ -7,6 +7,73 @@ export default async function handler(req, res) {
   console.log('ID:', id)
   console.log('Body:', req.body)
 
+  // GET - Buscar um personagem específico pelo ID
+  if (req.method === 'GET') {
+    console.log('GET - Buscando personagem:', id)
+    try {
+      const characterId = parseInt(id)
+      
+      if (isNaN(characterId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID do personagem inválido'
+        })
+      }
+      
+      const character = await prisma.character.findUnique({
+        where: { id: characterId },
+        include: {
+          attributes: {
+            include: {
+              attribute: true
+            }
+          },
+          skills: {
+            include: {
+              skill: true
+            }
+          },
+          yearzero_attributes: {
+            include: {
+              attribute: true
+            }
+          },
+          yearzero_skills: {
+            include: {
+              skill: true
+            }
+          },
+          feiticeiros_attributes: {
+            include: {
+              attribute: true
+            }
+          },
+          feiticeiros_pericias: true,
+          feiticeiros_oficios: true,
+          feiticeiros_resistencias: true,
+          feiticeiros_ataques: true
+        }
+      })
+      
+      if (!character) {
+        console.log('GET - Personagem não encontrado:', id)
+        return res.status(404).json({
+          success: false,
+          error: 'Personagem não encontrado'
+        })
+      }
+      
+      console.log('GET - Personagem encontrado:', character.id, character.name)
+      return res.status(200).json(character)
+    } catch (error) {
+      console.error('GET - Erro ao buscar personagem:', error)
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao buscar personagem'
+      })
+    }
+  }
+
   if (req.method === 'PUT') {
     console.log('PUT - Atualizando personagem:', id)
     try {

@@ -1,30 +1,160 @@
 // src/pages/Tabletop/index.jsx
+// Página principal do Tabletop
+// Gerencia o acesso: player (com sheetId), mestre via Dashboard, ou mestre com senha
 
-// Importa o hook useRouter do Next.js para acessar a URL
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-
-// Importa o componente principal da mesa
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    Button,
+    Alert
+} from '@mui/material';
 import TabletopGrid from './tabletopgrid';
+import FichaAbaInferior from '../../components/Tabletop/FichaAbaInferior';
+
+const SENHA_MESTRE = "4455";
 
 export default function registroNoTabletop() {
-    // useRouter nos dá acesso aos parâmetros da URL
     const router = useRouter();
-    
-    // Extrai o parâmetro "sheetId" da URL
-    const { sheetId } = router.query;
+    const { sheetId, fromDashboard } = router.query;
 
-    // Se sheetId existe, é player (não é mestre). Se sheetId não existe, é mestre
-    const isMaster = !sheetId;
+    const [modalSenhaAberto, setModalSenhaAberto] = useState(false);
+    const [senhaDigitada, setSenhaDigitada] = useState("");
+    const [erroSenha, setErroSenha] = useState(false);
+    const [isMaster, setIsMaster] = useState(null);
+    const [modoDecidido, setModoDecidido] = useState(false);
+
+    useEffect(() => {
+        if (!router.isReady) return;
+
+        console.log('[Tabletop] Decidindo modo de acesso');
+        console.log('[Tabletop] sheetId:', sheetId);
+        console.log('[Tabletop] fromDashboard:', fromDashboard);
+
+        if (sheetId) {
+            console.log('[Tabletop] Modo PLAYER');
+            setIsMaster(false);
+            setModoDecidido(true);
+            return;
+        }
+
+        if (fromDashboard === 'true') {
+            console.log('[Tabletop] Modo MESTRE (via Dashboard)');
+            setIsMaster(true);
+            setModoDecidido(true);
+            return;
+        }
+
+        console.log('[Tabletop] Aguardando senha do mestre');
+        setModalSenhaAberto(true);
+        setModoDecidido(true);
+    }, [router.isReady, sheetId, fromDashboard]);
+
+    const handleConfirmarSenha = () => {
+        if (senhaDigitada === SENHA_MESTRE) {
+            setIsMaster(true);
+            setModalSenhaAberto(false);
+            setErroSenha(false);
+            setSenhaDigitada("");
+        } else {
+            setErroSenha(true);
+        }
+    };
+
+    const handleFecharModal = () => {
+        setModalSenhaAberto(false);
+        setErroSenha(false);
+        setSenhaDigitada("");
+    };
+
+    if (!modoDecidido || !router.isReady) {
+        return (
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+                <h1>Carregando...</h1>
+            </div>
+        );
+    }
+
+    if (isMaster === false) {
+        return (
+            <div style={{
+                padding: '40px',
+                height: '100vh',
+                display: 'flex',
+                flexDirection: 'column'
+            }}>
+                <h1>Modo Player - ID: {sheetId}</h1>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                    <TabletopGrid isMaster={false} sheetId={sheetId} />
+                </div>
+                <FichaAbaInferior sheetId={sheetId} characterName="Ficha do Personagem" />
+            </div>
+        );
+    }
+
+    if (isMaster === true) {
+        return (
+            <div style={{
+                padding: '40px',
+                height: '100vh',
+                display: 'flex',
+                flexDirection: 'column'
+            }}>
+                <h1>Modo Mestre</h1>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                    <TabletopGrid isMaster={true} sheetId={null} />
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div style={{ padding: '40px' }}>
-            <h1>Teste do Tabletop Grid</h1>
-            
-            {/* Passa as informações para o componente da mesa */}
-            <TabletopGrid 
-                isMaster={isMaster}      // true = mestre, false = player
-                sheetId={sheetId}        // ID da ficha (se for player)
-            />
-        </div>
+        <>
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+                <h1>Acesso ao Tabletop</h1>
+                <Button
+                    variant="contained"
+                    onClick={() => setModalSenhaAberto(true)}
+                >
+                    Entrar como Mestre
+                </Button>
+            </div>
+
+            <Dialog open={modalSenhaAberto} onClose={handleFecharModal}>
+                <DialogTitle>Acesso de Mestre</DialogTitle>
+                <DialogContent>
+                    {erroSenha && (
+                        <Alert severity="error" sx={{ mb: 2 }}>
+                            Senha incorreta. Tente novamente.
+                        </Alert>
+                    )}
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        label="Senha do Mestre"
+                        type="password"
+                        fullWidth
+                        variant="outlined"
+                        value={senhaDigitada}
+                        onChange={(e) => setSenhaDigitada(e.target.value)}
+                        onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                                handleConfirmarSenha();
+                            }
+                        }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleFecharModal}>Cancelar</Button>
+                    <Button onClick={handleConfirmarSenha} variant="contained">
+                        Entrar
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </>
     );
 }

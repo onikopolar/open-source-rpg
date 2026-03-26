@@ -1,7 +1,7 @@
 // CONSTANTES DO SISTEMA
 export const BASE_GRID_SIZE = 50;
-export const CELLS_X = 200;
-export const CELLS_Y = 200;
+export const CELLS_X = 247;
+export const CELLS_Y = 247;
 export const WORLD_WIDTH = BASE_GRID_SIZE * CELLS_X;
 export const WORLD_HEIGHT = BASE_GRID_SIZE * CELLS_Y;
 export const MIN_ZOOM = 0.1;

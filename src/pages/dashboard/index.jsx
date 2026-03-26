@@ -10,7 +10,8 @@ import {
   Add as AddIcon
 } from '@mui/icons-material';
 
-import { Header, Section, CharacterBox, AddBox,
+import {
+  Header, Section, CharacterBox, AddBox,
   CreateCharacterModal, ConfirmationModal, EditableRow,
   AttributeModal, SkillModal
 } from '../../components';
@@ -23,7 +24,7 @@ export const getServerSideProps = async () => {
 
   function parseConfigs(array) {
     return array.map(config => {
-      if(config.name === 'DICE_ON_SCREEN_TIMEOUT_IN_MS' || config.name === 'TIME_BETWEEN_DICES_IN_MS') {
+      if (config.name === 'DICE_ON_SCREEN_TIMEOUT_IN_MS' || config.name === 'TIME_BETWEEN_DICES_IN_MS') {
         return {
           ...config,
           value: parseInt(config.value) / 1000
@@ -87,7 +88,7 @@ function Dashboard({
   const [characters, setCharacters] = useState(initialCharacters);
   const [attributes, setAttributes] = useState(initialAttributes);
   const [skills, setSkills] = useState(initialSkills);
-  
+
   // CORREÇÃO: Inicializar com strings vazias em vez de null
   const [updatedConfigs, setUpdatedConfigs] = useState({
     DICE_ON_SCREEN_TIMEOUT_IN_MS: '',
@@ -97,7 +98,7 @@ function Dashboard({
   // DEBUG: Verificar estrutura dos personagens carregados
   useEffect(() => {
     console.log('[Dashboard DEBUG] Estado atual dos characters:');
-    
+
     characters.forEach((char, index) => {
       console.log(`Character ${index} (${char.id} - ${char.name}):`, {
         standard_character_picture_url: char.standard_character_picture_url,
@@ -138,7 +139,7 @@ function Dashboard({
     // CORREÇÃO: Validar se os valores são números válidos
     const diceTimeoutValue = parseInt(updatedConfigs.DICE_ON_SCREEN_TIMEOUT_IN_MS);
     const timeBetweenValue = parseInt(updatedConfigs.TIME_BETWEEN_DICES_IN_MS);
-    
+
     if (isNaN(diceTimeoutValue) || isNaN(timeBetweenValue)) {
       alert('Por favor, insira valores numéricos válidos');
       return;
@@ -151,14 +152,14 @@ function Dashboard({
     api.put('/config/TIME_BETWEEN_DICES_IN_MS', {
       value: `${timeBetweenValue * 1000}`
     });
-    
+
     alert('Configurações salvas com sucesso!');
   }
 
   const runInitialSetup = () => {
     api.post('/setup')
       .then(res => {
-        if(res.data.success) {
+        if (res.data.success) {
           return window.location.reload();
         }
       });
@@ -206,7 +207,7 @@ function Dashboard({
         if (custom.operation === 'create') {
           setAttributes(prev => [...prev, newAttribute]);
         } else if (custom.operation === 'edit') {
-          setAttributes(prev => prev.map(attr => 
+          setAttributes(prev => prev.map(attr =>
             attr.id === newAttribute.id ? newAttribute : attr
           ));
         }
@@ -223,7 +224,7 @@ function Dashboard({
         if (custom.operation === 'create') {
           setSkills(prev => [...prev, newSkill]);
         } else if (custom.operation === 'edit') {
-          setSkills(prev => prev.map(skill => 
+          setSkills(prev => prev.map(skill =>
             skill.id === newSkill.id ? newSkill : skill
           ));
         }
@@ -271,6 +272,18 @@ function Dashboard({
                       </Grid>
                     </Grid>
                   </Section>
+                </Grid>
+
+                {/* Botão Modo Tabletop */}
+                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => router.push('/Tabletop?fromDashboard=true')}
+                    sx={{ py: 1.5, px: 62 }}
+                  >
+                    Modo Tabletop
+                  </Button>
                 </Grid>
 
                 <Grid item xs={12} md={6}>
@@ -371,64 +384,64 @@ function Dashboard({
                       xs={12}
                       spacing={2}
                     >
-                        <Grid container spacing={2} item xs={12}>
-                          <Grid item xs={12}>
-                            <h4>Integração com OBS</h4>
-                          </Grid>
-
-                          <Grid item xs={4}>
-                            <TextField
-                              fullWidth
-                              type="number"
-                              label="Tempo do dado em tela"
-                              helperText="Em segundos"
-                              // CORREÇÃO: Fallback para string vazia
-                              value={updatedConfigs.DICE_ON_SCREEN_TIMEOUT_IN_MS || ''}
-                              onChange={(e) => {
-                                const value = e.target.value;
-
-                                setUpdatedConfigs(prevState => ({
-                                  ...prevState,
-                                  DICE_ON_SCREEN_TIMEOUT_IN_MS: value
-                                }));
-                              }}
-                            />
-                          </Grid>
-
-                          <Grid item xs={4}>
-                            <TextField
-                              fullWidth
-                              type="number"
-                              label="Tempo entre cada dado"
-                              helperText="Em segundos"
-                              // CORREÇÃO: Fallback para string vazia
-                              value={updatedConfigs.TIME_BETWEEN_DICES_IN_MS || ''}
-                              onChange={(e) => {
-                                const value = e.target.value;
-
-                                setUpdatedConfigs(prevState => ({
-                                  ...prevState,
-                                  TIME_BETWEEN_DICES_IN_MS: value
-                                }));
-                              }}
-                            />
-                          </Grid>
-
-                          <Grid item xs={4}>
-                            <Button variant="contained" onClick={updateConfigs}>
-                              Salvar
-                            </Button>
-                          </Grid>
+                      <Grid container spacing={2} item xs={12}>
+                        <Grid item xs={12}>
+                          <h4>Integração com OBS</h4>
                         </Grid>
+
+                        <Grid item xs={4}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Tempo do dado em tela"
+                            helperText="Em segundos"
+                            // CORREÇÃO: Fallback para string vazia
+                            value={updatedConfigs.DICE_ON_SCREEN_TIMEOUT_IN_MS || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+
+                              setUpdatedConfigs(prevState => ({
+                                ...prevState,
+                                DICE_ON_SCREEN_TIMEOUT_IN_MS: value
+                              }));
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={4}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Tempo entre cada dado"
+                            helperText="Em segundos"
+                            // CORREÇÃO: Fallback para string vazia
+                            value={updatedConfigs.TIME_BETWEEN_DICES_IN_MS || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+
+                              setUpdatedConfigs(prevState => ({
+                                ...prevState,
+                                TIME_BETWEEN_DICES_IN_MS: value
+                              }));
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={4}>
+                          <Button variant="contained" onClick={updateConfigs}>
+                            Salvar
+                          </Button>
+                        </Grid>
+                      </Grid>
                     </Grid>
-                    </Section>
+                  </Section>
                 </Grid>
               </>
             ) : (
               <Grid item xs={12}>
-                  <Button variant="contained" onClick={runInitialSetup} fullWidth>
-                    REALIZAR CONFIGURAÇÃO INICIAL
-                  </Button>
+                <Button variant="contained" onClick={runInitialSetup} fullWidth>
+                  REALIZAR CONFIGURAÇÃO INICIAL
+                </Button>
               </Grid>
             )
           }

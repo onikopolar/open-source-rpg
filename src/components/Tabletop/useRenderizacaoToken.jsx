@@ -11,6 +11,21 @@ export function useRenderizacaoToken(
     desenharSelecao
 ) {
     const drawSingleToken = useCallback((token, context) => {
+        // Verificar se tem imagem
+        const imagemUrl = token.imagemUrl || token.imageUrl || token.imageBase64;
+        
+        if (!imagemUrl) {
+            // Sem imagem, desenha fallback
+            desenharFallbackToken(
+                context,
+                token.posicaoTela.x,
+                token.posicaoTela.y,
+                uiState.zoom,
+                token.nome
+            );
+            return false;
+        }
+
         let img = imageCache.current.get(token.id);
 
         if (!img) {
@@ -19,9 +34,12 @@ export function useRenderizacaoToken(
                 scheduleRender();
             };
             img.onerror = () => {
-                console.log('Erro ao carregar imagem:', token.nome);
+                console.log('[useRenderizacaoToken] Erro ao carregar imagem:', token.nome, imagemUrl);
+                // Remove do cache para tentar recarregar depois
+                imageCache.current.delete(token.id);
+                scheduleRender();
             };
-            img.src = token.imagemUrl;
+            img.src = imagemUrl;
             imageCache.current.set(token.id, img);
 
             desenharFallbackToken(
@@ -34,7 +52,8 @@ export function useRenderizacaoToken(
             return false;
         }
 
-        if (!img.complete) {
+        // Verificar se a imagem foi carregada corretamente
+        if (!img.complete || img.naturalWidth === 0) {
             desenharFallbackToken(
                 context,
                 token.posicaoTela.x,
@@ -49,33 +68,31 @@ export function useRenderizacaoToken(
             context.globalAlpha = 0.3;
         }
 
-        // ===== LÓGICA DE INVERSÃO =====
         const x = token.posicaoTela.x;
         const y = token.posicaoTela.y;
         const largura = token.tamanhoTela.larguraTela;
         const altura = token.tamanhoTela.alturaTela;
 
-        if (token.invertido) {
-            // Salva o estado atual do contexto
-            context.save();
-            
-            // Move o contexto para o centro do token
-            context.translate(x + largura / 2, y + altura / 2);
-            
-            // Aplica inversão horizontal (escala -1 no eixo X)
-            context.scale(-1, 1);
-            
-            // Move de volta para a posição original
-            context.translate(-(x + largura / 2), -(y + altura / 2));
-            
-            // Desenha a imagem invertida
-            context.drawImage(img, x, y, largura, altura);
-            
-            // Restaura o contexto original
-            context.restore();
-        } else {
-            // Desenha normalmente
-            context.drawImage(img, x, y, largura, altura);
+        try {
+            if (token.invertido) {
+                context.save();
+                context.translate(x + largura / 2, y + altura / 2);
+                context.scale(-1, 1);
+                context.translate(-(x + largura / 2), -(y + altura / 2));
+                context.drawImage(img, x, y, largura, altura);
+                context.restore();
+            } else {
+                context.drawImage(img, x, y, largura, altura);
+            }
+        } catch (error) {
+            console.error('[useRenderizacaoToken] Erro ao desenhar imagem:', error);
+            desenharFallbackToken(
+                context,
+                token.posicaoTela.x,
+                token.posicaoTela.y,
+                uiState.zoom,
+                token.nome
+            );
         }
 
         context.globalAlpha = 1.0;
@@ -110,7 +127,6 @@ export function useRenderizacaoToken(
             const isPartOfGroup = uiState.tokensSelecionados.length > 1 &&
                 uiState.tokensSelecionados.includes(indice);
 
-            // Para tokens em grupo, não desenha seleção individual
             if (!isPartOfGroup) {
                 const tokenParaSelecao = {
                     posicaoTela: token.posicaoTela,
