@@ -111,10 +111,19 @@ export function useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeM
     }, [tokensComInfo, tokensState, calcularSeMouseEstaDentro]);
 
     const verificarSeMousePodeRedimensionar = useCallback((mouseX, mouseY, tokenTelaX, tokenTelaY, larguraTela, alturaTela, tokenBloqueado) => {
-        const DEBUG = false;
+        const DEBUG = true; // Ativado para debug
         
         if (tokenBloqueado) {
+            if (DEBUG) console.log(`🔍 [ResizeDetection] token bloqueado, retornando null`);
             return null;
+        }
+
+        if (DEBUG) {
+            console.log(`🔍 [ResizeDetection] ===== INÍCIO =====`);
+            console.log(`   mouse (tela): (${mouseX.toFixed(2)}, ${mouseY.toFixed(2)})`);
+            console.log(`   token (tela): (${tokenTelaX.toFixed(2)}, ${tokenTelaY.toFixed(2)})`);
+            console.log(`   larguraTela: ${larguraTela.toFixed(2)}, alturaTela: ${alturaTela.toFixed(2)}`);
+            console.log(`   zoom: ${uiState.zoom.toFixed(4)}`);
         }
 
         const { posicoes, raioDetecao } = calcularPosicoesBolinhas(
@@ -122,20 +131,32 @@ export function useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeM
         );
 
         if (DEBUG) {
-            console.log('[verificarSeMousePodeRedimensionar] posições:', posicoes);
-            console.log('[verificarSeMousePodeRedimensionar] raioDetecao:', raioDetecao);
+            console.log(`   raioDetecao: ${raioDetecao.toFixed(2)}`);
+            console.log(`   posições calculadas:`);
+            posicoes.forEach(p => {
+                console.log(`      ${p.nome}: (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
+            });
         }
 
         for (const bolinha of posicoes) {
             const dx = mouseX - bolinha.x;
             const dy = mouseY - bolinha.y;
             const distancia = Math.sqrt(dx * dx + dy * dy);
+            const dentro = distancia <= raioDetecao;
             
-            if (distancia <= raioDetecao) {
+            if (DEBUG) {
+                console.log(`   ${bolinha.nome}: dx=${dx.toFixed(2)}, dy=${dy.toFixed(2)}, distância=${distancia.toFixed(2)} -> dentro? ${dentro}`);
+            }
+            
+            if (dentro) {
+                if (DEBUG) console.log(`✅ [ResizeDetection] BOLINHA ${bolinha.nome} DETECTADA!`);
+                console.log(`🔍 [ResizeDetection] ===== FIM =====`);
                 return bolinha.nome;
             }
         }
 
+        if (DEBUG) console.log(`❌ [ResizeDetection] Nenhuma bolinha detectada`);
+        console.log(`🔍 [ResizeDetection] ===== FIM =====`);
         return null;
     }, [uiState.zoom]);
 

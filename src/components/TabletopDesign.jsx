@@ -88,7 +88,16 @@ export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, sem
 export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zoom) {
     ctx.save();
 
+    console.log(`🎨 [TabletopDesign] desenharBolinhasRedimensionamento - INÍCIO`);
+    console.log(`   zoom: ${zoom.toFixed(4)}`);
+
     const { posicoes, raioBolinha } = calcularPosicoesBolinhas(x, y, largura, altura, zoom);
+
+    console.log(`   raioBolinha: ${raioBolinha.toFixed(2)}`);
+    console.log(`   posições calculadas:`);
+    posicoes.forEach(p => {
+        console.log(`      ${p.nome}: (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
+    });
 
     posicoes.forEach((pos) => {
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -113,6 +122,7 @@ export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zo
         ctx.stroke();
     });
 
+    console.log(`🎨 [TabletopDesign] desenharBolinhasRedimensionamento - FIM`);
     ctx.restore();
 }
 

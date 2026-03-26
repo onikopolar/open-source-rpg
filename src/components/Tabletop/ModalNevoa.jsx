@@ -11,6 +11,7 @@ export function ModalNevoa({
     aberto, 
     onClose,
     posicao,
+    modoDesenho,
     ativarModoDesenho,
     desativarModoDesenho,
     limparTudo,
@@ -53,14 +54,12 @@ export function ModalNevoa({
 
         function handleClickOutside(event) {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
-                desativarModoDesenho();
                 onClose();
             }
         }
 
         function handleEscapeKey(event) {
             if (event.key === 'Escape') {
-                desativarModoDesenho();
                 onClose();
             }
         }
@@ -72,14 +71,17 @@ export function ModalNevoa({
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('keydown', handleEscapeKey);
         };
-    }, [aberto, onClose, desativarModoDesenho]);
+    }, [aberto, onClose]);
 
     // Se não estiver aberto, não renderiza nada
     if (!aberto) return null;
 
-    const handleSelecionarPincel = () => {
-        ativarModoDesenho();
-        onClose();
+    const handleTogglePincel = () => {
+        if (modoDesenho) {
+            desativarModoDesenho();
+        } else {
+            ativarModoDesenho();
+        }
     };
 
     const menuStyle = {
@@ -115,14 +117,11 @@ export function ModalNevoa({
                 mb: 1.5
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <BrushIcon sx={{ color: '#5b8cff', fontSize: 18 }} />
+                    <BrushIcon sx={{ color: modoDesenho ? '#5b8cff' : '#6c757d', fontSize: 18 }} />
                     <span style={{ color: '#e6e9f0', fontSize: '14px', fontWeight: 600 }}>Ferramenta de Névoa</span>
                 </Box>
                 <Button
-                    onClick={() => {
-                        desativarModoDesenho();
-                        onClose();
-                    }}
+                    onClick={onClose}
                     size="small"
                     sx={{
                         minWidth: 'auto',
@@ -135,22 +134,29 @@ export function ModalNevoa({
                 </Button>
             </Box>
 
-            {/* Botão único do pincel */}
+            {/* Botão do pincel com estado visual */}
             <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
                 <Button
                     size="small"
-                    variant="contained"
-                    onClick={handleSelecionarPincel}
+                    variant="outlined"
+                    onClick={handleTogglePincel}
                     startIcon={<BrushIcon />}
                     sx={{
                         flex: 1,
                         fontSize: '12px',
-                        bgcolor: '#5b8cff',
-                        color: '#fff',
-                        '&:hover': { bgcolor: '#4a7ae0' }
+                        ...(modoDesenho ? {
+                            bgcolor: '#5b8cff',
+                            color: '#fff',
+                            borderColor: '#5b8cff',
+                            '&:hover': { bgcolor: '#4a7ae0', borderColor: '#4a7ae0' }
+                        } : {
+                            color: '#b0b8c8',
+                            borderColor: '#4a5568',
+                            '&:hover': { bgcolor: '#2a3440', borderColor: '#5b8cff' }
+                        })
                     }}
                 >
-                    Ativar Pincel
+                    {modoDesenho ? "Pincel Ativo" : "Ativar Pincel"}
                 </Button>
             </Box>
 

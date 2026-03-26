@@ -4,21 +4,33 @@ import { clamp, MIN_ZOOM, MAX_ZOOM } from "./ConstantesMesa";
 export const initialUIState = {
     zoom: 1,
     position: { x: 0, y: 0 },
+
+    // Seleção de tokens
     tokenSelecionado: null,
     tokensSelecionados: [],
     tokenSendoArrastado: null,
     tokenRedimensionando: null,
-    // PROPRIEDADES PARA NÉVOA
+
+    // Seleção de camadas de névoa
     camadaSelecionada: null,
     camadasSelecionadas: [],
     camadaSendoArrastada: null,
     camadaRedimensionando: null,
+
+    // Redimensionamento
     modoRedimensionamento: null,
     tamanhoInicialRedimensionamento: { largura: 0, altura: 0, escala: 1 },
     boundingBoxGrupo: null,
     offsetArrasto: { x: 0, y: 0 },
+
+    // Estados dos tokens
     visibilidadeTokens: {},
     tokensBloqueados: {},
+    
+    // Estados das camadas de névoa
+    camadasBloqueadas: {},
+
+    // Área de seleção
     areaSelecao: {
         ativo: false,
         inicioX: 0,
@@ -26,6 +38,8 @@ export const initialUIState = {
         fimX: 0,
         fimY: 0
     },
+
+    // Menu de contexto
     menuContexto: {
         aberto: false,
         x: 0,
@@ -37,19 +51,23 @@ export const initialUIState = {
         camada: null,
         tipo: null
     },
+
+    // UI States
     ui: {
         usuarioInteragindo: null,
         mostrarFeedback: false,
         isDragging: false,
         isClickingToken: false,
+        isClickingCamada: false,
         isSelectingArea: false,
         feedbackMessage: null,
         feedbackType: null
     },
+
     mouseDownInfo: null,
     dragStartPosition: null,
     ignoreMouseMove: false,
-    debugMode: false   // NOVA FLAG
+    debugMode: false
 };
 
 export function uiReducer(state, action) {
@@ -62,27 +80,36 @@ export function uiReducer(state, action) {
 
         // ===== AÇÕES PARA TOKENS =====
         case 'SELECT_TOKEN':
+            console.log('[Reducer] SELECT_TOKEN:', action.payload);
             if (action.payload === null) {
                 return {
                     ...state,
                     tokenSelecionado: null,
-                    tokensSelecionados: []
+                    tokensSelecionados: [],
+                    camadaSelecionada: null,
+                    camadasSelecionadas: []
                 };
             }
             return {
                 ...state,
                 tokenSelecionado: action.payload,
-                tokensSelecionados: []
+                tokensSelecionados: [action.payload],
+                camadaSelecionada: null,
+                camadasSelecionadas: []
             };
 
         case 'SELECT_MULTIPLE_TOKENS':
+            console.log('[Reducer] SELECT_MULTIPLE_TOKENS:', action.payload);
             return {
                 ...state,
                 tokensSelecionados: action.payload,
-                tokenSelecionado: action.payload.length > 0 ? action.payload[0] : null
+                tokenSelecionado: action.payload.length > 0 ? action.payload[0] : null,
+                camadaSelecionada: null,
+                camadasSelecionadas: []
             };
 
         case 'START_TOKEN_DRAG':
+            console.log('[Reducer] START_TOKEN_DRAG:', action.payload);
             if (!action.payload.tokenInfo?.token) {
                 return state;
             }
@@ -97,6 +124,7 @@ export function uiReducer(state, action) {
             };
 
         case 'STOP_TOKEN_DRAG':
+            console.log('[Reducer] STOP_TOKEN_DRAG');
             return {
                 ...state,
                 tokenSendoArrastado: null,
@@ -110,13 +138,17 @@ export function uiReducer(state, action) {
                 return {
                     ...state,
                     camadaSelecionada: null,
-                    camadasSelecionadas: []
+                    camadasSelecionadas: [],
+                    tokenSelecionado: null,
+                    tokensSelecionados: []
                 };
             }
             return {
                 ...state,
                 camadaSelecionada: action.payload,
-                camadasSelecionadas: [action.payload]
+                camadasSelecionadas: [action.payload],
+                tokenSelecionado: null,
+                tokensSelecionados: []
             };
 
         case 'SELECT_MULTIPLE_CAMADAS':
@@ -124,13 +156,14 @@ export function uiReducer(state, action) {
             return {
                 ...state,
                 camadasSelecionadas: action.payload,
-                camadaSelecionada: action.payload.length > 0 ? action.payload[0] : null
+                camadaSelecionada: action.payload.length > 0 ? action.payload[0] : null,
+                tokenSelecionado: null,
+                tokensSelecionados: []
             };
 
         case 'START_CAMADA_DRAG':
             console.log('[Reducer] START_CAMADA_DRAG:', action.payload);
             if (!action.payload.camada) {
-                console.log('[Reducer] START_CAMADA_DRAG: sem camada');
                 return state;
             }
             return {
@@ -142,14 +175,16 @@ export function uiReducer(state, action) {
                     offsetY: action.payload.offsetY,
                     mouseInicialX: action.payload.mouseInicialX,
                     mouseInicialY: action.payload.mouseInicialY
-                }
+                },
+                offsetArrasto: { x: action.payload.offsetX, y: action.payload.offsetY }
             };
 
         case 'STOP_CAMADA_DRAG':
             console.log('[Reducer] STOP_CAMADA_DRAG');
             return {
                 ...state,
-                camadaSendoArrastada: null
+                camadaSendoArrastada: null,
+                offsetArrasto: { x: 0, y: 0 }
             };
 
         case 'START_CAMADA_RESIZE':
@@ -184,6 +219,22 @@ export function uiReducer(state, action) {
         // ===== AÇÕES COMPARTILHADAS (REDIMENSIONAMENTO) =====
         case 'START_RESIZE':
             console.log('[Reducer] START_RESIZE:', action.payload);
+            // Verifica se é token ou camada pelo tipo
+            if (action.payload.token?.tipo === 'nevoa') {
+                return {
+                    ...state,
+                    camadaRedimensionando: {
+                        camada: action.payload.token,
+                        indice: action.payload.indice,
+                        canto: action.payload.canto,
+                        isGroupResize: action.payload.isGroupResize || false
+                    },
+                    modoRedimensionamento: action.payload.canto,
+                    tamanhoInicialRedimensionamento: action.payload.tamanhoInicial,
+                    boundingBoxGrupo: action.payload.boundingBoxGrupo || null,
+                    offsetArrasto: action.payload.offset
+                };
+            }
             return {
                 ...state,
                 tokenRedimensionando: {
@@ -202,12 +253,55 @@ export function uiReducer(state, action) {
             return {
                 ...state,
                 tokenRedimensionando: null,
+                camadaRedimensionando: null,
                 modoRedimensionamento: null,
                 tamanhoInicialRedimensionamento: { largura: 0, altura: 0, escala: 1 },
                 boundingBoxGrupo: null,
                 offsetArrasto: { x: 0, y: 0 }
             };
 
+        // ===== AÇÕES COMPARTILHADAS (ARRASTO) =====
+        case 'START_DRAG':
+            console.log('[Reducer] START_DRAG:', action.payload);
+            const { tipo, item, indice, offset } = action.payload;
+            if (tipo === 'token') {
+                return {
+                    ...state,
+                    tokenSendoArrastado: {
+                        token: item,
+                        indice: indice,
+                        telaX: offset.telaX,
+                        telaY: offset.telaY,
+                        isGroupDrag: false
+                    },
+                    offsetArrasto: { x: offset.offsetX, y: offset.offsetY }
+                };
+            } else if (tipo === 'nevoa') {
+                return {
+                    ...state,
+                    camadaSendoArrastada: {
+                        camada: item,
+                        indice: indice,
+                        offsetX: offset.offsetX,
+                        offsetY: offset.offsetY,
+                        mouseInicialX: offset.mouseX,
+                        mouseInicialY: offset.mouseY
+                    },
+                    offsetArrasto: { x: offset.offsetX, y: offset.offsetY }
+                };
+            }
+            return state;
+
+        case 'STOP_DRAG':
+            console.log('[Reducer] STOP_DRAG');
+            return {
+                ...state,
+                tokenSendoArrastado: null,
+                camadaSendoArrastada: null,
+                offsetArrasto: { x: 0, y: 0 }
+            };
+
+        // ===== AÇÕES DE VISIBILIDADE E BLOQUEIO =====
         case 'TOGGLE_VISIBILITY':
             return {
                 ...state,
@@ -226,6 +320,16 @@ export function uiReducer(state, action) {
                 }
             };
 
+        case 'TOGGLE_CAMADA_LOCK':
+            return {
+                ...state,
+                camadasBloqueadas: {
+                    ...state.camadasBloqueadas,
+                    [action.payload]: !state.camadasBloqueadas[action.payload]
+                }
+            };
+
+        // ===== MENU DE CONTEXTO =====
         case 'OPEN_CONTEXT_MENU':
             console.log('[Reducer] OPEN_CONTEXT_MENU:', action.payload);
             return { ...state, menuContexto: action.payload };
@@ -247,6 +351,7 @@ export function uiReducer(state, action) {
                 }
             };
 
+        // ===== MOUSE E SELEÇÃO =====
         case 'SET_MOUSE_DOWN_INFO':
             return { ...state, mouseDownInfo: action.payload };
 
@@ -293,6 +398,7 @@ export function uiReducer(state, action) {
                 }
             };
 
+        // ===== UI STATES =====
         case 'SET_UI_STATE':
             return {
                 ...state,
@@ -328,7 +434,6 @@ export function uiReducer(state, action) {
                 ignoreMouseMove: action.payload
             };
 
-        // NOVA AÇÃO PARA DEBUG
         case 'TOGGLE_DEBUG_MODE':
             return {
                 ...state,

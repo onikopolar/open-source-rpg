@@ -1,6 +1,7 @@
-// src/components/Tabletop/useRedimensionamentoToken.jsx
+// components/Tabletop/useRedimensionamentoToken.jsx
 import { useCallback, useRef } from "react";
 import { calcularNovaEscalaToken } from "./UtilitariosToken";
+import { calcularPosicoesBolinhas } from "./useSelecaoToken";
 
 export function useRedimensionamentoToken() {
     const resizeStartStateRef = useRef(null);
@@ -18,13 +19,10 @@ export function useRedimensionamentoToken() {
         isGroupResize = false,
         indicesGrupo = []
     ) => {
-        // Normaliza o modo para minúsculas (o calcularNovaEscalaToken espera minúsculas)
-        const modoLower = modoRedimensionamento?.toLowerCase();
-
+        // ===== REDIMENSIONAMENTO DE GRUPO =====
         if (isGroupResize && indicesGrupo.length > 0) {
             // PRIMEIRO FRAME - Salvar estado inicial
             if (!resizeStartStateRef.current) {
-                // Calcular bounding box do grupo
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
                 indicesGrupo.forEach(indice => {
@@ -44,7 +42,6 @@ export function useRedimensionamentoToken() {
                 const centroX = minX + (maxX - minX) / 2;
                 const centroY = minY + (maxY - minY) / 2;
 
-                // Salvar estado inicial de cada token
                 const estadoInicialTokens = {};
                 indicesGrupo.forEach(indice => {
                     const token = tokensAtuais[indice];
@@ -74,7 +71,7 @@ export function useRedimensionamentoToken() {
                 return tokensAtuais;
             }
 
-            // FRAMES SEGUINTES - Aplicar redimensionamento
+            // FRAMES SEGUINTES
             const estadoInicial = resizeStartStateRef.current;
 
             if (!estadoInicial || !estadoInicial.boundingBox) {
@@ -82,7 +79,6 @@ export function useRedimensionamentoToken() {
                 return tokensAtuais;
             }
 
-            // Converter coordenadas do mouse para o mundo
             const mundo = {
                 mundoX: (mouseX - position.x) / zoom,
                 mundoY: (mouseY - position.y) / zoom
@@ -92,19 +88,18 @@ export function useRedimensionamentoToken() {
                 return tokensAtuais;
             }
             
-            // Calcular a nova escala usando a função utilitária (com modo em minúsculas)
             const escalaCalculada = calcularNovaEscalaToken(
                 mundo.mundoX, mundo.mundoY,
                 estadoInicial.boundingBox.x, 
                 estadoInicial.boundingBox.y,
                 estadoInicial.boundingBox.width,
                 estadoInicial.boundingBox.height,
-                modoLower,
+                modoRedimensionamento?.toLowerCase(),
                 { 
                     largura: estadoInicial.boundingBox.width, 
                     altura: estadoInicial.boundingBox.height 
                 },
-                4 // escalaMaxima = 4
+                4
             );
 
             if (isNaN(escalaCalculada) || escalaCalculada <= 0) {
@@ -116,15 +111,11 @@ export function useRedimensionamentoToken() {
             indicesGrupo.forEach(indice => {
                 const tokenInicial = estadoInicial.tokens[indice];
                 if (tokenInicial && novosTokens[indice]) {
-                    // Posição relativa ao centro do grupo
                     const relX = tokenInicial.x - estadoInicial.centro.x;
                     const relY = tokenInicial.y - estadoInicial.centro.y;
 
-                    // Nova posição mantendo a proporção relativa
                     const novoX = estadoInicial.centro.x + (relX * escalaCalculada);
                     const novoY = estadoInicial.centro.y + (relY * escalaCalculada);
-
-                    // Nova escala (escala original * fator de escala)
                     const novaEscala = tokenInicial.escala * escalaCalculada;
 
                     novosTokens[indice] = {
@@ -139,10 +130,50 @@ export function useRedimensionamentoToken() {
             return novosTokens;
         }
 
-        if (!tokenRedimensionando || !tokenRedimensionando.token) {
+        // ===== REDIMENSIONAMENTO INDIVIDUAL =====
+        // Verifica se o item existe
+        if (!tokenRedimensionando) {
+            return tokensAtuais;
+        }
+        
+        // Extrai o item (pode ser token ou camada)
+        const item = tokenRedimensionando.token || tokenRedimensionando.camada;
+        const indice = tokenRedimensionando.indice;
+        
+        if (!item) {
             return tokensAtuais;
         }
 
+        // PRIMEIRO FRAME - Salvar estado inicial para redimensionamento individual
+        if (!resizeStartStateRef.current) {
+            const itemAtual = tokensAtuais[indice];
+            if (!itemAtual) {
+                return tokensAtuais;
+            }
+
+            resizeStartStateRef.current = {
+                mouseInicial: { x: mouseX, y: mouseY },
+                itemInicial: {
+                    x: itemAtual.x,
+                    y: itemAtual.y,
+                    escala: itemAtual.escala,
+                    larguraOriginal: itemAtual.larguraOriginal,
+                    alturaOriginal: itemAtual.alturaOriginal
+                }
+            };
+
+            return tokensAtuais;
+        }
+
+        // FRAMES SEGUINTES - Aplicar redimensionamento individual
+        const estadoInicial = resizeStartStateRef.current;
+        
+        if (!estadoInicial || !estadoInicial.itemInicial) {
+            resizeStartStateRef.current = null;
+            return tokensAtuais;
+        }
+
+        // Converte coordenadas do mouse para o mundo
         const mundo = {
             mundoX: (mouseX - position.x) / zoom,
             mundoY: (mouseY - position.y) / zoom
@@ -153,32 +184,47 @@ export function useRedimensionamentoToken() {
         }
 
         const novosTokens = [...tokensAtuais];
-        const tokenAtual = tokensAtuais[tokenRedimensionando.indice];
+        const itemAtual = novosTokens[indice];
 
-        if (!tokenAtual) {
+        if (!itemAtual) {
+            resizeStartStateRef.current = null;
             return tokensAtuais;
         }
 
+        // Calcula a nova escala usando o tamanho inicial do estado
         const novaEscala = calcularNovaEscalaToken(
             mundo.mundoX, mundo.mundoY,
-            tokenAtual.x, tokenAtual.y,
-            tokenAtual.larguraOriginal || 50,
-            tokenAtual.alturaOriginal || 50,
-            modoLower,
-            tamanhoInicial
+            itemAtual.x, itemAtual.y,
+            itemAtual.larguraOriginal || 50,
+            itemAtual.alturaOriginal || 50,
+            modoRedimensionamento?.toLowerCase(),
+            {
+                largura: estadoInicial.itemInicial.larguraOriginal,
+                altura: estadoInicial.itemInicial.alturaOriginal,
+                escala: estadoInicial.itemInicial.escala
+            }
         );
 
-        if (isNaN(novaEscala)) {
+        if (isNaN(novaEscala) || novaEscala <= 0) {
             return tokensAtuais;
         }
 
-        novosTokens[tokenRedimensionando.indice] = {
-            ...novosTokens[tokenRedimensionando.indice],
+        // Aplica a nova escala
+        novosTokens[indice] = {
+            ...novosTokens[indice],
             escala: novaEscala
         };
 
         return novosTokens;
     }, []);
 
-    return { processarRedimensionamento, resizeStartStateRef };
+    const finalizarRedimensionamento = useCallback(() => {
+        resizeStartStateRef.current = null;
+    }, []);
+
+    return { 
+        processarRedimensionamento, 
+        resizeStartStateRef,
+        finalizarRedimensionamento
+    };
 }
