@@ -11,55 +11,36 @@ import { PastaVisual, TokenVisual, MenuContextualPasta } from "./PastaComponents
 import { DragDropSystem } from "./TokenModal";
 
 function TokenDesign({
-    //controle do modal
     isOpen,
     onClose,
     modalRef,
     pastaModalRef,
-
-    //abas
     activeTab,
     setActiveTab,
-
-    //token atual sendo importado
     imagemSelecionada,
     setImagemSelecionada,
     nomeToken,
     setNomeToken,
-
-    //dados da biblioteca
     bibliotecaTokens,
     setBibliotecaTokens,
-
-    //pasta atual e seu modal
     modalPastaAberto,
     setModalPastaAberto,
     pastaAtual,
     setPastaAtual,
-
-    //menus contextuais
     menuContextual,
     setMenuContextual,
     menuContextualPasta,
     setMenuContextualPasta,
-
-    //renomeacao de pasta
     pastaRenomeando,
     setPastaRenomeando,
     novoNomePasta,
     setNovoNomePasta,
-
-    //renomeacao de token
     tokenRenomeando,
     setTokenRenomeando,
     novoNomeToken,
     setNovoNomeToken,
-
-    //flags de estado
     criandoSubPasta,
     setCriandoSubPasta,
-
-    //funcoes da biblioteca
     salvarTokenNaBiblioteca,
     criarPasta,
     adicionarItemNaPasta,
@@ -67,19 +48,13 @@ function TokenDesign({
     excluirPasta,
     renomearPasta,
     buscarItensPorPastaPai,
-
-    //funcoes de renomeacao de pasta
     iniciarRenomeacaoPasta,
     salvarRenomeacaoPasta,
     cancelarRenomeacaoPasta,
-
-    //funcoes de renomeacao de token
     iniciarRenomeacaoToken,
     salvarRenomeacaoToken,
     cancelarRenomeacaoToken,
     excluirToken,
-
-    //funcoes do modal da pasta
     adicionarItemNaPastaAtual,
     removerItemDaPastaAtual,
     abrirSubPasta,
@@ -92,14 +67,17 @@ function TokenDesign({
     const [menuContextualToken, setMenuContextualToken] = useState({
         aberto: false, x: 0, y: 0, idToken: null, nomeToken: null
     });
+    const [urlExterna, setUrlExterna] = useState("");
+    const [uploadLoading, setUploadLoading] = useState(false);
 
-    //limpa estados quando fecha o modal principal
     useEffect(() => {
+        console.log('[TokenDesign] useEffect - isOpen:', isOpen);
         if (!isOpen) {
             setPastaRenomeando(null);
             setNovoNomePasta('');
             setTokenRenomeando(null);
             setNovoNomeToken('');
+            setUrlExterna('');
             setMenuContextual({
                 aberto: false, x: 0, y: 0, idPasta: null, nomePasta: null
             });
@@ -111,8 +89,8 @@ function TokenDesign({
 
     const handleModalClick = (e) => e.stopPropagation();
 
-    //handlers de drag usando DragDropSystem
     const handleDragStart = (e, dados) => {
+        console.log('[TokenDesign] handleDragStart - dados:', dados);
         e.dataTransfer.setData('application/json', JSON.stringify(dados));
         e.dataTransfer.effectAllowed = 'move';
 
@@ -138,13 +116,47 @@ function TokenDesign({
 
         try {
             const dados = JSON.parse(e.dataTransfer.getData('application/json'));
+            console.log('[TokenDesign] handleDrop - dados recebidos:', dados);
             DragDropSystem.processDrop(e, dados);
         } catch (erro) {
-            console.log("erro no drop:", erro);
+            console.log("[TokenDesign] erro no drop:", erro);
         }
     };
 
-    //render do modal da pasta (subpastas e tokens)
+    const fazerUploadArquivo = async (arquivo) => {
+        console.log('[TokenDesign] fazerUploadArquivo - iniciando');
+        console.log('[TokenDesign] arquivo:', arquivo.name, 'tipo:', arquivo.type, 'tamanho:', arquivo.size);
+        
+        setUploadLoading(true);
+        const formData = new FormData();
+        formData.append('file', arquivo);
+
+        try {
+            console.log('[TokenDesign] fazerUploadArquivo - enviando para /api/upload/token');
+            const response = await fetch('/api/upload/token', {
+                method: 'POST',
+                body: formData
+            });
+
+            console.log('[TokenDesign] fazerUploadArquivo - response status:', response.status);
+            const data = await response.json();
+            console.log('[TokenDesign] fazerUploadArquivo - data recebida:', data);
+            
+            if (response.ok) {
+                console.log('[TokenDesign] fazerUploadArquivo - upload OK, chamando setImagemSelecionada com:', data.url);
+                setImagemSelecionada(data.url);
+                console.log('[TokenDesign] fazerUploadArquivo - setImagemSelecionada chamado, novo valor:', data.url);
+            } else {
+                console.error('[TokenDesign] Erro no upload:', data.error);
+            }
+        } catch (error) {
+            console.error('[TokenDesign] Erro no upload:', error);
+        } finally {
+            setUploadLoading(false);
+            console.log('[TokenDesign] fazerUploadArquivo - finalizado');
+        }
+    };
+
     const renderModalPasta = () => {
         if (!pastaAtual) return null;
 
@@ -192,7 +204,6 @@ function TokenDesign({
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                 >
-                    {/* cabeçalho com gradiente */}
                     <Box sx={{
                         background: 'linear-gradient(135deg, #2a313c 0%, #1f252e 100%)',
                         borderBottom: '1px solid #3f4b5a',
@@ -238,7 +249,6 @@ function TokenDesign({
                             </Button>
                         </Box>
 
-                        {/* breadcrumb ou info adicional */}
                         {pastaAtual.pastaPai && (
                             <Typography sx={{ color: '#7e8a9a', fontSize: 12, mt: 0.5, ml: 5 }}>
                                 Subpasta • {itensOrdenados.length} ite{itensOrdenados.length !== 1 ? 'ns' : 'm'}
@@ -455,14 +465,17 @@ function TokenDesign({
         );
     };
 
-    //render do conteudo das abas (biblioteca principal)
     const renderConteudoAba = () => {
+        console.log('[TokenDesign] renderConteudoAba - activeTab:', activeTab);
+        
         switch (activeTab) {
             case 0: {
                 const itensRaiz = buscarItensPorPastaPai(null);
                 const pastas = itensRaiz.filter(item => item.tipo === "pasta");
                 const tokens = itensRaiz.filter(item => item.tipo === "token");
                 const itensOrdenados = [...pastas, ...tokens];
+
+                console.log('[TokenDesign] Biblioteca - itensRaiz:', itensRaiz.length, 'pastas:', pastas.length, 'tokens:', tokens.length);
 
                 if (itensRaiz.length === 0) {
                     return (
@@ -661,12 +674,20 @@ function TokenDesign({
                             p: 3,
                             border: '1px solid #3a4050'
                         }}>
+                            <Typography sx={{ color: '#b0b8c8', mb: 2, fontSize: 14, fontWeight: 500 }}>
+                                Opção 1: Upload de arquivo
+                            </Typography>
+                            
                             <input
                                 type="file"
                                 accept="image/*"
                                 onChange={(e) => {
                                     const arquivo = e.target.files[0];
-                                    if (arquivo) setImagemSelecionada(URL.createObjectURL(arquivo));
+                                    console.log('[TokenDesign] Input file change - arquivo selecionado:', arquivo ? arquivo.name : 'nenhum');
+                                    if (arquivo) {
+                                        console.log('[TokenDesign] Chamando fazerUploadArquivo com:', arquivo.name);
+                                        fazerUploadArquivo(arquivo);
+                                    }
                                 }}
                                 style={{
                                     width: '100%',
@@ -676,13 +697,60 @@ function TokenDesign({
                                     border: '2px dashed #4a5568',
                                     borderRadius: 8,
                                     cursor: 'pointer',
-                                    fontSize: 14
+                                    fontSize: 14,
+                                    marginBottom: 24
                                 }}
+                                disabled={uploadLoading}
+                            />
+
+                            {uploadLoading && (
+                                <Typography sx={{ color: '#5b8cff', textAlign: 'center', my: 2 }}>
+                                    Enviando imagem...
+                                </Typography>
+                            )}
+
+                            <Typography sx={{ color: '#b0b8c8', mb: 2, fontSize: 14, fontWeight: 500 }}>
+                                Opção 2: URL externa
+                            </Typography>
+
+                            <input
+                                type="text"
+                                placeholder="https://exemplo.com/imagem.png"
+                                value={urlExterna}
+                                onChange={(e) => {
+                                    const novaUrl = e.target.value;
+                                    console.log('[TokenDesign] URL externa alterada:', novaUrl);
+                                    setUrlExterna(novaUrl);
+                                    if (novaUrl.trim()) {
+                                        console.log('[TokenDesign] Chamando setImagemSelecionada com URL:', novaUrl);
+                                        setImagemSelecionada(novaUrl.trim());
+                                    } else {
+                                        console.log('[TokenDesign] URL vazia, chamando setImagemSelecionada com null');
+                                        setImagemSelecionada(null);
+                                    }
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: 12,
+                                    backgroundColor: '#1e232c',
+                                    color: '#b0b8c8',
+                                    border: '1px solid #4a5568',
+                                    borderRadius: 8,
+                                    fontSize: 14,
+                                    outline: 'none',
+                                    transition: 'border-color 0.2s',
+                                    marginBottom: 24
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#5b8cff'}
+                                onBlur={(e) => e.target.style.borderColor = '#4a5568'}
                             />
 
                             {imagemSelecionada && (
                                 <Box sx={{ mt: 3 }}>
                                     <Typography sx={{ color: '#b0b8c8', mb: 1, fontSize: 14 }}>Preview:</Typography>
+                                    <Typography sx={{ color: '#7e8a9a', fontSize: 12, mb: 1 }}>
+                                        URL: {imagemSelecionada.substring(0, 100)}...
+                                    </Typography>
                                     <Box sx={{
                                         display: 'flex',
                                         justifyContent: 'center',
@@ -699,6 +767,14 @@ function TokenDesign({
                                                 maxHeight: 200,
                                                 objectFit: 'contain',
                                                 borderRadius: 4
+                                            }}
+                                            onError={(e) => {
+                                                console.error('[TokenDesign] Preview erro ao carregar imagem:', imagemSelecionada);
+                                                e.target.src = '';
+                                                e.target.alt = 'Erro ao carregar imagem';
+                                            }}
+                                            onLoad={() => {
+                                                console.log('[TokenDesign] Preview imagem carregada com sucesso:', imagemSelecionada);
                                             }}
                                         />
                                     </Box>
@@ -719,7 +795,10 @@ function TokenDesign({
                                     type="text"
                                     id="nomeToken"
                                     value={nomeToken}
-                                    onChange={(e) => setNomeToken(e.target.value)}
+                                    onChange={(e) => {
+                                        console.log('[TokenDesign] Nome token alterado:', e.target.value);
+                                        setNomeToken(e.target.value);
+                                    }}
                                     placeholder="Ex: Mapa, Objeto, NPC, Inimigo, Carlos"
                                     style={{
                                         width: '100%',
@@ -753,6 +832,8 @@ function TokenDesign({
                 return <Box sx={{ color: '#fff', textAlign: 'center', py: 3 }}>Selecione uma aba</Box>;
         }
     };
+
+    console.log('[TokenDesign] Render - imagemSelecionada:', imagemSelecionada ? imagemSelecionada.substring(0, 100) : 'null', 'nomeToken:', nomeToken);
 
     return (
         <>
@@ -790,7 +871,6 @@ function TokenDesign({
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                 >
-                    {/* cabeçalho do modal principal */}
                     <Box sx={{
                         background: 'linear-gradient(135deg, #2a313c 0%, #1f252e 100%)',
                         borderBottom: '1px solid #3f4b5a',
@@ -812,7 +892,10 @@ function TokenDesign({
 
                     <Tabs
                         value={activeTab}
-                        onChange={(_, v) => setActiveTab(v)}
+                        onChange={(_, v) => {
+                            console.log('[TokenDesign] Tab alterada:', v);
+                            setActiveTab(v);
+                        }}
                         sx={{
                             minHeight: 48,
                             px: 2,
@@ -886,14 +969,12 @@ function TokenDesign({
                             y={menuContextualToken.y}
                             onRenomear={() => {
                                 if (menuContextualToken.idToken && menuContextualToken.nomeToken) {
-                                    console.log("renomear token:", menuContextualToken.idToken);
                                     iniciarRenomeacaoToken(menuContextualToken.idToken, menuContextualToken.nomeToken);
                                 }
                                 setMenuContextualToken({ aberto: false, x: 0, y: 0, idToken: null, nomeToken: null });
                             }}
                             onExcluir={() => {
                                 if (menuContextualToken.idToken) {
-                                    console.log("excluir token:", menuContextualToken.idToken);
                                     excluirToken(menuContextualToken.idToken);
                                 }
                                 setMenuContextualToken({ aberto: false, x: 0, y: 0, idToken: null, nomeToken: null });
@@ -932,8 +1013,13 @@ function TokenDesign({
 
                         {activeTab === 1 && (
                             <Button
-                                onClick={salvarTokenNaBiblioteca}
-                                disabled={!imagemSelecionada || !nomeToken?.trim()}
+                                onClick={() => {
+                                    console.log('[TokenDesign] Botão Salvar Token clicado');
+                                    console.log('[TokenDesign] imagemSelecionada atual:', imagemSelecionada);
+                                    console.log('[TokenDesign] nomeToken atual:', nomeToken);
+                                    salvarTokenNaBiblioteca();
+                                }}
+                                disabled={!imagemSelecionada || !nomeToken?.trim() || uploadLoading}
                                 variant="contained"
                                 sx={{
                                     bgcolor: '#5b8cff',

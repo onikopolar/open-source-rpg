@@ -1,19 +1,37 @@
-// components/TabletopDesign.jsx
+// src/components/TabletopDesign.jsx
 import React from "react";
 import { Box } from "@mui/material";
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import BrushIcon from '@mui/icons-material/Brush';
 import { calcularPosicoesBolinhas } from "./Tabletop/useSelecaoToken";
 
+// Cores fixas para cada sheetId
+const coresPorSheet = {};
+
+// Função auxiliar para obter cor de um sheet
+export function getCorSheet(sheetId) {
+    if (!sheetId) return 'rgba(255, 215, 0, 0.8)'; // Dourado para mestre
+    
+    if (coresPorSheet[sheetId]) {
+        return coresPorSheet[sheetId];
+    }
+    
+    const hash = String(sheetId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const hue = (hash * 137) % 360;
+    const cor = `hsl(${hue}, 70%, 55%)`;
+    coresPorSheet[sheetId] = cor;
+    return cor;
+}
+
 // FUNÇÕES DE DESENHO
 
-// Desenha a borda de arrasto
-export function desenharBordaDeArrasto(ctx, x, y, largura, altura, nomeUsuario) {
+// Desenha a borda de arrasto (aceita cor personalizada)
+export function desenharBordaDeArrasto(ctx, x, y, largura, altura, nomeUsuario, cor = 'rgba(255, 215, 0, 0.8)') {
     ctx.save();
 
-    ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)';
+    ctx.strokeStyle = cor;
     ctx.lineWidth = 6;
-    ctx.shadowColor = 'rgba(255, 215, 0, 0.8)';
+    ctx.shadowColor = cor;
     ctx.shadowBlur = 10;
     ctx.strokeRect(x - 6, y - 6, largura + 12, altura + 12);
 
@@ -33,7 +51,7 @@ export function desenharBordaDeArrasto(ctx, x, y, largura, altura, nomeUsuario) 
     ctx.restore();
 }
 
-// FUNÇÃO PARA DESENHAR SELEÇÃO (MESMO ESTILO PARA INDIVIDUAL E GRUPO)
+// FUNÇÃO PARA DESENHAR SELEÇÃO (DESIGN ORIGINAL COM BOLINHAS)
 export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, semFundo = false) {
     if (!boundingBox) return;
 
@@ -88,16 +106,7 @@ export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, sem
 export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zoom) {
     ctx.save();
 
-    console.log(`🎨 [TabletopDesign] desenharBolinhasRedimensionamento - INÍCIO`);
-    console.log(`   zoom: ${zoom.toFixed(4)}`);
-
     const { posicoes, raioBolinha } = calcularPosicoesBolinhas(x, y, largura, altura, zoom);
-
-    console.log(`   raioBolinha: ${raioBolinha.toFixed(2)}`);
-    console.log(`   posições calculadas:`);
-    posicoes.forEach(p => {
-        console.log(`      ${p.nome}: (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
-    });
 
     posicoes.forEach((pos) => {
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -122,7 +131,6 @@ export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zo
         ctx.stroke();
     });
 
-    console.log(`🎨 [TabletopDesign] desenharBolinhasRedimensionamento - FIM`);
     ctx.restore();
 }
 

@@ -6,7 +6,6 @@ export function useTabletopTokens() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Carregar todos os tokens do banco
   const carregarTokens = useCallback(async () => {
     try {
       setLoading(true);
@@ -28,16 +27,26 @@ export function useTabletopTokens() {
     }
   }, []);
 
-  // Criar um novo token
   const criarToken = useCallback(async (tokenData) => {
+    console.log('[useTabletopTokens] criarToken INICIADO');
+    console.log('[useTabletopTokens] tokenData recebido:', tokenData);
+    console.log('[useTabletopTokens] imageUrl:', tokenData.imageUrl);
+    console.log('[useTabletopTokens] imageBase64:', tokenData.imageBase64 ? 'presente' : 'null');
+    
     try {
+      const bodyString = JSON.stringify(tokenData);
+      console.log('[useTabletopTokens] body a ser enviado:', bodyString);
+      
       const response = await fetch('/api/Tabletop/tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tokenData)
+        body: bodyString
       });
       
+      console.log('[useTabletopTokens] response status:', response.status);
+      
       const data = await response.json();
+      console.log('[useTabletopTokens] response data:', data);
       
       if (!response.ok) {
         throw new Error(data.error || 'Erro ao criar token');
@@ -52,7 +61,6 @@ export function useTabletopTokens() {
     }
   }, []);
 
-  // Atualizar um token
   const atualizarToken = useCallback(async (id, updates) => {
     try {
       const response = await fetch(`/api/Tabletop/${id}`, {
@@ -76,7 +84,6 @@ export function useTabletopTokens() {
     }
   }, []);
 
-  // Deletar um token
   const deletarToken = useCallback(async (id) => {
     try {
       const response = await fetch(`/api/Tabletop/${id}`, {
@@ -97,7 +104,6 @@ export function useTabletopTokens() {
     }
   }, []);
 
-  // Carregar tokens na montagem
   useEffect(() => {
     carregarTokens();
   }, [carregarTokens]);
