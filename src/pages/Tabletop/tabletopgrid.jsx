@@ -27,7 +27,7 @@ import { useMouseTabletop } from "../../components/Tabletop/MouseTabletop";
 import { useTabletopTokens } from "../../hooks/useTabletopTokens";
 import socket from "../../utils/socket";
 
-function TabletopGrid({ isMaster = true, sheetId = null }) {
+function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
     const [modalTokenAberto, setModalTokenAberto] = useState(false);
     const [menuNevoaAberto, setMenuNevoaAberto] = useState(false);
@@ -57,25 +57,25 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
     }, [socket]);
 
     const emitirSelecao = useCallback((tokenId) => {
-        const nomeUsuario = isMaster ? 'Mestre' : `Player ${sheetId}`;
+        const nomeUsuario = isMaster ? 'Mestre' : (playerName || `Player ${sheetId}`);
         const cor = getCorSheet(sheetId);
         emitirEvento('tokenSelected', {
             tabletopId, tokenId, userId: socket.id,
             nome: nomeUsuario, color: cor, sheetId
         });
-    }, [socket, tabletopId, isMaster, sheetId, emitirEvento]);
+    }, [socket, tabletopId, isMaster, sheetId, playerName, emitirEvento]);
 
     const emitirDeselecao = useCallback((tokenId) => {
         emitirEvento('tokenDeselected', { tabletopId, tokenId, userId: socket.id });
     }, [socket, tabletopId, emitirEvento]);
 
     const emitirDragStart = useCallback((tokenId) => {
-        const nomeUsuario = isMaster ? 'Mestre' : `Player ${sheetId}`;
+        const nomeUsuario = isMaster ? 'Mestre' : (playerName || `Player ${sheetId}`);
         emitirEvento('tokenDragStart', {
             tabletopId, tokenId, userId: socket.id,
             nome: nomeUsuario, sheetId
         });
-    }, [socket, tabletopId, isMaster, sheetId, emitirEvento]);
+    }, [socket, tabletopId, isMaster, sheetId, playerName, emitirEvento]);
 
     const emitirDragEnd = useCallback((tokenId) => {
         emitirEvento('tokenDragEnd', { tabletopId, tokenId, userId: socket.id });
@@ -99,6 +99,19 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
 
         const handleTokenUpdated = (data) => {
             setTokensLocal(prev => prev.map(t => t.id === data.id ? { ...t, ...data } : t));
+
+            if (data.oculto !== undefined) {
+                despacharUI({
+                    type: 'SET_TOKEN_VISIBILITY',
+                    payload: { tokenId: data.id, oculto: data.oculto }
+                });
+            }
+            if (data.bloqueado !== undefined) {
+                despacharUI({
+                    type: 'SET_TOKEN_BLOCK',
+                    payload: { tokenId: data.id, bloqueado: data.bloqueado }
+                });
+            }
         };
 
         const handleTokenCreated = (data) => {
@@ -246,6 +259,7 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
             const estaSelecionado = estadoUI.tokenSelecionado === indice ||
                 estadoUI.tokensSelecionados.includes(indice);
             const estaBloqueado = estadoUI.tokensBloqueados[token.id] === true;
+            const estaOculto = estadoUI.visibilidadeTokens[token.id] === true;
 
             return {
                 ...token,
@@ -261,7 +275,7 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
                     larguraTela,
                     alturaTela
                 },
-                oculto: estadoUI.visibilidadeTokens[token.id] === true,
+                oculto: estaOculto,
                 bloqueado: estaBloqueado,
                 estaSelecionado,
                 tipo: 'token'
@@ -432,7 +446,11 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
         if (estadoUI.tokensSelecionados.length > 1) {
             const itensSelecionados = estadoUI.tokensSelecionados
                 .map(indice => todosItens[indice])
-                .filter(item => item && !item.bloqueado && item.tipo === 'token');
+                .filter(item => {
+                    if (!item || item.bloqueado || item.tipo !== 'token') return false;
+                    if (!isMaster && item.oculto) return false;
+                    return true;
+                });
 
             if (itensSelecionados.length > 0) {
                 const boundingBox = calcularBoundingBoxGrupo(itensSelecionados);
@@ -443,6 +461,9 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
         if (estadoUI.tokenSelecionado !== null && !estadoUI.tokenSendoArrastado && !estadoUI.camadaSendoArrastada) {
             const itemInfo = todosItens[estadoUI.tokenSelecionado];
             if (itemInfo && !itemInfo.bloqueado && itemInfo.tipo === 'token') {
+                if (!isMaster && itemInfo.oculto) {
+                    return;
+                }
                 const isPartOfGroup = estadoUI.tokensSelecionados.length > 1;
                 if (!isPartOfGroup) {
                     const boundingBox = {
@@ -489,7 +510,7 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
             };
             desenharSelecao(contexto, boundingBox, estadoUI.zoom, 1, false);
         }
-    }, [estadoUI, todosItens, tokensInfo.length]);
+    }, [estadoUI, todosItens, tokensInfo.length, isMaster]);
 
     const desenharArrastoRemoto = useCallback((contexto) => {
         if (arrastosRemotos && Object.keys(arrastosRemotos).length > 0) {
@@ -499,6 +520,8 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
 
                 const tokenInfo = todosItens[tokenIndex];
                 if (!tokenInfo || tokenInfo.bloqueado) return;
+
+                if (!isMaster && tokenInfo.oculto) return;
 
                 desenharBordaDeArrasto(
                     contexto,
@@ -511,7 +534,7 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
                 );
             });
         }
-    }, [arrastosRemotos, tokensLocal, todosItens]);
+    }, [arrastosRemotos, tokensLocal, todosItens, isMaster]);
 
     const renderizarTudo = useCallback(() => {
         const canvas = canvasRef.current;
@@ -535,6 +558,9 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
         for (let i = 0; i < todosItens.length; i++) {
             const item = todosItens[i];
             if (item.tipo === 'token') {
+                if (!isMaster && item.oculto) {
+                    continue;
+                }
                 drawTokenWithCache(item, item.indice, contexto);
             }
         }
@@ -547,7 +573,7 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
         desenharArrastoRemoto(contexto);
 
     }, [todosItens, tokensInfo.length, tokensLocal, arrastosRemotos, desenharGrade, drawTokenWithCache, pegarContextoCanvas,
-        estadoUI, nevoa, desenharArrastoProprio, desenharSelecoes, desenharArrastoRemoto]);
+        estadoUI, nevoa, desenharArrastoProprio, desenharSelecoes, desenharArrastoRemoto, isMaster]);
 
     useEffect(() => {
         renderCallbackRef.current = renderizarTudo;
@@ -570,9 +596,7 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
                 const tokenId = estadoUI.tokenSendoArrastado.token.id;
                 const tokenData = tokensLocal.find(t => t.id === tokenId);
                 if (tokenData) {
-                    // EMITIR DRAG END IMEDIATAMENTE - remove a borda no outro cliente
                     emitirDragEnd(tokenId);
-                    // SALVAR NO BANCO (operação assíncrona)
                     salvarToken(tokenId, { x: tokenData.x, y: tokenData.y });
                 }
             }
@@ -682,7 +706,7 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
     }, [todosItens, estadoUI.tokenSendoArrastado, estadoUI.camadaSendoArrastada,
         estadoUI.tokenSelecionado, estadoUI.camadaSelecionada, estadoUI.zoom, estadoUI.position,
         estadoUI.areaSelecao, estadoUI.tokensSelecionados, estadoUI.camadasSelecionadas,
-        estadoUI.visibilidadeTokens, arrastosRemotos, agendarRender]);
+        estadoUI.visibilidadeTokens, estadoUI.tokensBloqueados, arrastosRemotos, agendarRender]);
 
     useEffect(() => {
         if (estadoUI.ui.mostrarFeedback) {
@@ -812,6 +836,12 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
         if (token) {
             const novoEstado = !token.oculto;
             atualizarToken(tokenId, { oculto: novoEstado });
+
+            despacharUI({
+                type: 'SET_TOKEN_VISIBILITY',
+                payload: { tokenId, oculto: novoEstado }
+            });
+
             if (socket && socket.connected) {
                 socket.emit('tabletop:tokenVisibilityChanged', {
                     tabletopId,
@@ -823,19 +853,31 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
         despacharUI({ type: 'CLOSE_CONTEXT_MENU' });
     }, [isMaster, tokensLocal, atualizarToken, tabletopId, despacharUI]);
 
-    const handleToggleLock = useCallback((tokenId) => {
-        if (!isMaster) return;
+    const handleToggleLock = useCallback(async (tokenId) => {
+        if (!isMaster) {
+            despacharUI({ type: 'CLOSE_CONTEXT_MENU' });
+            return;
+        }
 
         const token = tokensLocal.find(t => t.id === tokenId);
+
         if (token) {
             const estaBloqueado = !token.bloqueado;
-            atualizarToken(tokenId, { bloqueado: estaBloqueado });
-            if (socket && socket.connected) {
-                socket.emit('tabletop:tokenLockChanged', {
-                    tabletopId,
-                    id: tokenId,
-                    bloqueado: estaBloqueado
+            const resultado = await atualizarToken(tokenId, { bloqueado: estaBloqueado });
+
+            if (resultado) {
+                despacharUI({
+                    type: 'SET_TOKEN_BLOCK',
+                    payload: { tokenId, bloqueado: estaBloqueado }
                 });
+
+                if (socket && socket.connected) {
+                    socket.emit('tabletop:tokenLockChanged', {
+                        tabletopId,
+                        id: tokenId,
+                        bloqueado: estaBloqueado
+                    });
+                }
             }
 
             despacharUI({
@@ -846,8 +888,9 @@ function TabletopGrid({ isMaster = true, sheetId = null }) {
                 }
             });
         }
+
         despacharUI({ type: 'CLOSE_CONTEXT_MENU' });
-    }, [isMaster, tokensLocal, atualizarToken, tabletopId, despacharUI]);
+    }, [isMaster, tokensLocal, atualizarToken, tabletopId, despacharUI, socket]);
 
     const handleToggleCamadaLock = useCallback((camadaId) => {
         if (!isMaster) return;

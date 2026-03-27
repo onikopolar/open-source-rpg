@@ -114,7 +114,7 @@ const CharacterInfoForm = ({
             <Grid item xs={12}>
               <TextField
                 variant="outlined"
-                label="Nome do Personagem *"
+                label="Nome do Personagem"
                 name="name"
                 value={values.name}
                 fullWidth

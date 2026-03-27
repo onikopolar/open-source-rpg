@@ -11,11 +11,84 @@ export const MenuContextoToken = React.forwardRef(({
     x, y, aberto, onFechar, onDeletar, onOcultar, onBloquear, onInverter,
     tokenNome, estaOculto, estaBloqueado, tipo = 'token'
 }, ref) => {
-    if (!aberto) return null;
+    console.log('[MenuContextoToken] Renderizando', {
+        x, y, aberto, tokenNome, estaOculto, estaBloqueado, tipo
+    });
+
+    if (!aberto) {
+        console.log('[MenuContextoToken] Menu fechado, não renderiza');
+        return null;
+    }
 
     const textoOcultar = estaOculto ? "Mostrar (todos veem)" : "Ocultar (só eu vejo)";
     const textoBloquear = estaBloqueado ? "Desbloquear token" : "Bloquear token";
     const isNevoa = tipo === 'nevoa';
+
+    console.log('[MenuContextoToken] Menu aberto', { textoOcultar, textoBloquear, isNevoa });
+
+    const handleOcultar = () => {
+        console.log('[MenuContextoToken] Botão Ocultar/Mostrar clicado', { tokenNome, estaOculto, tipo });
+        if (onOcultar) {
+            console.log('[MenuContextoToken] Chamando onOcultar');
+            onOcultar();
+        } else {
+            console.warn('[MenuContextoToken] onOcultar não definido');
+        }
+        if (onFechar) {
+            console.log('[MenuContextoToken] Chamando onFechar');
+            onFechar();
+        } else {
+            console.warn('[MenuContextoToken] onFechar não definido');
+        }
+    };
+
+    const handleInverter = () => {
+        console.log('[MenuContextoToken] Botão Inverter clicado', { tokenNome, tipo });
+        if (onInverter) {
+            console.log('[MenuContextoToken] Chamando onInverter');
+            onInverter();
+        } else {
+            console.warn('[MenuContextoToken] onInverter não definido');
+        }
+        if (onFechar) {
+            console.log('[MenuContextoToken] Chamando onFechar');
+            onFechar();
+        } else {
+            console.warn('[MenuContextoToken] onFechar não definido');
+        }
+    };
+
+    const handleBloquear = () => {
+        console.log('[MenuContextoToken] Botão Bloquear/Desbloquear clicado', { tokenNome, estaBloqueado, tipo });
+        if (onBloquear) {
+            console.log('[MenuContextoToken] Chamando onBloquear');
+            onBloquear();
+        } else {
+            console.warn('[MenuContextoToken] onBloquear não definido');
+        }
+        if (onFechar) {
+            console.log('[MenuContextoToken] Chamando onFechar');
+            onFechar();
+        } else {
+            console.warn('[MenuContextoToken] onFechar não definido');
+        }
+    };
+
+    const handleDeletar = () => {
+        console.log('[MenuContextoToken] Botão Deletar clicado', { tokenNome, tipo });
+        if (onDeletar) {
+            console.log('[MenuContextoToken] Chamando onDeletar');
+            onDeletar();
+        } else {
+            console.warn('[MenuContextoToken] onDeletar não definido');
+        }
+        if (onFechar) {
+            console.log('[MenuContextoToken] Chamando onFechar');
+            onFechar();
+        } else {
+            console.warn('[MenuContextoToken] onFechar não definido');
+        }
+    };
 
     return (
         <div
@@ -49,10 +122,7 @@ export const MenuContextoToken = React.forwardRef(({
             {!isNevoa && (
                 <>
                     <button
-                        onClick={() => {
-                            onOcultar();
-                            onFechar();
-                        }}
+                        onClick={handleOcultar}
                         style={{
                             width: '100%',
                             padding: '10px 12px',
@@ -79,10 +149,7 @@ export const MenuContextoToken = React.forwardRef(({
                     </button>
 
                     <button
-                        onClick={() => {
-                            onInverter();
-                            onFechar();
-                        }}
+                        onClick={handleInverter}
                         style={{
                             width: '100%',
                             padding: '10px 12px',
@@ -107,10 +174,7 @@ export const MenuContextoToken = React.forwardRef(({
             )}
 
             <button
-                onClick={() => {
-                    onBloquear();
-                    onFechar();
-                }}
+                onClick={handleBloquear}
                 style={{
                     width: '100%',
                     padding: '10px 12px',
@@ -144,10 +208,7 @@ export const MenuContextoToken = React.forwardRef(({
             </button>
 
             <button
-                onClick={() => {
-                    onDeletar();
-                    onFechar();
-                }}
+                onClick={handleDeletar}
                 style={{
                     width: '100%',
                     padding: '10px 12px',

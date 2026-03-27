@@ -11,7 +11,8 @@ import {
     DialogActions,
     TextField,
     Button,
-    Alert
+    Alert,
+    CircularProgress
 } from '@mui/material';
 import TabletopGrid from './tabletopgrid';
 import FichaAbaInferior from '../../components/Tabletop/FichaAbaInferior';
@@ -27,6 +28,9 @@ export default function registroNoTabletop() {
     const [erroSenha, setErroSenha] = useState(false);
     const [isMaster, setIsMaster] = useState(null);
     const [modoDecidido, setModoDecidido] = useState(false);
+    const [characterName, setCharacterName] = useState("");
+    const [playerName, setPlayerName] = useState("");
+    const [loadingData, setLoadingData] = useState(false);
 
     useEffect(() => {
         if (!router.isReady) return;
@@ -53,6 +57,39 @@ export default function registroNoTabletop() {
         setModalSenhaAberto(true);
         setModoDecidido(true);
     }, [router.isReady, sheetId, fromDashboard]);
+
+    useEffect(() => {
+        if (!sheetId || isMaster !== false) return;
+
+        const buscarDadosPersonagem = async () => {
+            setLoadingData(true);
+            try {
+                const response = await fetch(`/api/character/${sheetId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    console.log('[Tabletop] Dados do personagem carregados:', {
+                        name: data.name,
+                        player_name: data.player_name
+                    });
+                    setCharacterName(data.name || `Personagem ${sheetId}`);
+                    setPlayerName(data.player_name || `Player ${sheetId}`);
+                } else {
+                    console.log('[Tabletop] Personagem não encontrado');
+                    setCharacterName(`Personagem ${sheetId}`);
+                    setPlayerName(`Player ${sheetId}`);
+                }
+            } catch (error) {
+                console.error('[Tabletop] Erro ao buscar dados do personagem:', error);
+                setCharacterName(`Personagem ${sheetId}`);
+                setPlayerName(`Player ${sheetId}`);
+            } finally {
+                setLoadingData(false);
+            }
+        };
+
+        buscarDadosPersonagem();
+    }, [sheetId, isMaster]);
 
     const handleConfirmarSenha = () => {
         if (senhaDigitada === SENHA_MESTRE) {
@@ -87,11 +124,22 @@ export default function registroNoTabletop() {
                 display: 'flex',
                 flexDirection: 'column'
             }}>
-                <h1>Modo Player - ID: {sheetId}</h1>
+                {loadingData ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+                        <CircularProgress size={24} />
+                        <h1>Carregando dados do jogador...</h1>
+                    </div>
+                ) : (
+                    <h1>Modo Player - {playerName}</h1>
+                )}
                 <div style={{ flex: 1, minHeight: 0 }}>
-                    <TabletopGrid isMaster={false} sheetId={sheetId} />
+                    <TabletopGrid 
+                        isMaster={false} 
+                        sheetId={sheetId} 
+                        playerName={playerName}
+                    />
                 </div>
-                <FichaAbaInferior sheetId={sheetId} characterName="Ficha do Personagem" />
+                <FichaAbaInferior sheetId={sheetId} characterName={characterName} />
             </div>
         );
     }
@@ -106,7 +154,7 @@ export default function registroNoTabletop() {
             }}>
                 <h1>Modo Mestre</h1>
                 <div style={{ flex: 1, minHeight: 0 }}>
-                    <TabletopGrid isMaster={true} sheetId={null} />
+                    <TabletopGrid isMaster={true} sheetId={null} playerName={null} />
                 </div>
             </div>
         );

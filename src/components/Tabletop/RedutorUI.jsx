@@ -26,7 +26,7 @@ export const initialUIState = {
     // Estados dos tokens
     visibilidadeTokens: {},
     tokensBloqueados: {},
-    
+
     // Estados das camadas de névoa
     camadasBloqueadas: {},
 
@@ -219,7 +219,6 @@ export function uiReducer(state, action) {
         // ===== AÇÕES COMPARTILHADAS (REDIMENSIONAMENTO) =====
         case 'START_RESIZE':
             console.log('[Reducer] START_RESIZE:', action.payload);
-            // Verifica se é token ou camada pelo tipo
             if (action.payload.token?.tipo === 'nevoa') {
                 return {
                     ...state,
@@ -311,7 +310,28 @@ export function uiReducer(state, action) {
                 }
             };
 
+        case 'SET_TOKEN_VISIBILITY':
+            console.log('[Reducer] SET_TOKEN_VISIBILITY:', action.payload);
+            return {
+                ...state,
+                visibilidadeTokens: {
+                    ...state.visibilidadeTokens,
+                    [action.payload.tokenId]: action.payload.oculto
+                }
+            };
+
+        case 'SET_TOKEN_BLOCK':
+            console.log('[Reducer] SET_TOKEN_BLOCK:', action.payload);
+            return {
+                ...state,
+                tokensBloqueados: {
+                    ...state.tokensBloqueados,
+                    [action.payload.tokenId]: action.payload.bloqueado
+                }
+            };
+
         case 'TOGGLE_LOCK':
+            console.log('[Reducer] TOGGLE_LOCK:', action.payload);
             return {
                 ...state,
                 tokensBloqueados: {
