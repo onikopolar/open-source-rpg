@@ -13,9 +13,11 @@ export default async function handler(req, res) {
       });
       
       if (!token) {
+        console.log('[API Tabletop/[id]] Token não encontrado');
         return res.status(404).json({ error: 'Token não encontrado' });
       }
       
+      console.log('[API Tabletop/[id]] Token encontrado:', { id: token.id, bloqueado: token.bloqueado });
       return res.status(200).json(token);
     } catch (error) {
       console.error('[API Tabletop/[id]] Erro no GET:', error);
@@ -28,7 +30,16 @@ export default async function handler(req, res) {
     try {
       const { x, y, escala, invertido, oculto, bloqueado, zIndex } = req.body;
       
-      console.log('[API Tabletop/[id]] Atualizando token:', { id, x, y, escala, zIndex });
+      console.log('[API Tabletop/[id]] Atualizando token:', { 
+        id, 
+        x, 
+        y, 
+        escala, 
+        invertido, 
+        oculto, 
+        bloqueado, 
+        zIndex 
+      });
       
       const token = await prisma.tabletopToken.update({
         where: { id },
@@ -44,7 +55,13 @@ export default async function handler(req, res) {
         }
       });
       
-      console.log('[API Tabletop/[id]] Token atualizado');
+      console.log('[API Tabletop/[id]] Token atualizado. Novo estado:', { 
+        id: token.id, 
+        bloqueado: token.bloqueado,
+        x: token.x,
+        y: token.y,
+        escala: token.escala
+      });
       
       return res.status(200).json(token);
     } catch (error) {
@@ -62,7 +79,7 @@ export default async function handler(req, res) {
         where: { id }
       });
       
-      console.log('[API Tabletop/[id]] Token deletado');
+      console.log('[API Tabletop/[id]] Token deletado com sucesso:', id);
       
       return res.status(200).json({ success: true });
     } catch (error) {

@@ -14,6 +14,12 @@ export default async function handler(req, res) {
       });
       
       console.log(`[API Tabletop/tokens] ${tokens.length} tokens encontrados`);
+      console.log('[API Tabletop/tokens] Dados completos:', tokens.map(t => ({
+        id: t.id,
+        nome: t.nome,
+        bloqueado: t.bloqueado,
+        zIndex: t.zIndex
+      })));
       
       return res.status(200).json(tokens);
     } catch (error) {
@@ -30,13 +36,14 @@ export default async function handler(req, res) {
         invertido, oculto, bloqueado, imageUrl, imageBase64, mimeType 
       } = req.body;
       
-      console.log('[API Tabletop/tokens] Criando token:', { tokenId, nome, x, y });
+      console.log('[API Tabletop/tokens] Criando token:', { tokenId, nome, x, y, bloqueado });
       
       // Buscar o maior zIndex atual
       const maxZIndexToken = await prisma.tabletopToken.findFirst({
         orderBy: { zIndex: 'desc' }
       });
       const novoZIndex = (maxZIndexToken?.zIndex || 0) + 1;
+      console.log('[API Tabletop/tokens] novoZIndex calculado:', novoZIndex);
       
       const token = await prisma.tabletopToken.create({
         data: {
@@ -57,7 +64,7 @@ export default async function handler(req, res) {
         }
       });
       
-      console.log('[API Tabletop/tokens] Token criado com ID:', token.id);
+      console.log('[API Tabletop/tokens] Token criado com ID:', token.id, 'bloqueado:', token.bloqueado);
       
       return res.status(201).json(token);
     } catch (error) {

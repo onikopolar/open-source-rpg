@@ -51,7 +51,18 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         if (tokens.length > 0 && tokensLocal.length === 0) {
             const tokensOrdenados = [...tokens].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
             setTokensLocal(tokensOrdenados);
-            console.log('[TabletopGrid] Tokens inicializados com ordem:', tokensOrdenados.map(t => ({ id: t.id, zIndex: t.zIndex })));
+            
+            // Inicializa estado de bloqueio da UI com base nos dados do servidor
+            tokensOrdenados.forEach(token => {
+                if (token.bloqueado) {
+                    despacharUI({
+                        type: 'SET_TOKEN_BLOCK',
+                        payload: { tokenId: token.id, bloqueado: true }
+                    });
+                }
+            });
+            
+            console.log('[TabletopGrid] Tokens inicializados com ordem:', tokensOrdenados.map(t => ({ id: t.id, nome: t.nome, bloqueado: t.bloqueado, zIndex: t.zIndex })));
         }
     }, [tokens]);
 
