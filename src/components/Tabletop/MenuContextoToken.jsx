@@ -7,9 +7,29 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import FlipIcon from '@mui/icons-material/Flip';
 
 export const MenuContextoToken = React.forwardRef(({
-    x, y, aberto, onFechar, onDeletar, onOcultar, onBloquear, onInverter,
-    tokenNome, estaOculto, estaBloqueado, tipo = 'token',
-    isMaster = false
+    x,
+    y,
+    aberto,
+    onFechar,
+    tokenId,
+    camadaId,
+    tipo = 'token',
+    tokenNome,
+    estaOculto,
+    estaBloqueado,
+    isMaster = false,
+    // Dependências para ações
+    deletarToken,
+    atualizarToken,
+    socket,
+    tabletopId,
+    nevoa,
+    despacharUI,
+    emitirTokenDeleted,
+    emitirTokenVisibilityChanged,
+    emitirTokenLockChanged,
+    emitirTokenInverted,
+    tokensLocal,
 }, ref) => {
     if (!aberto) {
         return null;
@@ -20,39 +40,175 @@ export const MenuContextoToken = React.forwardRef(({
     const isNevoa = tipo === 'nevoa';
 
     const handleOcultar = () => {
-        if (onOcultar) {
-            onOcultar();
+        if (!isMaster || isNevoa) {
+            if (onFechar) onFechar();
+            return;
         }
-        if (onFechar) {
-            onFechar();
-        }
+
+        const novoEstado = !estaOculto;
+
+        atualizarToken(tokenId, { oculto: novoEstado })
+            .then(() => {
+                despacharUI({
+                    type: 'SET_TOKEN_VISIBILITY',
+                    payload: { tokenId, oculto: novoEstado },
+                });
+                if (socket?.connected) {
+                    emitirTokenVisibilityChanged(tokenId, novoEstado);
+                }
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: {
+                        message: novoEstado ? 'Token ocultado' : 'Token visível',
+                        type: 'success',
+                    },
+                });
+            })
+            .catch((err) => {
+                console.error('[MenuContextoToken] Erro ao alterar visibilidade:', err);
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: {
+                        message: 'Erro ao alterar visibilidade',
+                        type: 'error',
+                    },
+                });
+            });
+
+        if (onFechar) onFechar();
     };
 
     const handleInverter = () => {
-        if (onInverter) {
-            onInverter();
+        if (isNevoa) {
+            if (onFechar) onFechar();
+            return;
         }
-        if (onFechar) {
-            onFechar();
-        }
+
+        const token = tokensLocal.find((t) => t.id === tokenId);
+        const novoEstado = token ? !token.invertido : false;
+
+        atualizarToken(tokenId, { invertido: novoEstado })
+            .then(() => {
+                if (socket?.connected) {
+                    emitirTokenInverted(tokenId, novoEstado);
+                }
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: {
+                        message: novoEstado ? 'Token invertido' : 'Token normal',
+                        type: 'success',
+                    },
+                });
+            })
+            .catch((err) => {
+                console.error('[MenuContextoToken] Erro ao inverter token:', err);
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: {
+                        message: 'Erro ao inverter token',
+                        type: 'error',
+                    },
+                });
+            });
+
+        if (onFechar) onFechar();
     };
 
     const handleBloquear = () => {
-        if (onBloquear) {
-            onBloquear();
+        if (!isMaster) {
+            if (onFechar) onFechar();
+            return;
         }
-        if (onFechar) {
-            onFechar();
+
+        if (isNevoa) {
+            const novoEstado = !estaBloqueado;
+            despacharUI({ type: 'TOGGLE_CAMADA_LOCK', payload: camadaId });
+            despacharUI({
+                type: 'SET_FEEDBACK',
+                payload: {
+                    message: novoEstado ? 'Camada bloqueada' : 'Camada desbloqueada',
+                    type: novoEstado ? 'warning' : 'success',
+                },
+            });
+            if (onFechar) onFechar();
+            return;
         }
+
+        const token = tokensLocal.find((t) => t.id === tokenId);
+        const novoEstado = token ? !token.bloqueado : false;
+
+        atualizarToken(tokenId, { bloqueado: novoEstado })
+            .then(() => {
+                despacharUI({
+                    type: 'SET_TOKEN_BLOCK',
+                    payload: { tokenId, bloqueado: novoEstado },
+                });
+                if (socket?.connected) {
+                    emitirTokenLockChanged(tokenId, novoEstado);
+                }
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: {
+                        message: novoEstado ? 'Token bloqueado' : 'Token desbloqueado',
+                        type: novoEstado ? 'warning' : 'success',
+                    },
+                });
+            })
+            .catch((err) => {
+                console.error('[MenuContextoToken] Erro ao alterar bloqueio:', err);
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: {
+                        message: 'Erro ao alterar bloqueio',
+                        type: 'error',
+                    },
+                });
+            });
+
+        if (onFechar) onFechar();
     };
 
     const handleDeletar = () => {
-        if (onDeletar) {
-            onDeletar();
+        if (isNevoa) {
+            if (nevoa) {
+                nevoa.deletarCamada(camadaId);
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: {
+                        message: 'Camada deletada',
+                        type: 'success',
+                    },
+                });
+            }
+            if (onFechar) onFechar();
+            return;
         }
-        if (onFechar) {
-            onFechar();
-        }
+
+        deletarToken(tokenId)
+            .then(() => {
+                if (socket?.connected) {
+                    emitirTokenDeleted(tokenId);
+                }
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: {
+                        message: 'Token deletado',
+                        type: 'success',
+                    },
+                });
+            })
+            .catch((err) => {
+                console.error('[MenuContextoToken] Erro ao deletar token:', err);
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: {
+                        message: 'Erro ao deletar token',
+                        type: 'error',
+                    },
+                });
+            });
+
+        if (onFechar) onFechar();
     };
 
     return (

@@ -1,10 +1,12 @@
 // components/Tabletop/useRedimensionamentoToken.jsx
 import { useCallback, useRef } from "react";
 import { calcularNovaEscalaToken } from "./UtilitariosToken";
-import { calcularPosicoesBolinhas } from "./useSelecaoToken";
 
-export function useRedimensionamentoToken() {
+export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emitirDragEnd } = {}) {
     const resizeStartStateRef = useRef(null);
+    const redimensionandoRef = useRef(false);
+    const ultimoEmitRef = useRef(0);
+    const THROTTLE_MS = 16;
 
     const processarRedimensionamento = useCallback((
         mouseX,
@@ -19,9 +21,7 @@ export function useRedimensionamentoToken() {
         isGroupResize = false,
         indicesGrupo = []
     ) => {
-        // ===== REDIMENSIONAMENTO DE GRUPO =====
         if (isGroupResize && indicesGrupo.length > 0) {
-            // PRIMEIRO FRAME - Salvar estado inicial
             if (!resizeStartStateRef.current) {
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
@@ -68,14 +68,15 @@ export function useRedimensionamentoToken() {
                     tokens: estadoInicialTokens
                 };
 
+                redimensionandoRef.current = true;
                 return tokensAtuais;
             }
 
-            // FRAMES SEGUINTES
             const estadoInicial = resizeStartStateRef.current;
 
             if (!estadoInicial || !estadoInicial.boundingBox) {
                 resizeStartStateRef.current = null;
+                redimensionandoRef.current = false;
                 return tokensAtuais;
             }
 
@@ -130,13 +131,10 @@ export function useRedimensionamentoToken() {
             return novosTokens;
         }
 
-        // ===== REDIMENSIONAMENTO INDIVIDUAL =====
-        // Verifica se o item existe
         if (!tokenRedimensionando) {
             return tokensAtuais;
         }
         
-        // Extrai o item (pode ser token ou camada)
         const item = tokenRedimensionando.token || tokenRedimensionando.camada;
         const indice = tokenRedimensionando.indice;
         
@@ -144,7 +142,6 @@ export function useRedimensionamentoToken() {
             return tokensAtuais;
         }
 
-        // PRIMEIRO FRAME - Salvar estado inicial para redimensionamento individual
         if (!resizeStartStateRef.current) {
             const itemAtual = tokensAtuais[indice];
             if (!itemAtual) {
@@ -162,18 +159,18 @@ export function useRedimensionamentoToken() {
                 }
             };
 
+            redimensionandoRef.current = true;
             return tokensAtuais;
         }
 
-        // FRAMES SEGUINTES - Aplicar redimensionamento individual
         const estadoInicial = resizeStartStateRef.current;
         
         if (!estadoInicial || !estadoInicial.itemInicial) {
             resizeStartStateRef.current = null;
+            redimensionandoRef.current = false;
             return tokensAtuais;
         }
 
-        // Converte coordenadas do mouse para o mundo
         const mundo = {
             mundoX: (mouseX - position.x) / zoom,
             mundoY: (mouseY - position.y) / zoom
@@ -188,10 +185,10 @@ export function useRedimensionamentoToken() {
 
         if (!itemAtual) {
             resizeStartStateRef.current = null;
+            redimensionandoRef.current = false;
             return tokensAtuais;
         }
 
-        // Calcula a nova escala usando o tamanho inicial do estado
         const novaEscala = calcularNovaEscalaToken(
             mundo.mundoX, mundo.mundoY,
             itemAtual.x, itemAtual.y,
@@ -209,22 +206,44 @@ export function useRedimensionamentoToken() {
             return tokensAtuais;
         }
 
-        // Aplica a nova escala
         novosTokens[indice] = {
             ...novosTokens[indice],
             escala: novaEscala
         };
 
+        // Emitir movimento via socket durante o redimensionamento (throttled)
+        if (emitirTokenMoved && emitirDragEnd) {
+            const agora = Date.now();
+            const timeSinceLastEmit = agora - ultimoEmitRef.current;
+            if (timeSinceLastEmit >= THROTTLE_MS) {
+                ultimoEmitRef.current = agora;
+                emitirTokenMoved(itemAtual.id, {
+                    escala: novaEscala,
+                    x: novosTokens[indice].x,
+                    y: novosTokens[indice].y
+                });
+            }
+        }
+
         return novosTokens;
-    }, []);
+    }, [emitirTokenMoved, emitirDragEnd]);
 
     const finalizarRedimensionamento = useCallback(() => {
-        resizeStartStateRef.current = null;
+        if (redimensionandoRef.current) {
+            // Não precisamos mais salvar aqui, pois o save já é feito pelo movimento
+            // e pelo mouseup no useMouseTabletop
+            redimensionandoRef.current = false;
+            resizeStartStateRef.current = null;
+        } else {
+            redimensionandoRef.current = false;
+            resizeStartStateRef.current = null;
+        }
     }, []);
 
     return { 
         processarRedimensionamento, 
         resizeStartStateRef,
+        redimensionandoRef,
         finalizarRedimensionamento
     };
 }
