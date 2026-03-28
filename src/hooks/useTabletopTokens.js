@@ -16,8 +16,10 @@ export function useTabletopTokens() {
         throw new Error(data.error || 'Erro ao carregar tokens');
       }
       
-      setTokens(data);
-      return data;
+      // Ordenar por zIndex (menor primeiro)
+      const tokensOrdenados = [...data].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+      setTokens(tokensOrdenados);
+      return tokensOrdenados;
     } catch (err) {
       console.error('[useTabletopTokens] Erro ao carregar:', err);
       setError(err.message);
@@ -30,8 +32,6 @@ export function useTabletopTokens() {
   const criarToken = useCallback(async (tokenData) => {
     console.log('[useTabletopTokens] criarToken INICIADO');
     console.log('[useTabletopTokens] tokenData recebido:', tokenData);
-    console.log('[useTabletopTokens] imageUrl:', tokenData.imageUrl);
-    console.log('[useTabletopTokens] imageBase64:', tokenData.imageBase64 ? 'presente' : 'null');
     
     try {
       const bodyString = JSON.stringify(tokenData);
@@ -52,7 +52,10 @@ export function useTabletopTokens() {
         throw new Error(data.error || 'Erro ao criar token');
       }
       
-      setTokens(prev => [...prev, data]);
+      setTokens(prev => {
+        const novos = [...prev, data];
+        return novos.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+      });
       return data;
     } catch (err) {
       console.error('[useTabletopTokens] Erro ao criar:', err);
@@ -75,7 +78,10 @@ export function useTabletopTokens() {
         throw new Error(data.error || 'Erro ao atualizar token');
       }
       
-      setTokens(prev => prev.map(t => t.id === id ? data : t));
+      setTokens(prev => {
+        const novos = prev.map(t => t.id === id ? data : t);
+        return novos.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+      });
       return data;
     } catch (err) {
       console.error('[useTabletopTokens] Erro ao atualizar:', err);

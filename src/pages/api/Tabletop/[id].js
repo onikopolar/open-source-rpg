@@ -26,9 +26,9 @@ export default async function handler(req, res) {
   // PUT - Atualizar um token
   if (req.method === 'PUT') {
     try {
-      const { x, y, escala, invertido, oculto, bloqueado } = req.body;
+      const { x, y, escala, invertido, oculto, bloqueado, zIndex } = req.body;
       
-      console.log('[API Tabletop/[id]] Atualizando token:', { id, x, y, escala });
+      console.log('[API Tabletop/[id]] Atualizando token:', { id, x, y, escala, zIndex });
       
       const token = await prisma.tabletopToken.update({
         where: { id },
@@ -39,6 +39,7 @@ export default async function handler(req, res) {
           invertido: invertido !== undefined ? invertido : undefined,
           oculto: oculto !== undefined ? oculto : undefined,
           bloqueado: bloqueado !== undefined ? bloqueado : undefined,
+          zIndex: zIndex !== undefined ? zIndex : undefined,
           updatedAt: new Date()
         }
       });

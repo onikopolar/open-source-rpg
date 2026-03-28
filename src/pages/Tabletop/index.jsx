@@ -1,6 +1,4 @@
 // src/pages/Tabletop/index.jsx
-// Página principal do Tabletop
-// Gerencia o acesso: player (com sheetId), mestre via Dashboard, ou mestre com senha
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';

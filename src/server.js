@@ -46,6 +46,11 @@ io.on('connection', (socket) => {
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenUpdated', data);
   });
 
+  socket.on('tabletop:tokenUpdated', (data) => {
+    console.log('[Socket] Token atualizado via socket:', data);
+    io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenUpdated', data);
+  });
+
   socket.on('tabletop:tokenCreated', (data) => {
     console.log('[Socket] Token criado:', data.id, '-', data.nome);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenCreated', data);

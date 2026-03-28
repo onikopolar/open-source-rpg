@@ -33,7 +33,7 @@ export const calcularNovaEscalaToken = (
     return clamp(menorEscala, 0.1, escalaMaxima);
 };
 
-// Função para calcular o bounding box de um grupo de tokens
+// Calcula o bounding box de um grupo de tokens
 export const calcularBoundingBoxGrupo = (tokens) => {
     if (!tokens || tokens.length === 0) return null;
 
@@ -59,14 +59,23 @@ export const calcularBoundingBoxGrupo = (tokens) => {
     };
 };
 
-export const trazerTokenParaFrente = (tokens, indiceToken) => {
+// Move token para o final do array (camada superior)
+export const trazerTokenParaFrente = (tokens, tokenId) => {
+    console.log('[trazerTokenParaFrente] Chamada', { tokenId, totalTokens: tokens.length });
+    
+    const indiceToken = tokens.findIndex(t => t.id === tokenId);
+    console.log('[trazerTokenParaFrente] indiceToken encontrado:', indiceToken);
+    
     if (indiceToken < 0 || indiceToken >= tokens.length) {
+        console.log('[trazerTokenParaFrente] índice inválido, retornando tokens original');
         return tokens;
     }
 
     const novosTokens = [...tokens];
     const [tokenSelecionado] = novosTokens.splice(indiceToken, 1);
     novosTokens.push(tokenSelecionado);
-
+    
+    console.log('[trazerTokenParaFrente] Token movido para frente. IDs na ordem:', novosTokens.map(t => t.id));
+    
     return novosTokens;
 };

@@ -49,7 +49,7 @@ export default function FichaAbaInferior({ sheetId, characterName }) {
                 >
                     <MenuBookIcon sx={{ color: 'white' }} />
                     <Typography sx={{ color: 'white', fontWeight: 'bold' }}>
-                        {characterName || 'Ficha do Personagem'}
+                        Ficha do personagem
                     </Typography>
                     {aberto ? (
                         <ExpandMoreIcon sx={{ color: 'white' }} />

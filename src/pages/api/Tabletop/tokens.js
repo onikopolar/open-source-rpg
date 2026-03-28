@@ -10,7 +10,7 @@ export default async function handler(req, res) {
       console.log('[API Tabletop/tokens] Buscando todos os tokens');
       
       const tokens = await prisma.tabletopToken.findMany({
-        orderBy: { createdAt: 'asc' }
+        orderBy: { zIndex: 'asc' }
       });
       
       console.log(`[API Tabletop/tokens] ${tokens.length} tokens encontrados`);
@@ -32,6 +32,12 @@ export default async function handler(req, res) {
       
       console.log('[API Tabletop/tokens] Criando token:', { tokenId, nome, x, y });
       
+      // Buscar o maior zIndex atual
+      const maxZIndexToken = await prisma.tabletopToken.findFirst({
+        orderBy: { zIndex: 'desc' }
+      });
+      const novoZIndex = (maxZIndexToken?.zIndex || 0) + 1;
+      
       const token = await prisma.tabletopToken.create({
         data: {
           tokenId,
@@ -44,6 +50,7 @@ export default async function handler(req, res) {
           invertido: invertido || false,
           oculto: oculto || false,
           bloqueado: bloqueado || false,
+          zIndex: novoZIndex,
           imageUrl: imageUrl || null,
           imageBase64: imageBase64 || null,
           mimeType: mimeType || null
@@ -59,6 +66,5 @@ export default async function handler(req, res) {
     }
   }
 
-  // Método não permitido
   return res.status(405).json({ error: 'Método não permitido' });
 }

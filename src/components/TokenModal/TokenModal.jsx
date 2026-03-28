@@ -6,35 +6,21 @@ const DragDropSystem = {
     listeners: new Map(),
 
     register(id, element, handler) {
-        console.log('[DragDropSystem] register - id:', id, 'element:', element);
         this.listeners.set(id, { element, handler });
-        console.log('[DragDropSystem] register - listeners size:', this.listeners.size);
     },
 
     unregister(id) {
-        console.log('[DragDropSystem] unregister - id:', id);
         this.listeners.delete(id);
-        console.log('[DragDropSystem] unregister - listeners size:', this.listeners.size);
     },
 
     processDrop(event, dados) {
-        console.log('[DragDropSystem] ========== processDrop INICIADO ==========');
-        console.log('[DragDropSystem] event:', event);
-        console.log('[DragDropSystem] dados:', dados);
-        console.log('[DragDropSystem] event.clientX:', event.clientX, 'event.clientY:', event.clientY);
-
         event.preventDefault();
         event.stopPropagation();
 
         const listenersValidos = [];
-        console.log('[DragDropSystem] Coletando listeners válidos...');
 
         for (let [id, listener] of this.listeners) {
-            console.log('[DragDropSystem] Verificando listener:', id);
-            console.log('[DragDropSystem]   listener.element:', listener.element);
-
             if (!listener.element || !document.body.contains(listener.element)) {
-                console.log('[DragDropSystem]   Elemento inválido ou não no DOM, removendo');
                 this.listeners.delete(id);
                 continue;
             }
@@ -42,76 +28,53 @@ const DragDropSystem = {
             try {
                 const rect = listener.element.getBoundingClientRect();
                 const area = rect.width * rect.height;
-                console.log('[DragDropSystem]   rect:', rect);
-                console.log('[DragDropSystem]   area:', area);
                 listenersValidos.push({ id, ...listener, rect, area });
             } catch (e) {
-                console.log('[DragDropSystem]   Erro ao obter rect:', e);
             }
         }
 
-        console.log('[DragDropSystem] listenersValidos:', listenersValidos.map(l => ({ id: l.id, rect: l.rect })));
-
         const listenersComMouseDentro = listenersValidos.filter(l => {
-            const dentro = event.clientX >= l.rect.left &&
+            return event.clientX >= l.rect.left &&
                 event.clientX <= l.rect.right &&
                 event.clientY >= l.rect.top &&
                 event.clientY <= l.rect.bottom;
-            console.log('[DragDropSystem] Verificando se mouse está dentro de:', l.id, 'dentro:', dentro);
-            return dentro;
         });
 
-        console.log('[DragDropSystem] listenersComMouseDentro:', listenersComMouseDentro.map(l => l.id));
-
         if (listenersComMouseDentro.length === 0) {
-            console.log('[DragDropSystem] Nenhum listener com mouse dentro, verificando BibliotecaRaiz');
             if (this.listeners.has('BibliotecaRaiz')) {
-                console.log('[DragDropSystem] Chamando handler da BibliotecaRaiz');
                 this.listeners.get('BibliotecaRaiz').handler(dados, event);
             }
-            console.log('[DragDropSystem] ========== processDrop FINALIZADO (sem alvo) ==========');
             return;
         }
 
         let elementoMaisProfundo = null;
         let maiorProfundidade = -1;
 
-        console.log('[DragDropSystem] Procurando elemento mais profundo...');
         listenersComMouseDentro.forEach(l => {
             try {
                 if (l.element.contains(event.target) || event.target.contains(l.element)) {
-                    console.log('[DragDropSystem]   Listener', l.id, 'contém target ou vice-versa');
                     let profundidade = 0;
                     let elemento = l.element;
                     while (elemento.parentElement) {
                         profundidade++;
                         elemento = elemento.parentElement;
                     }
-                    console.log('[DragDropSystem]   Profundidade:', profundidade);
 
                     if (profundidade > maiorProfundidade) {
                         maiorProfundidade = profundidade;
                         elementoMaisProfundo = l;
-                        console.log('[DragDropSystem]   Novo elemento mais profundo:', l.id);
                     }
                 }
             } catch (e) {
-                console.log('[DragDropSystem]   Erro ao verificar contains:', e);
             }
         });
 
         const alvo = elementoMaisProfundo || listenersComMouseDentro.sort((a, b) => a.area - b.area)[0];
-        console.log('[DragDropSystem] Alvo selecionado:', alvo.id);
 
         try {
-            console.log('[DragDropSystem] Chamando handler do alvo com dados:', dados);
             alvo.handler(dados, event);
-            console.log('[DragDropSystem] Handler executado com sucesso');
         } catch (erro) {
-            console.error('[DragDropSystem] Erro no handler:', erro);
         }
-
-        console.log('[DragDropSystem] ========== processDrop FINALIZADO ==========');
     }
 };
 
@@ -272,76 +235,44 @@ function TokenModal(props) {
                 setBibliotecaTokens(tokensBiblioteca);
             }
         } catch (error) {
-            console.error('[TokenModal] Erro ao carregar tokens:', error);
         } finally {
             setLoading(false);
         }
     };
 
     const salvarTokenNaAPI = async (token) => {
-        console.log('[TokenModal] ========== salvarTokenNaAPI INICIADO ==========');
-        console.log('[TokenModal] Token recebido:', token);
-        console.log('[TokenModal] Token - imageUrl:', token.imageUrl);
-        console.log('[TokenModal] Token - imageBase64:', token.imageBase64 ? 'presente' : 'null');
-        console.log('[TokenModal] Token - nome:', token.nome);
-        console.log('[TokenModal] Token - tokenId:', token.tokenId);
-
         try {
-            const bodyString = JSON.stringify(token);
-            console.log('[TokenModal] Body stringificado:', bodyString);
-            console.log('[TokenModal] Body tamanho:', bodyString.length);
-
             const response = await fetch('/api/Tabletop/tokens', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: bodyString
+                body: JSON.stringify(token)
             });
 
-            console.log('[TokenModal] Response status:', response.status);
-            console.log('[TokenModal] Response ok:', response.ok);
-
             const data = await response.json();
-            console.log('[TokenModal] Response data:', data);
 
             if (!response.ok) {
-                console.error('[TokenModal] Erro na resposta:', data.error);
                 throw new Error(data.error || 'Erro ao salvar token');
             }
 
-            console.log('[TokenModal] Token salvo com sucesso, ID:', data.id);
-            console.log('[TokenModal] ========== salvarTokenNaAPI FINALIZADO ==========');
             return data;
         } catch (error) {
-            console.error('[TokenModal] Erro no catch:', error);
-            console.error('[TokenModal] Stack:', error.stack);
             return null;
         }
     };
 
     const deletarTokenDaAPI = async (id) => {
-        console.log('[TokenModal] ========== deletarTokenDaAPI INICIADO ==========');
-        console.log('[TokenModal] ID para deletar:', id);
-
         try {
             const response = await fetch(`/api/Tabletop/${id}`, {
                 method: 'DELETE'
             });
 
-            console.log('[TokenModal] Response status:', response.status);
-            console.log('[TokenModal] Response ok:', response.ok);
-
             if (!response.ok) {
                 const data = await response.json();
-                console.error('[TokenModal] Erro na resposta:', data.error);
                 throw new Error(data.error || 'Erro ao deletar token');
             }
 
-            console.log('[TokenModal] Token deletado com sucesso:', id);
-            console.log('[TokenModal] ========== deletarTokenDaAPI FINALIZADO ==========');
             return true;
         } catch (error) {
-            console.error('[TokenModal] Erro no catch:', error);
-            console.error('[TokenModal] Stack:', error.stack);
             return false;
         }
     };
@@ -396,7 +327,6 @@ function TokenModal(props) {
                 setActiveTab(0);
             }
         } catch (error) {
-            console.error('[TokenModal] Erro ao salvar token:', error);
         } finally {
             setLoading(false);
         }

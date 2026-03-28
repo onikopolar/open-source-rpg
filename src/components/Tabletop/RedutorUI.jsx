@@ -5,32 +5,26 @@ export const initialUIState = {
     zoom: 1,
     position: { x: 0, y: 0 },
 
-    // Seleção de tokens
     tokenSelecionado: null,
     tokensSelecionados: [],
     tokenSendoArrastado: null,
     tokenRedimensionando: null,
 
-    // Seleção de camadas de névoa
     camadaSelecionada: null,
     camadasSelecionadas: [],
     camadaSendoArrastada: null,
     camadaRedimensionando: null,
 
-    // Redimensionamento
     modoRedimensionamento: null,
     tamanhoInicialRedimensionamento: { largura: 0, altura: 0, escala: 1 },
     boundingBoxGrupo: null,
     offsetArrasto: { x: 0, y: 0 },
 
-    // Estados dos tokens
     visibilidadeTokens: {},
     tokensBloqueados: {},
 
-    // Estados das camadas de névoa
     camadasBloqueadas: {},
 
-    // Área de seleção
     areaSelecao: {
         ativo: false,
         inicioX: 0,
@@ -39,7 +33,6 @@ export const initialUIState = {
         fimY: 0
     },
 
-    // Menu de contexto
     menuContexto: {
         aberto: false,
         x: 0,
@@ -52,7 +45,6 @@ export const initialUIState = {
         tipo: null
     },
 
-    // UI States
     ui: {
         usuarioInteragindo: null,
         mostrarFeedback: false,
@@ -78,9 +70,7 @@ export function uiReducer(state, action) {
         case 'SET_POSITION':
             return { ...state, position: action.payload };
 
-        // ===== AÇÕES PARA TOKENS =====
         case 'SELECT_TOKEN':
-            console.log('[Reducer] SELECT_TOKEN:', action.payload);
             if (action.payload === null) {
                 return {
                     ...state,
@@ -99,7 +89,6 @@ export function uiReducer(state, action) {
             };
 
         case 'SELECT_MULTIPLE_TOKENS':
-            console.log('[Reducer] SELECT_MULTIPLE_TOKENS:', action.payload);
             return {
                 ...state,
                 tokensSelecionados: action.payload,
@@ -109,7 +98,6 @@ export function uiReducer(state, action) {
             };
 
         case 'START_TOKEN_DRAG':
-            console.log('[Reducer] START_TOKEN_DRAG:', action.payload);
             if (!action.payload.tokenInfo?.token) {
                 return state;
             }
@@ -124,16 +112,13 @@ export function uiReducer(state, action) {
             };
 
         case 'STOP_TOKEN_DRAG':
-            console.log('[Reducer] STOP_TOKEN_DRAG');
             return {
                 ...state,
                 tokenSendoArrastado: null,
                 offsetArrasto: { x: 0, y: 0 }
             };
 
-        // ===== AÇÕES PARA CAMADAS DE NÉVOA =====
         case 'SELECT_CAMADA':
-            console.log('[Reducer] SELECT_CAMADA:', action.payload);
             if (action.payload === null) {
                 return {
                     ...state,
@@ -152,7 +137,6 @@ export function uiReducer(state, action) {
             };
 
         case 'SELECT_MULTIPLE_CAMADAS':
-            console.log('[Reducer] SELECT_MULTIPLE_CAMADAS:', action.payload);
             return {
                 ...state,
                 camadasSelecionadas: action.payload,
@@ -162,7 +146,6 @@ export function uiReducer(state, action) {
             };
 
         case 'START_CAMADA_DRAG':
-            console.log('[Reducer] START_CAMADA_DRAG:', action.payload);
             if (!action.payload.camada) {
                 return state;
             }
@@ -180,7 +163,6 @@ export function uiReducer(state, action) {
             };
 
         case 'STOP_CAMADA_DRAG':
-            console.log('[Reducer] STOP_CAMADA_DRAG');
             return {
                 ...state,
                 camadaSendoArrastada: null,
@@ -188,7 +170,6 @@ export function uiReducer(state, action) {
             };
 
         case 'START_CAMADA_RESIZE':
-            console.log('[Reducer] START_CAMADA_RESIZE:', action.payload);
             return {
                 ...state,
                 camadaRedimensionando: {
@@ -207,7 +188,6 @@ export function uiReducer(state, action) {
             };
 
         case 'STOP_CAMADA_RESIZE':
-            console.log('[Reducer] STOP_CAMADA_RESIZE');
             return {
                 ...state,
                 camadaRedimensionando: null,
@@ -216,9 +196,7 @@ export function uiReducer(state, action) {
                 offsetArrasto: { x: 0, y: 0 }
             };
 
-        // ===== AÇÕES COMPARTILHADAS (REDIMENSIONAMENTO) =====
         case 'START_RESIZE':
-            console.log('[Reducer] START_RESIZE:', action.payload);
             if (action.payload.token?.tipo === 'nevoa') {
                 return {
                     ...state,
@@ -248,7 +226,6 @@ export function uiReducer(state, action) {
             };
 
         case 'STOP_RESIZE':
-            console.log('[Reducer] STOP_RESIZE');
             return {
                 ...state,
                 tokenRedimensionando: null,
@@ -259,9 +236,7 @@ export function uiReducer(state, action) {
                 offsetArrasto: { x: 0, y: 0 }
             };
 
-        // ===== AÇÕES COMPARTILHADAS (ARRASTO) =====
         case 'START_DRAG':
-            console.log('[Reducer] START_DRAG:', action.payload);
             const { tipo, item, indice, offset } = action.payload;
             if (tipo === 'token') {
                 return {
@@ -292,7 +267,6 @@ export function uiReducer(state, action) {
             return state;
 
         case 'STOP_DRAG':
-            console.log('[Reducer] STOP_DRAG');
             return {
                 ...state,
                 tokenSendoArrastado: null,
@@ -300,7 +274,6 @@ export function uiReducer(state, action) {
                 offsetArrasto: { x: 0, y: 0 }
             };
 
-        // ===== AÇÕES DE VISIBILIDADE E BLOQUEIO =====
         case 'TOGGLE_VISIBILITY':
             return {
                 ...state,
@@ -311,7 +284,6 @@ export function uiReducer(state, action) {
             };
 
         case 'SET_TOKEN_VISIBILITY':
-            console.log('[Reducer] SET_TOKEN_VISIBILITY:', action.payload);
             return {
                 ...state,
                 visibilidadeTokens: {
@@ -321,7 +293,6 @@ export function uiReducer(state, action) {
             };
 
         case 'SET_TOKEN_BLOCK':
-            console.log('[Reducer] SET_TOKEN_BLOCK:', action.payload);
             return {
                 ...state,
                 tokensBloqueados: {
@@ -331,7 +302,6 @@ export function uiReducer(state, action) {
             };
 
         case 'TOGGLE_LOCK':
-            console.log('[Reducer] TOGGLE_LOCK:', action.payload);
             return {
                 ...state,
                 tokensBloqueados: {
@@ -349,13 +319,10 @@ export function uiReducer(state, action) {
                 }
             };
 
-        // ===== MENU DE CONTEXTO =====
         case 'OPEN_CONTEXT_MENU':
-            console.log('[Reducer] OPEN_CONTEXT_MENU:', action.payload);
             return { ...state, menuContexto: action.payload };
 
         case 'CLOSE_CONTEXT_MENU':
-            console.log('[Reducer] CLOSE_CONTEXT_MENU');
             return {
                 ...state,
                 menuContexto: {
@@ -371,7 +338,6 @@ export function uiReducer(state, action) {
                 }
             };
 
-        // ===== MOUSE E SELEÇÃO =====
         case 'SET_MOUSE_DOWN_INFO':
             return { ...state, mouseDownInfo: action.payload };
 
@@ -418,7 +384,6 @@ export function uiReducer(state, action) {
                 }
             };
 
-        // ===== UI STATES =====
         case 'SET_UI_STATE':
             return {
                 ...state,

@@ -2,19 +2,17 @@
 import { useCallback } from "react";
 import { TOLERANCIA_CLIQUE } from "./ConstantesMesa";
 
-// ===== CONSTANTES EXPORTADAS PARA REUSO NO DESENHO =====
-// Agora em PIXELS NA TELA (fixo, não escala com zoom)
+// Tamanhos fixos em pixels na tela - não escalam com zoom
 export const CONFIG_BOLINHAS = {
-    TAMANHO_BOLINHA_TELA: 20,        // tamanho fixo em pixels na tela
-    DISTANCIA_EXTERNA_TELA: 4,      // distância fixa em pixels da borda do token
-    PADDING_DETECCAO_TELA: 4         // padding extra para detecção em pixels
+    TAMANHO_BOLINHA_TELA: 20,
+    DISTANCIA_EXTERNA_TELA: 4,
+    PADDING_DETECCAO_TELA: 4
 };
 
-// ===== FUNÇÃO PARA CALCULAR POSIÇÕES DAS BOLINHAS (AGORA COM TAMANHO FIXO NA TELA) =====
+// Calcula posições das 4 bolinhas nos cantos do token
 export function calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, alturaTela, zoom) {
     const { TAMANHO_BOLINHA_TELA, DISTANCIA_EXTERNA_TELA, PADDING_DETECCAO_TELA } = CONFIG_BOLINHAS;
     
-    // Tamanhos fixos em pixels na tela (não escalam com zoom)
     const raioBolinha = TAMANHO_BOLINHA_TELA / 2;
     const distanciaExternaTela = DISTANCIA_EXTERNA_TELA;
     const raioDetecao = raioBolinha + PADDING_DETECCAO_TELA;
@@ -35,7 +33,7 @@ export function calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, al
     };
 }
 
-// ===== FUNÇÃO PARA CALCULAR BOUNDING BOX DO GRUPO =====
+// Calcula retângulo que contém todos os itens selecionados
 export function calcularBoundingBoxGrupo(itensSelecionados) {
     if (!itensSelecionados || itensSelecionados.length === 0) return null;
     
@@ -57,6 +55,7 @@ export function calcularBoundingBoxGrupo(itensSelecionados) {
 }
 
 export function useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeMouseEstaDentro) {
+    // Retorna token sob o cursor
     const verificarSeMouseSobreToken = useCallback((mouseX, mouseY, modo = 'esquerdo') => {
         if (modo === 'esquerdo') {
             for (let i = tokensComInfo.length - 1; i >= 0; i--) {
@@ -110,56 +109,30 @@ export function useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeM
         return null;
     }, [tokensComInfo, tokensState, calcularSeMouseEstaDentro]);
 
+    // Verifica se cursor está sobre uma das bolinhas de redimensionamento
     const verificarSeMousePodeRedimensionar = useCallback((mouseX, mouseY, tokenTelaX, tokenTelaY, larguraTela, alturaTela, tokenBloqueado) => {
-        const DEBUG = true; // Ativado para debug
-        
         if (tokenBloqueado) {
-            if (DEBUG) console.log(`🔍 [ResizeDetection] token bloqueado, retornando null`);
             return null;
-        }
-
-        if (DEBUG) {
-            console.log(`🔍 [ResizeDetection] ===== INÍCIO =====`);
-            console.log(`   mouse (tela): (${mouseX.toFixed(2)}, ${mouseY.toFixed(2)})`);
-            console.log(`   token (tela): (${tokenTelaX.toFixed(2)}, ${tokenTelaY.toFixed(2)})`);
-            console.log(`   larguraTela: ${larguraTela.toFixed(2)}, alturaTela: ${alturaTela.toFixed(2)}`);
-            console.log(`   zoom: ${uiState.zoom.toFixed(4)}`);
         }
 
         const { posicoes, raioDetecao } = calcularPosicoesBolinhas(
             tokenTelaX, tokenTelaY, larguraTela, alturaTela, uiState.zoom
         );
 
-        if (DEBUG) {
-            console.log(`   raioDetecao: ${raioDetecao.toFixed(2)}`);
-            console.log(`   posições calculadas:`);
-            posicoes.forEach(p => {
-                console.log(`      ${p.nome}: (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
-            });
-        }
-
         for (const bolinha of posicoes) {
             const dx = mouseX - bolinha.x;
             const dy = mouseY - bolinha.y;
             const distancia = Math.sqrt(dx * dx + dy * dy);
-            const dentro = distancia <= raioDetecao;
             
-            if (DEBUG) {
-                console.log(`   ${bolinha.nome}: dx=${dx.toFixed(2)}, dy=${dy.toFixed(2)}, distância=${distancia.toFixed(2)} -> dentro? ${dentro}`);
-            }
-            
-            if (dentro) {
-                if (DEBUG) console.log(`✅ [ResizeDetection] BOLINHA ${bolinha.nome} DETECTADA!`);
-                console.log(`🔍 [ResizeDetection] ===== FIM =====`);
+            if (distancia <= raioDetecao) {
                 return bolinha.nome;
             }
         }
 
-        if (DEBUG) console.log(`❌ [ResizeDetection] Nenhuma bolinha detectada`);
-        console.log(`🔍 [ResizeDetection] ===== FIM =====`);
         return null;
     }, [uiState.zoom]);
 
+    // Verifica se token está dentro da área de seleção por arrasto
     const tokenEstaNaAreaSelecao = useCallback((token, area) => {
         if (!area.ativo) return false;
 

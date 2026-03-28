@@ -11,11 +11,11 @@ const coresPorSheet = {};
 // Função auxiliar para obter cor de um sheet
 export function getCorSheet(sheetId) {
     if (!sheetId) return 'rgba(255, 215, 0, 0.8)'; // Dourado para mestre
-    
+
     if (coresPorSheet[sheetId]) {
         return coresPorSheet[sheetId];
     }
-    
+
     const hash = String(sheetId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const hue = (hash * 137) % 360;
     const cor = `hsl(${hue}, 70%, 55%)`;
@@ -35,10 +35,6 @@ export function desenharBordaDeArrasto(ctx, x, y, largura, altura, nomeUsuario, 
     ctx.shadowBlur = 10;
     ctx.strokeRect(x - 6, y - 6, largura + 12, altura + 12);
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x - 3, y - 3, largura + 6, altura + 6);
-
     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
     ctx.fillRect(x + (largura / 2) - 40, y - 30, 80, 20);
 
@@ -51,9 +47,24 @@ export function desenharBordaDeArrasto(ctx, x, y, largura, altura, nomeUsuario, 
     ctx.restore();
 }
 
+
+// Desenha fallback (quando imagem não carrega)
+export function desenharFallbackToken(ctx, x, y, zoomAtual, nomeToken) {
+    ctx.fillStyle = 'rgba(100, 100, 100, 0.7)';
+    ctx.fillRect(x, y, 50 * zoomAtual, 50 * zoomAtual);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(nomeToken || "Token", x + (50 * zoomAtual) / 2, y + (50 * zoomAtual) / 2);
+}
+
 // FUNÇÃO PARA DESENHAR SELEÇÃO (DESIGN ORIGINAL COM BOLINHAS)
 export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, semFundo = false) {
-    if (!boundingBox) return;
+    if (!boundingBox) {
+        return;
+    }
 
     ctx.save();
 
@@ -132,18 +143,6 @@ export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zo
     });
 
     ctx.restore();
-}
-
-// Desenha fallback (quando imagem não carrega)
-export function desenharFallbackToken(ctx, x, y, zoomAtual, nomeToken) {
-    ctx.fillStyle = 'rgba(100, 100, 100, 0.7)';
-    ctx.fillRect(x, y, 50 * zoomAtual, 50 * zoomAtual);
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.font = '10px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(nomeToken || "Token", x + (50 * zoomAtual) / 2, y + (50 * zoomAtual) / 2);
 }
 
 // COMPONENTES DE UI

@@ -21,7 +21,6 @@ import { useEventosMouse } from "../../components/Tabletop/useEventosMouse";
 import { useAtalhosTeclado } from "../../components/Tabletop/useAtalhosTeclado";
 import { useSelecaoToken, calcularBoundingBoxGrupo } from "../../components/Tabletop/useSelecaoToken";
 import { useRenderizacaoToken } from "../../components/Tabletop/useRenderizacaoToken";
-import { trazerTokenParaFrente } from "../../components/Tabletop/UtilitariosToken";
 import { useNuvemFOV } from "../../components/Tabletop/NuvemFOV";
 import { useMouseTabletop } from "../../components/Tabletop/MouseTabletop";
 import { useTabletopTokens } from "../../hooks/useTabletopTokens";
@@ -47,8 +46,13 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     const [tokensLocal, setTokensLocal] = useState([]);
     const [arrastosRemotos, setArrastosRemotos] = useState({});
 
+    // Inicializar tokensLocal com tokens ordenados por zIndex
     useEffect(() => {
-        setTokensLocal(tokens);
+        if (tokens.length > 0 && tokensLocal.length === 0) {
+            const tokensOrdenados = [...tokens].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+            setTokensLocal(tokensOrdenados);
+            console.log('[TabletopGrid] Tokens inicializados com ordem:', tokensOrdenados.map(t => ({ id: t.id, zIndex: t.zIndex })));
+        }
     }, [tokens]);
 
     const emitirEvento = useCallback((evento, dados) => {
@@ -98,7 +102,19 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         if (!socket) return;
 
         const handleTokenUpdated = (data) => {
-            setTokensLocal(prev => prev.map(t => t.id === data.id ? { ...t, ...data } : t));
+            console.log('[TabletopGrid] handleTokenUpdated recebido:', data);
+            setTokensLocal(prev => {
+                const index = prev.findIndex(t => t.id === data.id);
+                if (index === -1) {
+                    console.log('[TabletopGrid] Token não encontrado na lista local, ignorando');
+                    return prev;
+                }
+                const novos = [...prev];
+                novos[index] = { ...novos[index], ...data };
+                const ordenados = novos.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+                console.log('[TabletopGrid] Tokens atualizados e ordenados:', ordenados.map(t => ({ id: t.id, zIndex: t.zIndex })));
+                return ordenados;
+            });
 
             if (data.oculto !== undefined) {
                 despacharUI({
@@ -115,10 +131,15 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         };
 
         const handleTokenCreated = (data) => {
-            setTokensLocal(prev => [...prev, data]);
+            console.log('[TabletopGrid] handleTokenCreated recebido:', data);
+            setTokensLocal(prev => {
+                const novos = [...prev, data];
+                return novos.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+            });
         };
 
         const handleTokenDeleted = (data) => {
+            console.log('[TabletopGrid] handleTokenDeleted recebido:', data);
             setTokensLocal(prev => prev.filter(t => t.id !== data.id));
         };
 
@@ -579,6 +600,13 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         renderCallbackRef.current = renderizarTudo;
     }, [renderizarTudo]);
 
+    // Fecha o menu de contexto quando qualquer arrasto é iniciado
+    useEffect(() => {
+        if (estadoUI.ui.isDragging || estadoUI.tokenSendoArrastado || estadoUI.camadaSendoArrastada) {
+            despacharUI({ type: 'CLOSE_CONTEXT_MENU' });
+        }
+    }, [estadoUI.ui.isDragging, estadoUI.tokenSendoArrastado, estadoUI.camadaSendoArrastada, despacharUI]);
+
     const { handleWheel, handleDragOver } = useEventosMouse(estadoUI, despacharUI, containerRef, inicioArrastoRef, limitarPosicaoMapa);
 
     const salvarToken = useCallback((tokenId, dados) => {
@@ -642,6 +670,37 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         despacharUI({ type: 'CLOSE_CONTEXT_MENU' });
     }, [nevoa, despacharUI]);
 
+    const handleTrazerParaFrente = useCallback((tokenId) => {
+        console.log('[TabletopGrid] handleTrazerParaFrente chamado para token:', tokenId);
+        const token = tokensLocal.find(t => t.id === tokenId);
+        if (!token) {
+            console.log('[TabletopGrid] Token não encontrado');
+            return;
+        }
+
+        const maxZIndex = Math.max(...tokensLocal.map(t => t.zIndex || 0), 0);
+        const novoZIndex = maxZIndex + 1;
+        console.log('[TabletopGrid] Atualizando zIndex para', novoZIndex, 'do token', tokenId);
+
+        atualizarToken(tokenId, { zIndex: novoZIndex })
+            .then(result => {
+                console.log('[TabletopGrid] Token atualizado com sucesso via API:', result);
+                if (socket?.connected) {
+                    console.log('[TabletopGrid] Emitindo tabletop:tokenUpdated com zIndex:', novoZIndex);
+                    socket.emit('tabletop:tokenUpdated', {
+                        tabletopId,
+                        id: tokenId,
+                        zIndex: novoZIndex
+                    });
+                } else {
+                    console.warn('[TabletopGrid] Socket não conectado, não foi possível emitir evento');
+                }
+            })
+            .catch(err => {
+                console.error('[TabletopGrid] Erro ao atualizar token via API:', err);
+            });
+    }, [tokensLocal, atualizarToken, socket, tabletopId]);
+
     const { handleMouseDown, handleMouseMove, handleMouseUp } = useMouseTabletop({
         containerRef,
         dragStartRef: inicioArrastoRef,
@@ -671,7 +730,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         emitirSelecao: emitirSelecao,
         emitirDragStart: emitirDragStart,
         fov: nevoa,
-        trazerTokenParaFrente,
+        trazerTokenParaFrente: handleTrazerParaFrente,
         finalizarArrasto,
         finalizarRedimensionamento
     });
@@ -980,6 +1039,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                         : estadoUI.tokensBloqueados[estadoUI.menuContexto.tokenId] === true
                 }
                 tipo={estadoUI.menuContexto.tipo || 'token'}
+                isMaster={isMaster}
                 onFechar={() => despacharUI({ type: 'CLOSE_CONTEXT_MENU' })}
                 onDeletar={() => {
                     if (estadoUI.menuContexto.tipo === 'nevoa') {
