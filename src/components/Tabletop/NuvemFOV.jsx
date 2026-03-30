@@ -5,7 +5,7 @@ export function useNuvemFOV({
     isMaster = false,
     socket,
     tabletopId,
-    onRenderCallback // função para agendar re-renderização do canvas
+    onRenderCallback
 }) {
     const [modoDesenho, setModoDesenho] = useState(false);
     const [camadasNevoa, setCamadasNevoa] = useState([]);
@@ -17,7 +17,6 @@ export function useNuvemFOV({
     const uiStateRef = useRef({ zoom: 1, position: { x: 0, y: 0 } });
     const initialLoadDone = useRef(false);
 
-    // ==================== Persistência no servidor ====================
     const criarCamadaServidor = useCallback(async (camada) => {
         if (!isMaster) return null;
         try {
@@ -91,7 +90,6 @@ export function useNuvemFOV({
         }
     }, [isMaster]);
 
-    // ==================== Sincronização via socket ====================
     useEffect(() => {
         if (!socket) return;
 
@@ -115,18 +113,27 @@ export function useNuvemFOV({
             if (onRenderCallback) onRenderCallback();
         };
 
+        const handleNevoaMoved = (data) => {
+            console.log('[NuvemFOV] nevoaMoved recebido:', data);
+            setCamadasNevoa(prev =>
+                prev.map(c => c.id === data.id ? { ...c, x: data.x, y: data.y } : c)
+            );
+            if (onRenderCallback) onRenderCallback();
+        };
+
         socket.on('tabletop:nevoaCreated', handleNevoaCreated);
         socket.on('tabletop:nevoaUpdated', handleNevoaUpdated);
         socket.on('tabletop:nevoaDeleted', handleNevoaDeleted);
+        socket.on('tabletop:nevoaMoved', handleNevoaMoved);
 
         return () => {
             socket.off('tabletop:nevoaCreated', handleNevoaCreated);
             socket.off('tabletop:nevoaUpdated', handleNevoaUpdated);
             socket.off('tabletop:nevoaDeleted', handleNevoaDeleted);
+            socket.off('tabletop:nevoaMoved', handleNevoaMoved);
         };
     }, [socket, onRenderCallback]);
 
-    // ==================== Carregamento inicial ====================
     useEffect(() => {
         if (initialLoadDone.current) return;
         initialLoadDone.current = true;
@@ -149,22 +156,18 @@ export function useNuvemFOV({
         carregarCamadas();
     }, [onRenderCallback]);
 
-    // ==================== Funções que modificam camadas (com persistência e socket) ====================
     const adicionarCamada = useCallback(async (camada) => {
         if (!isMaster) return;
 
-        // Salvar no servidor primeiro
         const camadaPersistida = await criarCamadaServidor(camada);
         if (!camadaPersistida) return;
 
-        // Atualizar estado local com o ID real do servidor
         setCamadasNevoa(prev => {
             const nova = [...prev, { ...camadaPersistida, tipo: 'nevoa' }];
             if (onRenderCallback) onRenderCallback();
             return nova;
         });
 
-        // Emitir via socket para outros clientes
         if (socket?.connected) {
             socket.emit('tabletop:nevoaCreated', { tabletopId, ...camadaPersistida });
         }
@@ -180,10 +183,8 @@ export function useNuvemFOV({
             const camadaAlterada = nova.find(c => c.id === id);
             if (camadaAlterada && onRenderCallback) onRenderCallback();
 
-            // Persistir no servidor
             atualizarCamadaServidor(camadaAlterada);
 
-            // Emitir via socket
             if (socket?.connected) {
                 socket.emit('tabletop:nevoaUpdated', { tabletopId, ...camadaAlterada });
             }
@@ -199,10 +200,8 @@ export function useNuvemFOV({
             const nova = prev.filter(c => c.id !== id);
             if (onRenderCallback) onRenderCallback();
 
-            // Remover do servidor
             deletarCamadaServidor(id);
 
-            // Emitir via socket
             if (socket?.connected) {
                 socket.emit('tabletop:nevoaDeleted', { tabletopId, id });
             }
@@ -211,7 +210,6 @@ export function useNuvemFOV({
         });
     }, [isMaster, deletarCamadaServidor, socket, tabletopId, onRenderCallback]);
 
-    // ==================== Lógica de desenho (já existente, adaptada) ====================
     const ativarModoDesenho = useCallback(() => {
         if (!isMaster) return;
         setModoDesenho(true);
@@ -262,7 +260,7 @@ export function useNuvemFOV({
 
         if (Math.abs(largura) > 20 && Math.abs(altura) > 20) {
             const novaCamada = {
-                id: Date.now() + Math.random(), // id temporário
+                id: Date.now() + Math.random(),
                 x: x1,
                 y: y1,
                 larguraOriginal: largura,
@@ -270,7 +268,7 @@ export function useNuvemFOV({
                 escala: 1.0,
                 tipo: 'nevoa'
             };
-            adicionarCamada(novaCamada); // agora usa persistência e socket
+            adicionarCamada(novaCamada);
         } else {
             console.log('[NuvemFOV] desenho ignorado (área muito pequena)');
         }
@@ -281,11 +279,9 @@ export function useNuvemFOV({
 
     const limparTudo = useCallback(() => {
         if (!isMaster) return;
-        // Remover todas as camadas uma a uma
         camadasNevoa.forEach(camada => {
             removerCamada(camada.id);
         });
-        // O estado será atualizado pelos efeitos de removerCamada
     }, [isMaster, camadasNevoa, removerCamada]);
 
     const desfazer = useCallback(() => {
@@ -306,18 +302,6 @@ export function useNuvemFOV({
     const atualizarPosicaoCamada = useCallback((id, novaX, novaY) => {
         atualizarCamada(id, { x: novaX, y: novaY });
     }, [atualizarCamada]);
-
-    // ==================== Utilitários de renderização ====================
-    const registrarCallbackRender = useCallback((callback) => {
-        // Já recebemos onRenderCallback via parâmetro, mas mantemos compatibilidade
-        // Aqui poderíamos armazenar em uma ref, mas vamos simplesmente atualizar a referência externa.
-        // Como onRenderCallback é passado na criação do hook, não precisamos desse método.
-        // Porém, para não quebrar chamadas existentes, podemos manter.
-        if (callback) {
-            // Se quisermos, podemos atualizar uma ref interna, mas não é necessário.
-            // Vamos ignorar, pois o callback já está sendo usado.
-        }
-    }, []);
 
     const setUIStateRef = useCallback((zoom, position) => {
         uiStateRef.current = { zoom, position };
@@ -404,15 +388,13 @@ export function useNuvemFOV({
         return false;
     }, [camadasNevoa]);
 
-    // ==================== Retorno ====================
     return {
-        // Estados
         modoDesenho,
         camadasNevoa,
+        setCamadasNevoa,
         desenhando,
         inicioDesenho,
         fimDesenho,
-        // Funções de controle
         ativarModoDesenho,
         desativarModoDesenho,
         iniciarDesenho,
@@ -423,14 +405,13 @@ export function useNuvemFOV({
         deletarCamada,
         atualizarEscalaCamada,
         atualizarPosicaoCamada,
-        // Utilitários
         telaParaMundo,
         mundoParaTela: (mundoX, mundoY) => {
             const { zoom, position } = uiStateRef.current;
             return { x: mundoX * zoom + position.x, y: mundoY * zoom + position.y };
         },
         setUIStateRef,
-        registrarCallbackRender,
+        registrarCallbackRender: () => {},
         renderizarNevoa,
         getCamadaComInfo,
         encontrarCamadaNaPosicao,

@@ -2,17 +2,17 @@
 import { useCallback } from "react";
 
 export function useRenderizacaoToken(
-    uiState, 
-    imageCache, 
-    getCanvasContext, 
-    scheduleRender, 
-    desenharFallbackToken, 
-    desenharBordaDeArrasto, 
+    uiState,
+    imageCache,
+    getCanvasContext,
+    scheduleRender,
+    desenharFallbackToken,
+    desenharBordaDeArrasto,
     desenharSelecao
 ) {
     const drawSingleToken = useCallback((token, context) => {
         const imagemUrl = token.imageUrl || token.imageBase64;
-        
+
         if (!imagemUrl) {
             desenharFallbackToken(
                 context,
@@ -31,7 +31,7 @@ export function useRenderizacaoToken(
             img.onload = () => {
                 scheduleRender();
             };
-            img.onerror = (error) => {
+            img.onerror = () => {
                 imageCache.current.delete(token.id);
                 scheduleRender();
             };
@@ -58,7 +58,7 @@ export function useRenderizacaoToken(
             );
             return false;
         }
-        
+
         if (token.oculto) {
             context.globalAlpha = 0.3;
         }
@@ -90,7 +90,6 @@ export function useRenderizacaoToken(
         }
 
         context.globalAlpha = 1.0;
-        
         return true;
     }, [uiState.zoom, scheduleRender, desenharFallbackToken]);
 
@@ -136,5 +135,21 @@ export function useRenderizacaoToken(
         }
     }, [uiState, getCanvasContext, drawSingleToken, desenharBordaDeArrasto, desenharSelecao]);
 
-    return { drawTokenWithCache };
+    // Função para desenhar apenas os tokens (com seus efeitos de seleção/arrasto), sem névoa
+    const renderizarTokens = useCallback((contexto, todosItens, tokensInfo, isMaster) => {
+        if (!contexto) return;
+
+        for (let i = 0; i < todosItens.length; i++) {
+            const item = todosItens[i];
+            if (item.tipo === 'token') {
+                if (!isMaster && item.oculto) continue;
+                drawTokenWithCache(item, item.indice, contexto);
+            }
+        }
+    }, [drawTokenWithCache]);
+
+    return {
+        drawTokenWithCache,     
+        renderizarTokens      
+    };
 }

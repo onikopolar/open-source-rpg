@@ -1,4 +1,4 @@
-// src/pages/api/Tabletop/nevoa/[id].js
+// src/pages/api/Tabletop/nevoa/[idNevoa].js
 import { prisma } from '../../../../lib/prisma';
 
 export default async function handler(req, res) {

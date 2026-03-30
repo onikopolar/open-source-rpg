@@ -133,7 +133,6 @@ export function useSincronizacaoTokens({
     if (!socket) return;
 
     const handleTokenUpdated = (data) => {
-      console.log('[useSincronizacaoTokens] Token atualizado:', data);
       if (onTokenUpdate) {
         onTokenUpdate(data, (prev) => {
           const index = prev.findIndex((t) => t.id === data.id);
@@ -160,7 +159,6 @@ export function useSincronizacaoTokens({
     };
 
     const handleTokenCreated = (data) => {
-      console.log('[useSincronizacaoTokens] Token criado:', data);
       if (onTokenUpdate) {
         onTokenUpdate(data, (prev) => {
           const novos = [...prev, data];
@@ -170,7 +168,6 @@ export function useSincronizacaoTokens({
     };
 
     const handleTokenDeleted = (data) => {
-      console.log('[useSincronizacaoTokens] Token deletado:', data);
       if (onTokenUpdate) {
         onTokenUpdate(data, (prev) => prev.filter((t) => t.id !== data.id));
       }

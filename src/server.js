@@ -42,7 +42,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('tabletop:tokenMoved', (data) => {
-    console.log('[Socket] Token movido:', data.id, 'x:', data.x, 'y:', data.y);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenUpdated', data);
   });
 
@@ -87,13 +86,17 @@ io.on('connection', (socket) => {
   });
 
   socket.on('tabletop:tokenDragStart', (data) => {
-    console.log('[Socket] Início de arrasto:', data.tokenId, 'por', data.userId);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenDragStart', data);
   });
 
   socket.on('tabletop:tokenDragEnd', (data) => {
-    console.log('[Socket] Fim de arrasto:', data.tokenId, 'por', data.userId);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenDragEnd', data);
+  });
+
+  // Evento para movimento em tempo real de camadas de névoa
+  socket.on('tabletop:nevoaMoved', (data) => {
+    console.log('[Socket] Camada de névoa movida:', data.id, 'nova posição:', data.x, data.y);
+    io.to(`tabletop_${data.tabletopId}`).emit('tabletop:nevoaMoved', data);
   });
 
   socket.on('disconnect', () => {

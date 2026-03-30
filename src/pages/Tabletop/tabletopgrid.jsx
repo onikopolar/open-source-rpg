@@ -389,7 +389,8 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         }
     }, []);
 
-    const { drawTokenWithCache } = useRenderizacaoToken(
+    // Agora usamos a função que desenha apenas tokens (sem névoa)
+    const { renderizarTokens } = useRenderizacaoToken(
         estadoUI,
         cacheImagens,
         pegarContextoCanvas,
@@ -573,6 +574,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         [arrastosRemotos, tokensLocal, todosItens, isMaster]
     );
 
+    // Função principal de renderização com a ordem corrigida
     const renderizarTudo = useCallback(() => {
         const canvas = canvasRef.current;
         const container = containerRef.current;
@@ -594,47 +596,32 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         contexto.clearRect(0, 0, canvas.width, canvas.height);
         contexto.setTransform(1, 0, 0, 1, 0, 0);
 
+        // 1. Grade
         desenharGrade();
 
-        console.log('[TabletopGrid] Desenhando tokens, total:', tokensInfo.length);
-        for (let i = 0; i < todosItens.length; i++) {
-            const item = todosItens[i];
-            if (item.tipo === 'token') {
-                if (!isMaster && item.oculto) {
-                    console.log(`[TabletopGrid] Token ${item.id} oculto para jogador, ignorando`);
-                    continue;
-                }
-                drawTokenWithCache(item, item.indice, contexto);
-            }
-        }
+        // 2. Tokens (com seus efeitos de seleção/arrasto, sem névoa)
+        renderizarTokens(contexto, todosItens, tokensInfo, isMaster);
 
-        console.log(
-            '[TabletopGrid] Configurando névoa para renderização, zoom:',
-            estadoUI.zoom,
-            'posicao:',
-            estadoUI.position
-        );
-        nevoa.setUIStateRef(estadoUI.zoom, estadoUI.position);
-        nevoa.renderizarNevoa(contexto, estadoUI.zoom, estadoUI.position);
-        console.log('[TabletopGrid] Névoa renderizada, modoDesenho:', nevoa.modoDesenho);
-
+        // 3. Overlays (bordas de arrasto próprio, seleções múltiplas, arrasto remoto)
         desenharArrastoProprio(contexto);
         desenharSelecoes(contexto);
         desenharArrastoRemoto(contexto);
+
+        // 4. Névoa por cima de tudo (esconde tokens e efeitos)
+        nevoa.renderizarNevoa(contexto, estadoUI.zoom, estadoUI.position);
     }, [
         todosItens,
-        tokensInfo.length,
-        tokensLocal,
-        arrastosRemotos,
+        tokensInfo,
+        isMaster,
         desenharGrade,
-        drawTokenWithCache,
+        renderizarTokens,
         pegarContextoCanvas,
-        estadoUI,
-        nevoa,
         desenharArrastoProprio,
         desenharSelecoes,
         desenharArrastoRemoto,
-        isMaster,
+        nevoa,
+        estadoUI.zoom,
+        estadoUI.position,
     ]);
 
     useEffect(() => {
@@ -739,6 +726,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         trazerTokenParaFrente: handleTrazerParaFrente,
         finalizarRedimensionamento,
         redimensionandoRef: redimensionandoRefHook,
+        isMaster,
     });
 
     const handleUndo = useCallback(() => {
@@ -869,6 +857,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                                 setMenuNevoaPosicao({ x: rect.right, y: rect.top });
                                 setMenuNevoaAberto(true);
                             }}
+                            modoDesenhoAtivo={nevoa.modoDesenho}
                         />
                         <TokenModal open={modalTokenAberto} onClose={() => setModalTokenAberto(false)} />
                     </>

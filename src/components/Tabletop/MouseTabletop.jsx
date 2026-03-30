@@ -36,10 +36,12 @@ export function useMouseTabletop({
     tabletopId,
     salvarToken,
     emitirTokenMoved,
-    emitirDragEnd
+    emitirDragEnd,
+    isMaster
 }) {
 
     const ultimoEmitRef = useRef(0);
+    const ultimoEmitCamadaRef = useRef(0);
     const dragStartEmitidoRef = useRef(false);
     const movimentoIniciadoRef = useRef(false);
 
@@ -150,25 +152,14 @@ export function useMouseTabletop({
             return;
         }
 
+        // BOTÃO DIREITO
         if (event.button === 2) {
             event.preventDefault();
 
-            const { x: mundoX, y: mundoY } = converterMouseParaMundo(mouseX, mouseY);
-            const camada = fov.encontrarCamadaNaPosicao(mundoX, mundoY);
-
-            if (camada) {
-                uiDispatch({
-                    type: 'OPEN_CONTEXT_MENU',
-                    payload: { aberto: true, x: event.clientX, y: event.clientY, tipo: 'nevoa', camadaId: camada.id, camada }
-                });
-                return;
-            }
-
+            // 1. Verificar token primeiro
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'direito');
-
             if (tokenSobre) {
                 const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
-
                 uiDispatch({
                     type: 'SET_MOUSE_DOWN_INFO',
                     payload: {
@@ -180,7 +171,6 @@ export function useMouseTabletop({
                         isBlocked: tokenBloqueado
                     }
                 });
-
                 if (!tokenBloqueado) {
                     uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: true } });
                     const posicao = { x: tokenSobre.telaX, y: tokenSobre.telaY };
@@ -193,23 +183,79 @@ export function useMouseTabletop({
                     uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: true } });
                     isRightClickDragRef.current = false;
                 }
-            } else {
-                uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
-                dragStartRef.current = { x: event.clientX - uiState.position.x, y: event.clientY - uiState.position.y };
-                isRightClickDragRef.current = true;
+                return;
             }
+
+            // 2. Verificar camada (apenas mestre)
+            const { x: mundoX, y: mundoY } = converterMouseParaMundo(mouseX, mouseY);
+            const camada = fov.encontrarCamadaNaPosicao(mundoX, mundoY);
+            if (camada && isMaster) {
+                uiDispatch({
+                    type: 'OPEN_CONTEXT_MENU',
+                    payload: { aberto: true, x: event.clientX, y: event.clientY, tipo: 'nevoa', camadaId: camada.id, camada }
+                });
+                return;
+            }
+
+            // 3. Área vazia
+            uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
+            dragStartRef.current = { x: event.clientX - uiState.position.x, y: event.clientY - uiState.position.y };
+            isRightClickDragRef.current = true;
             return;
         }
 
+        // BOTÃO ESQUERDO (modo normal, não desenho)
         if (event.button === 0 && !fov.modoDesenho) {
             teveMovimentoRef.current = false;
             dragStartEmitidoRef.current = false;
             movimentoIniciadoRef.current = false;
 
+            // 1. Verificar token primeiro (independente de névoa)
+            const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'esquerdo');
+            if (tokenSobre) {
+                const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
+                if (tokenBloqueado) {
+                    uiDispatch({ type: 'SET_FEEDBACK', payload: { message: 'Token bloqueado', type: 'warning' } });
+                    event.preventDefault();
+                    return;
+                }
+
+                const tokenId = tokenSobre.token.id;
+                const indiceAtual = tokenSobre.indice;
+
+                if (trazerTokenParaFrente) {
+                    trazerTokenParaFrente(tokenId);
+                }
+
+                const posicao = { x: tokenSobre.telaX, y: tokenSobre.telaY };
+                const dimensoes = { largura: tokenSobre.larguraTela, altura: tokenSobre.alturaTela };
+                const canto = verificarSeMousePodeRedimensionar(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, false);
+
+                if (canto) {
+                    iniciarRedimensionamento(tokenSobre.token, indiceAtual, canto, { x: mouseX - posicao.x, y: mouseY - posicao.y });
+                    event.preventDefault();
+                    return;
+                }
+
+                uiDispatch({ type: 'SELECT_TOKEN', payload: indiceAtual });
+
+                if (emitirSelecao && !dragInProgressRef.current && !resizeInProgressRef.current) {
+                    emitirSelecao(tokenId);
+                }
+
+                iniciarArrastoToken(
+                    { token: tokenSobre.token, indice: indiceAtual, telaX: tokenSobre.telaX, telaY: tokenSobre.telaY, isGroupDrag: false },
+                    mouseX - tokenSobre.telaX,
+                    mouseY - tokenSobre.telaY
+                );
+                event.preventDefault();
+                return;
+            }
+
+            // 2. Verificar camada (apenas mestre)
             const { x: mundoX, y: mundoY } = converterMouseParaMundo(mouseX, mouseY);
             const camadaEncontrada = fov.encontrarCamadaNaPosicao(mundoX, mundoY);
-
-            if (camadaEncontrada) {
+            if (camadaEncontrada && isMaster) {
                 const itemComInfo = camadasComInfo.find(c => c.id === camadaEncontrada.id);
                 if (!itemComInfo) return;
 
@@ -254,6 +300,7 @@ export function useMouseTabletop({
                 return;
             }
 
+            // 3. Lógica para múltiplos tokens selecionados (arrasto/redimensionamento de grupo)
             if (uiState.tokensSelecionados.length > 1) {
                 const tokensSelecionadosInfo = uiState.tokensSelecionados
                     .map(indice => tokensComInfo[indice])
@@ -325,6 +372,7 @@ export function useMouseTabletop({
                 }
             }
 
+            // 4. Token já selecionado individualmente (possível redimensionamento)
             if (uiState.tokenSelecionado !== null) {
                 const token = tokensState[uiState.tokenSelecionado];
                 if (token && !isTokenBloqueado(token.id)) {
@@ -339,59 +387,17 @@ export function useMouseTabletop({
                 }
             }
 
-            const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'esquerdo');
-
-            if (tokenSobre) {
-                const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
-
-                if (tokenBloqueado) {
-                    uiDispatch({ type: 'SET_FEEDBACK', payload: { message: 'Token bloqueado', type: 'warning' } });
-                    event.preventDefault();
-                    return;
-                }
-
-                const tokenId = tokenSobre.token.id;
-                const indiceAtual = tokenSobre.indice;
-
-                if (trazerTokenParaFrente) {
-                    trazerTokenParaFrente(tokenId);
-                }
-
-                const posicao = { x: tokenSobre.telaX, y: tokenSobre.telaY };
-                const dimensoes = { largura: tokenSobre.larguraTela, altura: tokenSobre.alturaTela };
-                const canto = verificarSeMousePodeRedimensionar(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, false);
-
-                if (canto) {
-                    iniciarRedimensionamento(tokenSobre.token, indiceAtual, canto, { x: mouseX - posicao.x, y: mouseY - posicao.y });
-                    event.preventDefault();
-                    return;
-                }
-
-                uiDispatch({ type: 'SELECT_TOKEN', payload: indiceAtual });
-
-                if (emitirSelecao && !dragInProgressRef.current && !resizeInProgressRef.current) {
-                    emitirSelecao(tokenId);
-                }
-
-                iniciarArrastoToken(
-                    { token: tokenSobre.token, indice: indiceAtual, telaX: tokenSobre.telaX, telaY: tokenSobre.telaY, isGroupDrag: false },
-                    mouseX - tokenSobre.telaX,
-                    mouseY - tokenSobre.telaY
-                );
-                event.preventDefault();
-                return;
-            } else {
-                uiDispatch({
-                    type: 'SET_MOUSE_DOWN_INFO',
-                    payload: { mouseX, mouseY, timestamp: Date.now(), isLeftClick: true, isBlankArea: true }
-                });
-                event.preventDefault();
-            }
+            // 5. Área vazia (inicia área de seleção)
+            uiDispatch({
+                type: 'SET_MOUSE_DOWN_INFO',
+                payload: { mouseX, mouseY, timestamp: Date.now(), isLeftClick: true, isBlankArea: true }
+            });
+            event.preventDefault();
         }
     }, [uiState, tokensState, tokensComInfo, camadasComInfo, containerRef, converterMouseParaMundo, verificarSeMouseSobreToken,
         verificarSeMousePodeRedimensionar, fov, uiDispatch, isTokenBloqueado, getPosicaoTela, getDimensoesTela, iniciarRedimensionamento,
         iniciarArrastoToken, emitirSelecao, dragInProgressRef, resizeInProgressRef, trazerTokenParaFrente, teveMovimentoRef,
-        dragStartRef, isRightClickDragRef, isDraggingRef]);
+        dragStartRef, isRightClickDragRef, isDraggingRef, isMaster]);
 
     const handleMouseMove = useCallback((event) => {
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -459,6 +465,11 @@ export function useMouseTabletop({
                 const isNevoa = !!uiState.camadaSendoArrastada;
                 const itemInfo = isNevoa ? uiState.camadaSendoArrastada : uiState.tokenSendoArrastado;
 
+                if (isNevoa && !isMaster) {
+                    event.preventDefault();
+                    return;
+                }
+
                 teveMovimentoRef.current = true;
 
                 if (!movimentoIniciadoRef.current && !isNevoa) {
@@ -484,9 +495,32 @@ export function useMouseTabletop({
                 if (!isNevoa) {
                     const tokenMovido = novosTokens[itemInfo.indice];
                     if (tokenMovido && (tokenMovido.x !== itemInfo.token?.x || tokenMovido.y !== itemInfo.token?.y)) {
-                        emitirMovimentoToken(tokenMovido, tokenMovido.id, tokenMovido.x, tokenMovido.y);
+                        const agora = Date.now();
+                        if (agora - ultimoEmitRef.current >= THROTTLE_MS) {
+                            ultimoEmitRef.current = agora;
+                            if (emitirTokenMoved) {
+                                emitirTokenMoved(tokenMovido.id, { x: tokenMovido.x, y: tokenMovido.y });
+                            }
+                        }
+                    }
+                } else {
+                    const camadaMovida = novosTokens[itemInfo.indice];
+                    if (camadaMovida && (camadaMovida.x !== itemInfo.camada?.x || camadaMovida.y !== itemInfo.camada?.y)) {
+                        const agora = Date.now();
+                        if (agora - ultimoEmitCamadaRef.current >= THROTTLE_MS) {
+                            ultimoEmitCamadaRef.current = agora;
+                            if (socket?.connected) {
+                                socket.emit('tabletop:nevoaMoved', {
+                                    tabletopId,
+                                    id: camadaMovida.id,
+                                    x: camadaMovida.x,
+                                    y: camadaMovida.y
+                                });
+                            }
+                        }
                     }
                 }
+
                 event.preventDefault();
                 return;
             }
@@ -495,6 +529,11 @@ export function useMouseTabletop({
                 const isNevoa = !!uiState.camadaRedimensionando;
                 const itemInfo = isNevoa ? uiState.camadaRedimensionando : uiState.tokenRedimensionando;
                 const indicesGrupo = itemInfo.isGroupResize ? uiState.tokensSelecionados : [];
+
+                if (isNevoa && !isMaster) {
+                    event.preventDefault();
+                    return;
+                }
 
                 if (itemInfo.isGroupResize && indicesGrupo.length > 0) {
                     const anyBlocked = indicesGrupo.some(indice => {
@@ -552,7 +591,7 @@ export function useMouseTabletop({
         });
     }, [uiState, tokensState, tokensComInfo, tokenEstaNaAreaSelecao, restringirPosicao,
         processarArrastoToken, processarRedimensionamento, setStateDirect, socket, tabletopId, uiDispatch, fov, emitirDragStart,
-        isTokenBloqueado, teveMovimentoRef, dragStartRef, isRightClickDragRef, rafRef, containerRef, emitirTokenMoved]);
+        isTokenBloqueado, teveMovimentoRef, dragStartRef, isRightClickDragRef, rafRef, containerRef, emitirTokenMoved, isMaster]);
 
     const handleMouseUp = useCallback((event) => {
         const container = containerRef.current;
@@ -597,6 +636,13 @@ export function useMouseTabletop({
             if (isDraggingRef.current || dragInProgressRef.current) {
                 if (teveMovimentoRef.current) {
                     finalizarArrasto();
+                    if (uiState.camadaSendoArrastada && isMaster) {
+                        const camadaId = uiState.camadaSendoArrastada.camada.id;
+                        const camadaData = fov.camadasNevoa.find(c => c.id === camadaId);
+                        if (camadaData) {
+                            fov.atualizarPosicaoCamada(camadaId, camadaData.x, camadaData.y);
+                        }
+                    }
                 }
                 isDraggingRef.current = false;
             }
@@ -640,7 +686,7 @@ export function useMouseTabletop({
         resizeInProgressRef.current = false;
         teveMovimentoRef.current = false;
     }, [uiState, tokensState, finalizarArrasto, uiDispatch, fov, isDraggingRef, dragInProgressRef,
-        resizeInProgressRef, teveMovimentoRef, salvarToken, resizeStartStateRef]);
+        resizeInProgressRef, teveMovimentoRef, salvarToken, resizeStartStateRef, isMaster]);
 
     return { handleMouseDown, handleMouseMove, handleMouseUp };
 }

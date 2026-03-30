@@ -75,7 +75,5 @@ export const trazerTokenParaFrente = (tokens, tokenId) => {
     const [tokenSelecionado] = novosTokens.splice(indiceToken, 1);
     novosTokens.push(tokenSelecionado);
     
-    console.log('[trazerTokenParaFrente] Token movido para frente. IDs na ordem:', novosTokens.map(t => t.id));
-    
     return novosTokens;
 };
