@@ -41,14 +41,60 @@ import { useSincronizacaoTokens } from '../../components/Tabletop/HooksNovos/use
 import { useDragDropToken } from '../../components/Tabletop/HooksNovos/useDragDropToken';
 import { useNuvemFOV } from '../../components/Tabletop/NuvemFOV';
 import { useMouseTabletop } from '../../components/Tabletop/MouseTabletop';
+import { useMobileTabletop } from '../../components/Tabletop/Mobile/MobileTabletop';
 import { useTabletopTokens } from '../../hooks/useTabletopTokens';
 import socket from '../../utils/socket';
+
+// Função auxiliar para detectar dispositivo mobile
+const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false;
+    const mobileRegex = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i;
+    return mobileRegex.test(navigator.userAgent) || window.innerWidth < 768;
+};
+
+// Chave para salvar a visualização no localStorage
+const getStorageKey = (tabletopId, isMaster, sheetId, playerName) => {
+    const userPart = isMaster ? 'master' : `player_${sheetId || playerName || 'anon'}`;
+    return `tabletop_view_${tabletopId}_${userPart}`;
+};
 
 function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     const [modalTokenAberto, setModalTokenAberto] = useState(false);
     const [menuNevoaAberto, setMenuNevoaAberto] = useState(false);
     const [menuNevoaPosicao, setMenuNevoaPosicao] = useState({ x: 0, y: 0 });
     const tabletopId = 'default';
+
+    // Carregar visualização salva
+    const loadSavedView = useCallback(() => {
+        try {
+            const key = getStorageKey(tabletopId, isMaster, sheetId, playerName);
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                const { zoom, position } = JSON.parse(saved);
+                return { zoom: zoom ?? 1, position: position ?? { x: 0, y: 0 } };
+            }
+        } catch (e) {}
+        return { zoom: 1, position: { x: 0, y: 0 } };
+    }, [tabletopId, isMaster, sheetId, playerName]);
+
+    const savedView = loadSavedView();
+    const customInitialState = {
+        ...initialUIState,
+        zoom: savedView.zoom,
+        position: savedView.position,
+    };
+    const [estadoUI, despacharUI] = useReducer(uiReducer, customInitialState);
+
+    // Salvar visualização sempre que zoom/position mudarem
+    useEffect(() => {
+        try {
+            const key = getStorageKey(tabletopId, isMaster, sheetId, playerName);
+            localStorage.setItem(key, JSON.stringify({
+                zoom: estadoUI.zoom,
+                position: estadoUI.position,
+            }));
+        } catch (e) {}
+    }, [estadoUI.zoom, estadoUI.position, tabletopId, isMaster, sheetId, playerName]);
 
     const {
         tokens,
@@ -59,7 +105,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     } = useTabletopTokens();
 
     const [tokensLocal, setTokensLocal] = useState([]);
-    const [estadoUI, despacharUI] = useReducer(uiReducer, initialUIState);
 
     const {
         arrastosRemotos,
@@ -106,6 +151,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         }
     }, [tokens]);
 
+    // Refs
     const menuAbertoTimestampRef = useRef(0);
     const estaArrastandoRef = useRef(false);
     const arrastoEmProgressoRef = useRef(false);
@@ -659,7 +705,8 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         [tokensLocal, atualizarToken, socket, emitirTokenZIndexChanged]
     );
 
-    const { handleMouseDown, handleMouseMove, handleMouseUp } = useMouseTabletop({
+    // Props comuns para ambos os hooks (mouse e mobile)
+    const commonProps = {
         containerRef,
         dragStartRef: inicioArrastoRef,
         resizeStartStateRef,
@@ -694,7 +741,20 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         finalizarRedimensionamento,
         redimensionandoRef: redimensionandoRefHook,
         isMaster,
-    });
+        salvarToken: (tokenId, dados) => {
+            atualizarToken(tokenId, dados);
+            if (socket?.connected) {
+                emitirTokenMoved(tokenId, dados);
+                emitirDragEnd(tokenId);
+            }
+        },
+    };
+
+    // Escolhe o hook baseado no dispositivo
+    const isMobile = isMobileDevice();
+    const mouseEvents = useMouseTabletop(commonProps);
+    const mobileEvents = useMobileTabletop(commonProps);
+    const { handleMouseDown, handleMouseMove, handleMouseUp } = isMobile ? mobileEvents : mouseEvents;
 
     const handleUndo = useCallback(() => {
         despacharUI({
