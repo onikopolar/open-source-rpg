@@ -4,12 +4,15 @@ import { prisma } from '../../../lib/prisma';
 export default async function handler(req, res) {
   console.log('[API Tabletop/tokens] Método:', req.method);
 
-  // GET - Buscar todos os tokens
+  // GET - Buscar tokens da biblioteca (apenas templates, sem instâncias)
   if (req.method === 'GET') {
     try {
-      console.log('[API Tabletop/tokens] Buscando todos os tokens');
+      console.log('[API Tabletop/tokens] Buscando tokens (parentId = null)');
       
       const tokens = await prisma.tabletopToken.findMany({
+        where: {
+          parentId: null   // Apenas templates (tokens da biblioteca)
+        },
         orderBy: { zIndex: 'asc' }
       });
       
@@ -28,15 +31,16 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST - Criar um novo token
+  // POST - Criar um novo token (pode ser template ou instância)
   if (req.method === 'POST') {
     try {
       const { 
         tokenId, nome, x, y, escala, larguraOriginal, alturaOriginal,
-        invertido, oculto, bloqueado, imageUrl, imageBase64, mimeType 
+        invertido, oculto, bloqueado, imageUrl, imageBase64, mimeType,
+        parentId   // novo campo: ID do template pai (null para template)
       } = req.body;
       
-      console.log('[API Tabletop/tokens] Criando token:', { tokenId, nome, x, y, bloqueado });
+      console.log('[API Tabletop/tokens] Criando token:', { tokenId, nome, x, y, bloqueado, parentId });
       
       // Buscar o maior zIndex atual
       const maxZIndexToken = await prisma.tabletopToken.findFirst({
@@ -60,11 +64,12 @@ export default async function handler(req, res) {
           zIndex: novoZIndex,
           imageUrl: imageUrl || null,
           imageBase64: imageBase64 || null,
-          mimeType: mimeType || null
+          mimeType: mimeType || null,
+          parentId: parentId || null   // se não informado, será null (template)
         }
       });
       
-      console.log('[API Tabletop/tokens] Token criado com ID:', token.id, 'bloqueado:', token.bloqueado);
+      console.log('[API Tabletop/tokens] Token criado com ID:', token.id, 'bloqueado:', token.bloqueado, 'parentId:', token.parentId);
       
       return res.status(201).json(token);
     } catch (error) {

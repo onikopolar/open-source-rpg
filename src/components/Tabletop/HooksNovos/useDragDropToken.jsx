@@ -1,5 +1,6 @@
 // src/components/Tabletop/HooksNovos/useDragDropToken.jsx
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { DragDropSystem } from '../../../components/TokenModal/TokenModal';
 
 export function useDragDropToken({
     isMaster,
@@ -10,51 +11,84 @@ export function useDragDropToken({
     emitirTokenCreated,
     socket,
 }) {
+    const isRegisteredRef = useRef(false);
+
     useEffect(() => {
         if (!isMaster) return;
+        if (isRegisteredRef.current) return;
+        if (!containerRef.current) return;
 
-        const DragDropSystem = require('../../../components/TokenModal/TokenModal').DragDropSystem;
+        const register = () => {
+            DragDropSystem.register('TabletopGrid', containerRef.current, async (dados, event) => {
+                console.log('[useDragDropToken] Drop recebido - dados:', dados);
+                
+                if (dados.tipo !== 'token') {
+                    console.log('[useDragDropToken] Ignorando drop - tipo não é token:', dados.tipo);
+                    return;
+                }
 
-        DragDropSystem.register('TabletopGrid', containerRef.current, async (dados, event) => {
-            if (dados.tipo !== 'token') {
-                return;
-            }
+                console.log('[useDragDropToken] Token recebido para criar na mesa:', dados.id, dados.nome);
+                console.log('[useDragDropToken] parentId do token (template):', dados.parentId);
 
-            setModalTokenAberto(false);
+                setModalTokenAberto(false);
 
-            const rect = containerRef.current.getBoundingClientRect();
-            const mouseX = event.clientX - rect.left;
-            const mouseY = event.clientY - rect.top;
-            const mundo = telaParaMundo(mouseX, mouseY);
+                const rect = containerRef.current.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+                const mundo = telaParaMundo(mouseX, mouseY);
+                console.log('[useDragDropToken] Posição do mouse:', { mouseX, mouseY }, '-> mundo:', mundo);
 
-            const imageUrlParaSalvar = dados.imageUrl || dados.imagemUrl || null;
-            const imageBase64ParaSalvar = dados.imageBase64 || dados.imagemBase64 || null;
+                const imageUrlParaSalvar = dados.imageUrl || dados.imagemUrl || null;
+                const imageBase64ParaSalvar = dados.imageBase64 || dados.imagemBase64 || null;
 
-            const novoToken = {
-                tokenId: `${dados.id}-${Date.now()}`,
-                nome: dados.nome || 'Token',
-                x: mundo.x - (dados.larguraOriginal || 50) / 2,
-                y: mundo.y - (dados.alturaOriginal || 50) / 2,
-                escala: 1.0,
-                larguraOriginal: dados.larguraOriginal || 50,
-                alturaOriginal: dados.alturaOriginal || 50,
-                invertido: false,
-                oculto: false,
-                bloqueado: false,
-                imageUrl: imageUrlParaSalvar,
-                imageBase64: imageBase64ParaSalvar,
-                mimeType: dados.mimeType || null,
-            };
+                const novoToken = {
+                    tokenId: `${dados.id}-${Date.now()}`,
+                    nome: dados.nome || 'Token',
+                    x: mundo.x - (dados.larguraOriginal || 50) / 2,
+                    y: mundo.y - (dados.alturaOriginal || 50) / 2,
+                    escala: 1.0,
+                    larguraOriginal: dados.larguraOriginal || 50,
+                    alturaOriginal: dados.alturaOriginal || 50,
+                    invertido: false,
+                    oculto: false,
+                    bloqueado: false,
+                    imageUrl: imageUrlParaSalvar,
+                    imageBase64: imageBase64ParaSalvar,
+                    mimeType: dados.mimeType || null,
+                    parentId: dados.parentId || null,
+                };
 
-            const tokenCriado = await criarToken(novoToken);
+                console.log('[useDragDropToken] Enviando para criarToken:', {
+                    tokenId: novoToken.tokenId,
+                    nome: novoToken.nome,
+                    parentId: novoToken.parentId
+                });
 
-            if (tokenCriado && socket && socket.connected) {
-                emitirTokenCreated(tokenCriado);
-            }
-        });
+                const tokenCriado = await criarToken(novoToken);
+
+                if (tokenCriado && socket?.connected) {
+                    console.log('[useDragDropToken] Token criado com sucesso, emitindo evento socket:', tokenCriado.id);
+                    emitirTokenCreated(tokenCriado);
+                } else {
+                    console.error('[useDragDropToken] Falha ao criar token ou socket desconectado');
+                }
+            });
+
+            isRegisteredRef.current = true;
+            console.log('[useDragDropToken] DragDropSystem registrado para TabletopGrid');
+        };
+
+        register();
 
         return () => {
-            DragDropSystem.unregister('TabletopGrid');
+            if (isRegisteredRef.current) {
+                DragDropSystem.unregister('TabletopGrid');
+                isRegisteredRef.current = false;
+                console.log('[useDragDropToken] DragDropSystem desregistrado para TabletopGrid');
+            }
         };
+        // Dependências mínimas: apenas as que, se mudarem, realmente exigem re-registro
+        // Nota: as funções 'criarToken', 'telaParaMundo', 'emitirTokenCreated' e 'socket'
+        // devem ser estáveis (useCallback) no componente pai para evitar reexecução desnecessária.
     }, [isMaster, containerRef, setModalTokenAberto, criarToken, telaParaMundo, emitirTokenCreated, socket]);
 }

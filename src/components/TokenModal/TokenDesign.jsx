@@ -71,7 +71,6 @@ function TokenDesign({
     const [uploadLoading, setUploadLoading] = useState(false);
 
     useEffect(() => {
-        console.log('[TokenDesign] useEffect - isOpen:', isOpen);
         if (!isOpen) {
             setPastaRenomeando(null);
             setNovoNomePasta('');
@@ -90,7 +89,9 @@ function TokenDesign({
     const handleModalClick = (e) => e.stopPropagation();
 
     const handleDragStart = (e, dados) => {
-        console.log('[TokenDesign] handleDragStart - dados:', dados);
+        if (dados.tipo === "token") {
+            dados.parentId = dados.id;
+        }
         e.dataTransfer.setData('application/json', JSON.stringify(dados));
         e.dataTransfer.effectAllowed = 'move';
 
@@ -116,7 +117,6 @@ function TokenDesign({
 
         try {
             const dados = JSON.parse(e.dataTransfer.getData('application/json'));
-            console.log('[TokenDesign] handleDrop - dados recebidos:', dados);
             DragDropSystem.processDrop(e, dados);
         } catch (erro) {
             console.log("[TokenDesign] erro no drop:", erro);
@@ -124,28 +124,20 @@ function TokenDesign({
     };
 
     const fazerUploadArquivo = async (arquivo) => {
-        console.log('[TokenDesign] fazerUploadArquivo - iniciando');
-        console.log('[TokenDesign] arquivo:', arquivo.name, 'tipo:', arquivo.type, 'tamanho:', arquivo.size);
-        
         setUploadLoading(true);
         const formData = new FormData();
         formData.append('file', arquivo);
 
         try {
-            console.log('[TokenDesign] fazerUploadArquivo - enviando para /api/upload/token');
             const response = await fetch('/api/upload/token', {
                 method: 'POST',
                 body: formData
             });
 
-            console.log('[TokenDesign] fazerUploadArquivo - response status:', response.status);
             const data = await response.json();
-            console.log('[TokenDesign] fazerUploadArquivo - data recebida:', data);
             
             if (response.ok) {
-                console.log('[TokenDesign] fazerUploadArquivo - upload OK, chamando setImagemSelecionada com:', data.url);
                 setImagemSelecionada(data.url);
-                console.log('[TokenDesign] fazerUploadArquivo - setImagemSelecionada chamado, novo valor:', data.url);
             } else {
                 console.error('[TokenDesign] Erro no upload:', data.error);
             }
@@ -153,7 +145,6 @@ function TokenDesign({
             console.error('[TokenDesign] Erro no upload:', error);
         } finally {
             setUploadLoading(false);
-            console.log('[TokenDesign] fazerUploadArquivo - finalizado');
         }
     };
 
@@ -466,16 +457,12 @@ function TokenDesign({
     };
 
     const renderConteudoAba = () => {
-        console.log('[TokenDesign] renderConteudoAba - activeTab:', activeTab);
-        
         switch (activeTab) {
             case 0: {
                 const itensRaiz = buscarItensPorPastaPai(null);
                 const pastas = itensRaiz.filter(item => item.tipo === "pasta");
                 const tokens = itensRaiz.filter(item => item.tipo === "token");
                 const itensOrdenados = [...pastas, ...tokens];
-
-                console.log('[TokenDesign] Biblioteca - itensRaiz:', itensRaiz.length, 'pastas:', pastas.length, 'tokens:', tokens.length);
 
                 if (itensRaiz.length === 0) {
                     return (
@@ -683,9 +670,7 @@ function TokenDesign({
                                 accept="image/*"
                                 onChange={(e) => {
                                     const arquivo = e.target.files[0];
-                                    console.log('[TokenDesign] Input file change - arquivo selecionado:', arquivo ? arquivo.name : 'nenhum');
                                     if (arquivo) {
-                                        console.log('[TokenDesign] Chamando fazerUploadArquivo com:', arquivo.name);
                                         fazerUploadArquivo(arquivo);
                                     }
                                 }}
@@ -719,13 +704,10 @@ function TokenDesign({
                                 value={urlExterna}
                                 onChange={(e) => {
                                     const novaUrl = e.target.value;
-                                    console.log('[TokenDesign] URL externa alterada:', novaUrl);
                                     setUrlExterna(novaUrl);
                                     if (novaUrl.trim()) {
-                                        console.log('[TokenDesign] Chamando setImagemSelecionada com URL:', novaUrl);
                                         setImagemSelecionada(novaUrl.trim());
                                     } else {
-                                        console.log('[TokenDesign] URL vazia, chamando setImagemSelecionada com null');
                                         setImagemSelecionada(null);
                                     }
                                 }}
@@ -769,12 +751,8 @@ function TokenDesign({
                                                 borderRadius: 4
                                             }}
                                             onError={(e) => {
-                                                console.error('[TokenDesign] Preview erro ao carregar imagem:', imagemSelecionada);
                                                 e.target.src = '';
                                                 e.target.alt = 'Erro ao carregar imagem';
-                                            }}
-                                            onLoad={() => {
-                                                console.log('[TokenDesign] Preview imagem carregada com sucesso:', imagemSelecionada);
                                             }}
                                         />
                                     </Box>
@@ -795,10 +773,7 @@ function TokenDesign({
                                     type="text"
                                     id="nomeToken"
                                     value={nomeToken}
-                                    onChange={(e) => {
-                                        console.log('[TokenDesign] Nome token alterado:', e.target.value);
-                                        setNomeToken(e.target.value);
-                                    }}
+                                    onChange={(e) => setNomeToken(e.target.value)}
                                     placeholder="Ex: Mapa, Objeto, NPC, Inimigo, Carlos"
                                     style={{
                                         width: '100%',
@@ -832,8 +807,6 @@ function TokenDesign({
                 return <Box sx={{ color: '#fff', textAlign: 'center', py: 3 }}>Selecione uma aba</Box>;
         }
     };
-
-    console.log('[TokenDesign] Render - imagemSelecionada:', imagemSelecionada ? imagemSelecionada.substring(0, 100) : 'null', 'nomeToken:', nomeToken);
 
     return (
         <>
@@ -892,10 +865,7 @@ function TokenDesign({
 
                     <Tabs
                         value={activeTab}
-                        onChange={(_, v) => {
-                            console.log('[TokenDesign] Tab alterada:', v);
-                            setActiveTab(v);
-                        }}
+                        onChange={(_, v) => setActiveTab(v)}
                         sx={{
                             minHeight: 48,
                             px: 2,
@@ -1013,12 +983,7 @@ function TokenDesign({
 
                         {activeTab === 1 && (
                             <Button
-                                onClick={() => {
-                                    console.log('[TokenDesign] Botão Salvar Token clicado');
-                                    console.log('[TokenDesign] imagemSelecionada atual:', imagemSelecionada);
-                                    console.log('[TokenDesign] nomeToken atual:', nomeToken);
-                                    salvarTokenNaBiblioteca();
-                                }}
+                                onClick={() => salvarTokenNaBiblioteca()}
                                 disabled={!imagemSelecionada || !nomeToken?.trim() || uploadLoading}
                                 variant="contained"
                                 sx={{

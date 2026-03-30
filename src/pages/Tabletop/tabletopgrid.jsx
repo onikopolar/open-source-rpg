@@ -103,16 +103,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                     });
                 }
             });
-
-            console.log(
-                '[TabletopGrid] Tokens inicializados:',
-                tokensOrdenados.map((t) => ({
-                    id: t.id,
-                    nome: t.nome,
-                    bloqueado: t.bloqueado,
-                    zIndex: t.zIndex,
-                }))
-            );
         }
     }, [tokens]);
 
@@ -270,10 +260,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     });
 
     const camadasInfo = useMemo(() => {
-        console.log(
-            '[TabletopGrid] Construindo camadasInfo, número de camadas:',
-            nevoa.camadasNevoa.length
-        );
         return nevoa.camadasNevoa.map((camada, indice) => {
             const larguraMundo = camada.larguraOriginal * camada.escala;
             const alturaMundo = camada.alturaOriginal * camada.escala;
@@ -285,10 +271,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
             const larguraTela = larguraMundo * estadoUI.zoom;
             const alturaTela = alturaMundo * estadoUI.zoom;
-
-            console.log(
-                `[TabletopGrid] Camada ${camada.id}: posicaoMundo=(${camada.x}, ${camada.y}), posicaoTela=(${posicaoTela.x}, ${posicaoTela.y}), tamanhoTela=(${larguraTela}, ${alturaTela})`
-            );
 
             return {
                 ...camada,
@@ -389,7 +371,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         }
     }, []);
 
-    // Agora usamos a função que desenha apenas tokens (sem névoa)
     const { renderizarTokens } = useRenderizacaoToken(
         estadoUI,
         cacheImagens,
@@ -574,7 +555,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         [arrastosRemotos, tokensLocal, todosItens, isMaster]
     );
 
-    // Função principal de renderização com a ordem corrigida
     const renderizarTudo = useCallback(() => {
         const canvas = canvasRef.current;
         const container = containerRef.current;
@@ -584,10 +564,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         if (canvas.width !== rect.width || canvas.height !== rect.height) {
             canvas.width = rect.width;
             canvas.height = rect.height;
-            console.log(
-                '[TabletopGrid] Canvas redimensionado:',
-                { width: rect.width, height: rect.height }
-            );
         }
 
         const contexto = pegarContextoCanvas();
@@ -596,18 +572,14 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         contexto.clearRect(0, 0, canvas.width, canvas.height);
         contexto.setTransform(1, 0, 0, 1, 0, 0);
 
-        // 1. Grade
         desenharGrade();
 
-        // 2. Tokens (com seus efeitos de seleção/arrasto, sem névoa)
         renderizarTokens(contexto, todosItens, tokensInfo, isMaster);
 
-        // 3. Overlays (bordas de arrasto próprio, seleções múltiplas, arrasto remoto)
         desenharArrastoProprio(contexto);
         desenharSelecoes(contexto);
         desenharArrastoRemoto(contexto);
 
-        // 4. Névoa por cima de tudo (esconde tokens e efeitos)
         nevoa.renderizarNevoa(contexto, estadoUI.zoom, estadoUI.position);
     }, [
         todosItens,
@@ -668,19 +640,14 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
     const handleTrazerParaFrente = useCallback(
         (tokenId) => {
-            console.log('[TabletopGrid] Trazendo token para frente:', tokenId);
             const token = tokensLocal.find((t) => t.id === tokenId);
-            if (!token) {
-                console.log('[TabletopGrid] Token não encontrado');
-                return;
-            }
+            if (!token) return;
 
             const maxZIndex = Math.max(...tokensLocal.map((t) => t.zIndex || 0), 0);
             const novoZIndex = maxZIndex + 1;
 
             atualizarToken(tokenId, { zIndex: novoZIndex })
                 .then(() => {
-                    console.log('[TabletopGrid] Token atualizado, novo zIndex:', novoZIndex);
                     if (socket?.connected) {
                         emitirTokenZIndexChanged(tokenId, novoZIndex);
                     }

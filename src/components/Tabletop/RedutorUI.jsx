@@ -63,23 +63,18 @@ export const initialUIState = {
 };
 
 export function uiReducer(state, action) {
-    console.log('[RedutorUI] action recebida:', action.type, action.payload);
-
     switch (action.type) {
         case 'SET_ZOOM': {
             const novoZoom = clamp(action.payload, MIN_ZOOM, MAX_ZOOM);
-            console.log('[RedutorUI] zoom alterado de', state.zoom, 'para', novoZoom);
             return { ...state, zoom: novoZoom };
         }
 
         case 'SET_POSITION': {
-            console.log('[RedutorUI] posição alterada para:', action.payload);
             return { ...state, position: action.payload };
         }
 
         case 'SELECT_TOKEN': {
             if (action.payload === null) {
-                console.log('[RedutorUI] deselecionando todos os tokens e camadas');
                 return {
                     ...state,
                     tokenSelecionado: null,
@@ -88,7 +83,6 @@ export function uiReducer(state, action) {
                     camadasSelecionadas: []
                 };
             }
-            console.log('[RedutorUI] token selecionado:', action.payload);
             return {
                 ...state,
                 tokenSelecionado: action.payload,
@@ -99,7 +93,6 @@ export function uiReducer(state, action) {
         }
 
         case 'SELECT_MULTIPLE_TOKENS': {
-            console.log('[RedutorUI] múltiplos tokens selecionados:', action.payload);
             return {
                 ...state,
                 tokensSelecionados: action.payload,
@@ -111,10 +104,8 @@ export function uiReducer(state, action) {
 
         case 'START_TOKEN_DRAG': {
             if (!action.payload.tokenInfo?.token) {
-                console.warn('[RedutorUI] START_TOKEN_DRAG sem token válido');
                 return state;
             }
-            console.log('[RedutorUI] iniciando arrasto do token:', action.payload.tokenInfo.token.id);
             return {
                 ...state,
                 tokenSendoArrastado: action.payload.tokenInfo,
@@ -127,7 +118,6 @@ export function uiReducer(state, action) {
         }
 
         case 'STOP_TOKEN_DRAG': {
-            console.log('[RedutorUI] parando arrasto de token');
             return {
                 ...state,
                 tokenSendoArrastado: null,
@@ -137,7 +127,6 @@ export function uiReducer(state, action) {
 
         case 'SELECT_CAMADA': {
             if (action.payload === null) {
-                console.log('[RedutorUI] deselecionando todas as camadas');
                 return {
                     ...state,
                     camadaSelecionada: null,
@@ -146,7 +135,6 @@ export function uiReducer(state, action) {
                     tokensSelecionados: []
                 };
             }
-            console.log('[RedutorUI] camada selecionada:', action.payload);
             return {
                 ...state,
                 camadaSelecionada: action.payload,
@@ -157,7 +145,6 @@ export function uiReducer(state, action) {
         }
 
         case 'SELECT_MULTIPLE_CAMADAS': {
-            console.log('[RedutorUI] múltiplas camadas selecionadas:', action.payload);
             return {
                 ...state,
                 camadasSelecionadas: action.payload,
@@ -169,10 +156,8 @@ export function uiReducer(state, action) {
 
         case 'START_CAMADA_DRAG': {
             if (!action.payload.camada) {
-                console.warn('[RedutorUI] START_CAMADA_DRAG sem camada válida');
                 return state;
             }
-            console.log('[RedutorUI] iniciando arrasto da camada:', action.payload.camada.id);
             return {
                 ...state,
                 camadaSendoArrastada: {
@@ -188,7 +173,6 @@ export function uiReducer(state, action) {
         }
 
         case 'STOP_CAMADA_DRAG': {
-            console.log('[RedutorUI] parando arrasto de camada');
             return {
                 ...state,
                 camadaSendoArrastada: null,
@@ -197,7 +181,6 @@ export function uiReducer(state, action) {
         }
 
         case 'START_CAMADA_RESIZE': {
-            console.log('[RedutorUI] iniciando redimensionamento de camada:', action.payload.camada.id);
             return {
                 ...state,
                 camadaRedimensionando: {
@@ -217,7 +200,6 @@ export function uiReducer(state, action) {
         }
 
         case 'STOP_CAMADA_RESIZE': {
-            console.log('[RedutorUI] parando redimensionamento de camada');
             return {
                 ...state,
                 camadaRedimensionando: null,
@@ -229,7 +211,6 @@ export function uiReducer(state, action) {
 
         case 'START_RESIZE': {
             if (action.payload.token?.tipo === 'nevoa') {
-                console.log('[RedutorUI] iniciando redimensionamento de camada via START_RESIZE:', action.payload.token.id);
                 return {
                     ...state,
                     camadaRedimensionando: {
@@ -244,7 +225,6 @@ export function uiReducer(state, action) {
                     offsetArrasto: action.payload.offset
                 };
             }
-            console.log('[RedutorUI] iniciando redimensionamento de token:', action.payload.token.id);
             return {
                 ...state,
                 tokenRedimensionando: {
@@ -260,7 +240,6 @@ export function uiReducer(state, action) {
         }
 
         case 'STOP_RESIZE': {
-            console.log('[RedutorUI] parando redimensionamento');
             return {
                 ...state,
                 tokenRedimensionando: null,
@@ -275,7 +254,6 @@ export function uiReducer(state, action) {
         case 'START_DRAG': {
             const { tipo, item, indice, offset } = action.payload;
             if (tipo === 'token') {
-                console.log('[RedutorUI] iniciando arrasto de token via START_DRAG:', item.id);
                 return {
                     ...state,
                     tokenSendoArrastado: {
@@ -288,7 +266,6 @@ export function uiReducer(state, action) {
                     offsetArrasto: { x: offset.offsetX, y: offset.offsetY }
                 };
             } else if (tipo === 'nevoa') {
-                console.log('[RedutorUI] iniciando arrasto de camada via START_DRAG:', item.id);
                 return {
                     ...state,
                     camadaSendoArrastada: {
@@ -302,12 +279,10 @@ export function uiReducer(state, action) {
                     offsetArrasto: { x: offset.offsetX, y: offset.offsetY }
                 };
             }
-            console.warn('[RedutorUI] START_DRAG com tipo desconhecido:', tipo);
             return state;
         }
 
         case 'STOP_DRAG': {
-            console.log('[RedutorUI] parando arrasto (STOP_DRAG)');
             return {
                 ...state,
                 tokenSendoArrastado: null,
@@ -319,7 +294,6 @@ export function uiReducer(state, action) {
         case 'TOGGLE_VISIBILITY': {
             const tokenId = action.payload;
             const novoEstado = !state.visibilidadeTokens[tokenId];
-            console.log('[RedutorUI] alternando visibilidade do token', tokenId, 'para', novoEstado);
             return {
                 ...state,
                 visibilidadeTokens: {
@@ -331,7 +305,6 @@ export function uiReducer(state, action) {
 
         case 'SET_TOKEN_VISIBILITY': {
             const { tokenId, oculto } = action.payload;
-            console.log('[RedutorUI] definindo visibilidade do token', tokenId, 'como', oculto);
             return {
                 ...state,
                 visibilidadeTokens: {
@@ -343,7 +316,6 @@ export function uiReducer(state, action) {
 
         case 'SET_TOKEN_BLOCK': {
             const { tokenId, bloqueado } = action.payload;
-            console.log('[RedutorUI] definindo bloqueio do token', tokenId, 'como', bloqueado);
             return {
                 ...state,
                 tokensBloqueados: {
@@ -356,7 +328,6 @@ export function uiReducer(state, action) {
         case 'TOGGLE_LOCK': {
             const tokenId = action.payload;
             const novoEstado = !state.tokensBloqueados[tokenId];
-            console.log('[RedutorUI] alternando bloqueio do token', tokenId, 'para', novoEstado);
             return {
                 ...state,
                 tokensBloqueados: {
@@ -369,7 +340,6 @@ export function uiReducer(state, action) {
         case 'TOGGLE_CAMADA_LOCK': {
             const camadaId = action.payload;
             const novoEstado = !state.camadasBloqueadas[camadaId];
-            console.log('[RedutorUI] alternando bloqueio da camada', camadaId, 'para', novoEstado);
             return {
                 ...state,
                 camadasBloqueadas: {
@@ -380,12 +350,10 @@ export function uiReducer(state, action) {
         }
 
         case 'OPEN_CONTEXT_MENU': {
-            console.log('[RedutorUI] abrindo menu de contexto:', action.payload);
             return { ...state, menuContexto: action.payload };
         }
 
         case 'CLOSE_CONTEXT_MENU': {
-            console.log('[RedutorUI] fechando menu de contexto');
             return {
                 ...state,
                 menuContexto: {
@@ -403,12 +371,10 @@ export function uiReducer(state, action) {
         }
 
         case 'SET_MOUSE_DOWN_INFO': {
-            console.log('[RedutorUI] definindo mouseDownInfo:', action.payload);
             return { ...state, mouseDownInfo: action.payload };
         }
 
         case 'START_AREA_SELECTION': {
-            console.log('[RedutorUI] iniciando área de seleção em', action.payload);
             return {
                 ...state,
                 areaSelecao: {
@@ -427,7 +393,6 @@ export function uiReducer(state, action) {
 
         case 'UPDATE_AREA_SELECTION': {
             if (!state.areaSelecao.ativo) return state;
-            console.log('[RedutorUI] atualizando área de seleção para', action.payload);
             return {
                 ...state,
                 areaSelecao: {
@@ -439,7 +404,6 @@ export function uiReducer(state, action) {
         }
 
         case 'END_AREA_SELECTION': {
-            console.log('[RedutorUI] finalizando área de seleção');
             return {
                 ...state,
                 areaSelecao: {
@@ -457,7 +421,6 @@ export function uiReducer(state, action) {
         }
 
         case 'SET_UI_STATE': {
-            console.log('[RedutorUI] atualizando estado UI:', action.payload);
             return {
                 ...state,
                 ui: { ...state.ui, ...action.payload }
@@ -465,7 +428,6 @@ export function uiReducer(state, action) {
         }
 
         case 'SET_FEEDBACK': {
-            console.log('[RedutorUI] definindo feedback:', action.payload);
             return {
                 ...state,
                 ui: {
@@ -478,7 +440,6 @@ export function uiReducer(state, action) {
         }
 
         case 'RESET_UI_FEEDBACK': {
-            console.log('[RedutorUI] resetando feedback');
             return {
                 ...state,
                 ui: {
@@ -492,7 +453,6 @@ export function uiReducer(state, action) {
         }
 
         case 'SET_IGNORE_MOUSE_MOVE': {
-            console.log('[RedutorUI] definindo ignoreMouseMove:', action.payload);
             return {
                 ...state,
                 ignoreMouseMove: action.payload
@@ -500,7 +460,6 @@ export function uiReducer(state, action) {
         }
 
         case 'TOGGLE_DEBUG_MODE': {
-            console.log('[RedutorUI] alternando modo debug para', !state.debugMode);
             return {
                 ...state,
                 debugMode: !state.debugMode
@@ -508,7 +467,6 @@ export function uiReducer(state, action) {
         }
 
         default:
-            console.warn('[RedutorUI] ação desconhecida:', action.type);
             return state;
     }
 }

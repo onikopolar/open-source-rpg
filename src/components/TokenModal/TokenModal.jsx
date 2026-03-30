@@ -30,6 +30,7 @@ const DragDropSystem = {
                 const area = rect.width * rect.height;
                 listenersValidos.push({ id, ...listener, rect, area });
             } catch (e) {
+                // Silently skip invalid elements
             }
         }
 
@@ -66,25 +67,27 @@ const DragDropSystem = {
                     }
                 }
             } catch (e) {
+                // Silently skip depth calculation errors
             }
         });
 
         const alvo = elementoMaisProfundo || listenersComMouseDentro.sort((a, b) => a.area - b.area)[0];
-
         try {
             alvo.handler(dados, event);
         } catch (erro) {
+            // Silently ignore handler errors
         }
     }
 };
 
 function renomearPastaUtil(idPasta, novoNome, setBibliotecaTokens, setPastaAtual) {
     setBibliotecaTokens(prev => {
-        return prev.map(item =>
+        const novos = prev.map(item =>
             item.id === idPasta && item.tipo === "pasta"
                 ? { ...item, nome: novoNome }
                 : item
         );
+        return novos;
     });
 
     if (setPastaAtual) {
@@ -99,11 +102,12 @@ function renomearPastaUtil(idPasta, novoNome, setBibliotecaTokens, setPastaAtual
 
 function renomearTokenUtil(idToken, novoNome, setBibliotecaTokens) {
     setBibliotecaTokens(prev => {
-        return prev.map(item =>
+        const novos = prev.map(item =>
             item.id === idToken && item.tipo === "token"
                 ? { ...item, nome: novoNome }
                 : item
         );
+        return novos;
     });
 }
 
@@ -212,7 +216,9 @@ function TokenModal(props) {
             if (e.target.closest('.MuiModal-root')) {
                 setOpen(true);
             }
-        } catch (erro) { }
+        } catch (erro) {
+            // Silently ignore parse errors
+        }
     };
 
     const carregarTokensBiblioteca = async () => {
@@ -235,6 +241,7 @@ function TokenModal(props) {
                 setBibliotecaTokens(tokensBiblioteca);
             }
         } catch (error) {
+            // Silently ignore fetch errors
         } finally {
             setLoading(false);
         }
@@ -278,7 +285,9 @@ function TokenModal(props) {
     };
 
     const salvarTokenNaBiblioteca = async () => {
-        if (!imagemSelecionada || !nomeToken.trim()) return;
+        if (!imagemSelecionada || !nomeToken.trim()) {
+            return;
+        }
 
         try {
             setLoading(true);
@@ -327,6 +336,7 @@ function TokenModal(props) {
                 setActiveTab(0);
             }
         } catch (error) {
+            // Silently ignore save errors
         } finally {
             setLoading(false);
         }
@@ -335,9 +345,7 @@ function TokenModal(props) {
     const excluirToken = async (idToken) => {
         const deletado = await deletarTokenDaAPI(idToken);
         if (deletado) {
-            setBibliotecaTokens(prev => {
-                return prev.filter(item => item.id !== idToken || item.tipo !== "token");
-            });
+            setBibliotecaTokens(prev => prev.filter(item => item.id !== idToken || item.tipo !== "token"));
         }
     };
 
@@ -347,7 +355,7 @@ function TokenModal(props) {
 
     const criarPasta = (itensDentro, nomeSugerido) => {
         const pastasExistentes = bibliotecaTokens.filter(item => item.tipo === "pasta");
-        return {
+        const novaPasta = {
             id: `pasta-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             tipo: "pasta",
             nome: nomeSugerido || `Pasta ${pastasExistentes.length + 1}`,
@@ -355,25 +363,28 @@ function TokenModal(props) {
             itens: itensDentro || [],
             dataCriacao: new Date().toISOString()
         };
+        return novaPasta;
     };
 
     const adicionarItemNaPasta = (idPasta, item) => {
         setBibliotecaTokens(prev => {
-            return prev.map(p =>
+            const novos = prev.map(p =>
                 p.id === idPasta && p.tipo === "pasta"
                     ? { ...p, itens: [...p.itens, item] }
                     : p
             );
+            return novos;
         });
     };
 
     const removerItemDaPasta = (idPasta, idItem) => {
         setBibliotecaTokens(prev => {
-            return prev.map(p =>
+            const novos = prev.map(p =>
                 p.id === idPasta && p.tipo === "pasta"
                     ? { ...p, itens: p.itens.filter(i => i.id !== idItem) }
                     : p
             );
+            return novos;
         });
     };
 
@@ -381,7 +392,8 @@ function TokenModal(props) {
         setBibliotecaTokens(prev => {
             const pasta = prev.find(item => item.id === idPasta && item.tipo === "pasta");
             if (pasta) {
-                return [...prev.filter(item => item.id !== idPasta), ...(pasta.itens || [])];
+                const novos = [...prev.filter(item => item.id !== idPasta), ...(pasta.itens || [])];
+                return novos;
             }
             return prev;
         });
@@ -430,18 +442,20 @@ function TokenModal(props) {
     };
 
     const buscarItensPorPastaPai = (idPastaPai) => {
-        return bibliotecaTokens.filter(item =>
+        const itens = bibliotecaTokens.filter(item =>
             idPastaPai === null ? !item.pastaPai : item.pastaPai === idPastaPai
         );
+        return itens;
     };
 
     const adicionarItemNaPastaAtual = (idPasta, item) => {
         setBibliotecaTokens(prev => {
-            return prev.map(p =>
+            const novos = prev.map(p =>
                 p.id === idPasta && p.tipo === "pasta"
                     ? { ...p, itens: [...p.itens, item] }
                     : p
             );
+            return novos;
         });
 
         setPastaAtual(prev => {
@@ -519,7 +533,6 @@ function TokenModal(props) {
             itens: [],
             dataCriacao: new Date().toISOString()
         };
-
         setBibliotecaTokens(prev => [...prev, novaSubPasta]);
         adicionarItemNaPastaAtual(pastaAtual.id, novaSubPasta);
     };
@@ -548,7 +561,8 @@ function TokenModal(props) {
 
                     if (tokenJaExiste) return semPasta;
 
-                    return [...semPasta, { ...dados, pastaPai: null }];
+                    const novos = [...semPasta, { ...dados, pastaPai: null }];
+                    return novos;
                 });
 
                 if (pastaAtual?.itens?.some(i => i.id === dados.id)) {
@@ -580,11 +594,12 @@ function TokenModal(props) {
 
                 setTimeout(() => {
                     setBibliotecaTokens(prev => {
-                        return prev.map(item =>
+                        const novos = prev.map(item =>
                             item.id === pastaAtual.id && item.tipo === "pasta"
                                 ? { ...item, itens: [...item.itens, dados] }
                                 : item
                         );
+                        return novos;
                     });
 
                     setPastaAtual(prev => ({
