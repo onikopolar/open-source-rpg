@@ -7,26 +7,26 @@ export default async function handler(req, res) {
   // GET - Buscar tokens da biblioteca (apenas templates, sem instâncias)
   if (req.method === 'GET') {
     try {
-      console.log('[API Tabletop/tokens] Buscando tokens (parentId = null)');
+      console.log('[API Tabletop/tokens] GET - Buscando tokens com parentId = null');
       
       const tokens = await prisma.tabletopToken.findMany({
         where: {
-          parentId: null   // Apenas templates (tokens da biblioteca)
+          parentId: null
         },
         orderBy: { zIndex: 'asc' }
       });
       
-      console.log(`[API Tabletop/tokens] ${tokens.length} tokens encontrados`);
-      console.log('[API Tabletop/tokens] Dados completos:', tokens.map(t => ({
+      console.log('[API Tabletop/tokens] GET - Tokens encontrados:', tokens.length);
+      console.log('[API Tabletop/tokens] GET - Lista de tokens:', tokens.map(t => ({
         id: t.id,
         nome: t.nome,
-        bloqueado: t.bloqueado,
-        zIndex: t.zIndex
+        imageUrl: t.imageUrl,
+        parentId: t.parentId
       })));
       
       return res.status(200).json(tokens);
     } catch (error) {
-      console.error('[API Tabletop/tokens] Erro no GET:', error);
+      console.error('[API Tabletop/tokens] GET - Erro:', error.message);
       return res.status(500).json({ error: 'Erro ao buscar tokens' });
     }
   }
@@ -37,17 +37,20 @@ export default async function handler(req, res) {
       const { 
         tokenId, nome, x, y, escala, larguraOriginal, alturaOriginal,
         invertido, oculto, bloqueado, imageUrl, imageBase64, mimeType,
-        parentId   // novo campo: ID do template pai (null para template)
+        parentId
       } = req.body;
       
-      console.log('[API Tabletop/tokens] Criando token:', { tokenId, nome, x, y, bloqueado, parentId });
+      console.log('[API Tabletop/tokens] POST - Criando token');
+      console.log('[API Tabletop/tokens] POST - Dados recebidos:', JSON.stringify({
+        tokenId, nome, x, y, escala, larguraOriginal, alturaOriginal,
+        invertido, oculto, bloqueado, imageUrl, parentId
+      }));
       
-      // Buscar o maior zIndex atual
       const maxZIndexToken = await prisma.tabletopToken.findFirst({
         orderBy: { zIndex: 'desc' }
       });
       const novoZIndex = (maxZIndexToken?.zIndex || 0) + 1;
-      console.log('[API Tabletop/tokens] novoZIndex calculado:', novoZIndex);
+      console.log('[API Tabletop/tokens] POST - novoZIndex calculado:', novoZIndex);
       
       const token = await prisma.tabletopToken.create({
         data: {
@@ -65,18 +68,20 @@ export default async function handler(req, res) {
           imageUrl: imageUrl || null,
           imageBase64: imageBase64 || null,
           mimeType: mimeType || null,
-          parentId: parentId || null   // se não informado, será null (template)
+          parentId: parentId || null
         }
       });
       
-      console.log('[API Tabletop/tokens] Token criado com ID:', token.id, 'bloqueado:', token.bloqueado, 'parentId:', token.parentId);
+      console.log('[API Tabletop/tokens] POST - Token criado, ID:', token.id, 'parentId:', token.parentId);
+      console.log('[API Tabletop/tokens] POST - imageUrl salva:', token.imageUrl);
       
       return res.status(201).json(token);
     } catch (error) {
-      console.error('[API Tabletop/tokens] Erro no POST:', error);
+      console.error('[API Tabletop/tokens] POST - Erro:', error.message);
       return res.status(500).json({ error: 'Erro ao criar token' });
     }
   }
 
+  console.log('[API Tabletop/tokens] Método não permitido:', req.method);
   return res.status(405).json({ error: 'Método não permitido' });
 }
