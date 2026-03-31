@@ -57,10 +57,15 @@ const getStorageKey = (tabletopId, isMaster, sheetId, playerName) => {
 };
 
 function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
+    const [isClient, setIsClient] = useState(false);
     const [modalTokenAberto, setModalTokenAberto] = useState(false);
     const [menuNevoaAberto, setMenuNevoaAberto] = useState(false);
     const [menuNevoaPosicao, setMenuNevoaPosicao] = useState({ x: 0, y: 0 });
     const tabletopId = 'default';
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     const loadSavedView = useCallback(() => {
         try {
@@ -780,8 +785,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     ]);
 
     const isMobile = isMobileDevice();
-    console.log('[TabletopGrid] isMobile detectado:', isMobile);
-
     const mouseEvents = useMouseTabletop(commonProps);
     const mobileEvents = useMobileTabletop(commonProps);
     const { handleMouseDown, handleMouseMove, handleMouseUp } = isMobile ? mobileEvents : mouseEvents;
@@ -893,6 +896,10 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
             }
         };
     }, []);
+
+    if (!isClient) {
+        return <div style={{ width: '100%', height: '100%', backgroundColor: '#1a1a1a' }} />;
+    }
 
     return (
         <>
