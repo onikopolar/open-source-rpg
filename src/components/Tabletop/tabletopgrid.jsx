@@ -75,7 +75,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                 const { zoom, position } = JSON.parse(saved);
                 return { zoom: zoom ?? 1, position: position ?? { x: 0, y: 0 } };
             }
-        } catch (e) {}
+        } catch (e) { }
         return { zoom: 1, position: { x: 0, y: 0 } };
     }, [tabletopId, isMaster, sheetId, playerName]);
 
@@ -94,7 +94,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                 zoom: estadoUI.zoom,
                 position: estadoUI.position,
             }));
-        } catch (e) {}
+        } catch (e) { }
     }, [estadoUI.zoom, estadoUI.position, tabletopId, isMaster, sheetId, playerName]);
 
     const {
@@ -719,7 +719,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         uiDispatch: despacharUI,
         tokensState: tokensLocal,
         tokensComInfo: tokensInfo,
-        camadasComInfo: camadasInfo,
+        camadasComInfo: camadasInfo,   // <-- aqui o valor é camadasInfo
         converterMouseParaMundo: telaParaMundo,
         verificarSeMouseSobreToken,
         verificarSeMousePodeRedimensionar,
@@ -749,19 +749,19 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         },
     }), [
         containerRef,
-        dragStartRef,
+        inicioArrastoRef,
         resizeStartStateRef,
-        isDraggingRef,
-        dragInProgressRef,
-        resizeInProgressRef,
+        estaArrastandoRef,
+        arrastoEmProgressoRef,
+        redimensionandoRef,
         teveMovimentoRef,
         isRightClickDragRef,
-        rafRef,
+        frameAnimacaoRef,
         estadoUI,
         despacharUI,
         tokensLocal,
         tokensInfo,
-        camadasComInfo,
+        camadasInfo,
         telaParaMundo,
         verificarSeMouseSobreToken,
         verificarSeMousePodeRedimensionar,
@@ -769,7 +769,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         limitarPosicaoMapa,
         processarArrastoToken,
         processarRedimensionamento,
-        setStateDirect,
+        setTokensLocal,
         atualizarToken,
         socket,
         tabletopId,
