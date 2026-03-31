@@ -18,7 +18,7 @@ import FichaAbaInferior from '../../components/Tabletop/FichaAbaInferior';
 const SENHA_MESTRE = "4455";
 
 // Carrega o TabletopGrid apenas no cliente
-const TabletopGrid = dynamic(() => import('./tabletopgrid'), {
+const TabletopGrid = dynamic(() => import('../../components/Tabletop/tabletopgrid'), {
     ssr: false,
     loading: () => (
         <div style={{

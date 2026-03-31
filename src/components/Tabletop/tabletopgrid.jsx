@@ -6,7 +6,7 @@ import React, {
     useMemo,
     useReducer,
 } from 'react';
-import TokenModal from '../../components/TokenModal/TokenModal';
+import TokenModal from '../TokenModal/TokenModal';
 import {
     GridContainer,
     BarraLateral,
@@ -15,9 +15,9 @@ import {
     desenharFallbackToken,
     desenharSelecao,
     getCorSheet,
-} from '../../components/TabletopDesign';
-import { ModalNevoa } from '../../components/Tabletop/ModalNevoa';
-import { MenuContextoToken } from '../../components/Tabletop/MenuContextoToken';
+} from '../TabletopDesign';
+import { ModalNevoa } from './ModalNevoa';
+import { MenuContextoToken } from './MenuContextoToken';
 import {
     WORLD_WIDTH,
     WORLD_HEIGHT,
@@ -26,22 +26,22 @@ import {
     BASE_GRID_SIZE,
     GRID_CONFIGS,
     clamp,
-} from '../../components/Tabletop/ConstantesMesa';
-import { initialUIState, uiReducer } from '../../components/Tabletop/RedutorUI';
-import { useMovimentoToken } from '../../components/Tabletop/useMovimentoToken';
-import { useRedimensionamentoToken } from '../../components/Tabletop/useRedimensionamentoToken';
-import { useEventosMouse } from '../../components/Tabletop/useEventosMouse';
-import { useAtalhosTeclado } from '../../components/Tabletop/useAtalhosTeclado';
+} from './ConstantesMesa';
+import { initialUIState, uiReducer } from './RedutorUI';
+import { useMovimentoToken } from './useMovimentoToken';
+import { useRedimensionamentoToken } from './useRedimensionamentoToken';
+import { useEventosMouse } from './useEventosMouse';
+import { useAtalhosTeclado } from './useAtalhosTeclado';
 import {
     useSelecaoToken,
     calcularBoundingBoxGrupo,
-} from '../../components/Tabletop/useSelecaoToken';
-import { useRenderizacaoToken } from '../../components/Tabletop/useRenderizacaoToken';
-import { useSincronizacaoTokens } from '../../components/Tabletop/HooksNovos/useSincronizacaoTokens';
-import { useDragDropToken } from '../../components/Tabletop/HooksNovos/useDragDropToken';
-import { useNuvemFOV } from '../../components/Tabletop/NuvemFOV';
-import { useMouseTabletop } from '../../components/Tabletop/MouseTabletop';
-import { useMobileTabletop } from '../../components/Tabletop/Mobile/MobileTabletop';
+} from './useSelecaoToken';
+import { useRenderizacaoToken } from './useRenderizacaoToken';
+import { useSincronizacaoTokens } from './HooksNovos/useSincronizacaoTokens';
+import { useDragDropToken } from './HooksNovos/useDragDropToken';
+import { useNuvemFOV } from './NuvemFOV';
+import { useMouseTabletop } from './MouseTabletop';
+import { useMobileTabletop } from './Mobile/MobileTabletop';
 import { useTabletopTokens } from '../../hooks/useTabletopTokens';
 import socket from '../../utils/socket';
 
