@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import dynamic from 'next/dynamic';
 import {
     Dialog,
     DialogTitle,
@@ -12,10 +13,26 @@ import {
     Alert,
     CircularProgress
 } from '@mui/material';
-import TabletopGrid from './tabletopgrid';
 import FichaAbaInferior from '../../components/Tabletop/FichaAbaInferior';
 
 const SENHA_MESTRE = "4455";
+
+// Carrega o TabletopGrid apenas no cliente
+const TabletopGrid = dynamic(() => import('./tabletopgrid'), {
+    ssr: false,
+    loading: () => (
+        <div style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#1a1a1a'
+        }}>
+            <CircularProgress />
+        </div>
+    )
+});
 
 export default function registroNoTabletop() {
     const router = useRouter();
