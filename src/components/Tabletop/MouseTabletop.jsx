@@ -45,8 +45,6 @@ export function useMouseTabletop({
     const dragStartEmitidoRef = useRef(false);
     const movimentoIniciadoRef = useRef(false);
 
-    console.log('[MouseTabletop] Hook inicializado, THROTTLE_MS:', THROTTLE_MS, 'socket conectado:', socket?.connected);
-
     const isTokenBloqueado = useCallback((tokenId) => {
         const bloqueado = uiState.tokensBloqueados[tokenId] === true;
         return bloqueado;
@@ -67,7 +65,6 @@ export function useMouseTabletop({
     }, [uiState.zoom]);
 
     const iniciarRedimensionamento = useCallback((token, indice, canto, offset, isGroupResize = false, boundingBoxGrupo = null) => {
-        console.log('[MouseTabletop] iniciarRedimensionamento - token:', token.id, 'canto:', canto);
         const larguraMundo = (token.larguraOriginal || 50) * (token.escala || 1);
         const alturaMundo = (token.alturaOriginal || 50) * (token.escala || 1);
 
@@ -96,7 +93,6 @@ export function useMouseTabletop({
     }, [uiDispatch, resizeStartStateRef]);
 
     const iniciarArrastoToken = useCallback((tokenInfo, offsetX, offsetY) => {
-        console.log('[MouseTabletop] iniciarArrastoToken - token:', tokenInfo.token.id);
         uiDispatch({
             type: 'START_TOKEN_DRAG',
             payload: {
@@ -110,13 +106,11 @@ export function useMouseTabletop({
     }, [uiDispatch, isDraggingRef, dragInProgressRef]);
 
     const finalizarArrasto = useCallback(() => {
-        console.log('[MouseTabletop] finalizarArrasto - dragInProgress:', dragInProgressRef.current);
         if (dragInProgressRef.current && (uiState.tokenSendoArrastado || uiState.camadaSendoArrastada || uiState.tokensSelecionados.length > 0)) {
             if (uiState.tokenSendoArrastado) {
                 const tokenId = uiState.tokenSendoArrastado.token.id;
                 const tokenData = tokensState.find((t) => t.id === tokenId);
                 if (tokenData) {
-                    console.log('[MouseTabletop] finalizarArrasto - salvando token:', tokenId);
                     if (emitirDragEnd) emitirDragEnd(tokenId);
                     if (salvarToken) salvarToken(tokenId, { x: tokenData.x, y: tokenData.y });
                 }
@@ -141,21 +135,18 @@ export function useMouseTabletop({
     }, [uiState, tokensState, emitirDragEnd, salvarToken, uiDispatch, teveMovimentoRef, dragInProgressRef]);
 
     const handleMouseDown = useCallback((event) => {
-        console.log('[MouseTabletop] handleMouseDown - button:', event.button, 'clientX:', event.clientX, 'clientY:', event.clientY);
         const container = containerRef.current;
         if (!container) return;
 
         const rect = container.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
-        console.log('[MouseTabletop] mouseX:', mouseX, 'mouseY:', mouseY);
 
         if (uiState.ignoreMouseMove) {
             uiDispatch({ type: 'SET_IGNORE_MOUSE_MOVE', payload: false });
         }
 
         if (fov.modoDesenho && event.button === 0) {
-            console.log('[MouseTabletop] modo desenho ativo, iniciando desenho');
             event.preventDefault();
             fov.iniciarDesenho(mouseX, mouseY);
             return;
@@ -163,12 +154,10 @@ export function useMouseTabletop({
 
         // BOTÃO DIREITO
         if (event.button === 2) {
-            console.log('[MouseTabletop] BOTÃO DIREITO');
             event.preventDefault();
 
             // 1. Verificar token primeiro
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'direito');
-            console.log('[MouseTabletop] tokenSobre (botão direito):', tokenSobre ? tokenSobre.token.id : 'nenhum');
             if (tokenSobre) {
                 const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
                 uiDispatch({
@@ -201,7 +190,6 @@ export function useMouseTabletop({
             const { x: mundoX, y: mundoY } = converterMouseParaMundo(mouseX, mouseY);
             const camada = fov.encontrarCamadaNaPosicao(mundoX, mundoY);
             if (camada && isMaster) {
-                console.log('[MouseTabletop] abrindo menu de contexto para camada:', camada.id);
                 uiDispatch({
                     type: 'OPEN_CONTEXT_MENU',
                     payload: { aberto: true, x: event.clientX, y: event.clientY, tipo: 'nevoa', camadaId: camada.id, camada }
@@ -210,7 +198,6 @@ export function useMouseTabletop({
             }
 
             // 3. Área vazia
-            console.log('[MouseTabletop] iniciando arrasto de mapa (botão direito)');
             uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
             dragStartRef.current = { x: event.clientX - uiState.position.x, y: event.clientY - uiState.position.y };
             isRightClickDragRef.current = true;
@@ -219,18 +206,15 @@ export function useMouseTabletop({
 
         // BOTÃO ESQUERDO (modo normal, não desenho)
         if (event.button === 0 && !fov.modoDesenho) {
-            console.log('[MouseTabletop] BOTÃO ESQUERDO');
             teveMovimentoRef.current = false;
             dragStartEmitidoRef.current = false;
             movimentoIniciadoRef.current = false;
 
             // 1. Verificar token primeiro (independente de névoa)
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'esquerdo');
-            console.log('[MouseTabletop] tokenSobre (botão esquerdo):', tokenSobre ? tokenSobre.token.id : 'nenhum');
             if (tokenSobre) {
                 const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
                 if (tokenBloqueado) {
-                    console.log('[MouseTabletop] token bloqueado, ignorando');
                     uiDispatch({ type: 'SET_FEEDBACK', payload: { message: 'Token bloqueado', type: 'warning' } });
                     event.preventDefault();
                     return;
@@ -240,7 +224,6 @@ export function useMouseTabletop({
                 const indiceAtual = tokenSobre.indice;
 
                 if (trazerTokenParaFrente) {
-                    console.log('[MouseTabletop] trazendo token para frente:', tokenId);
                     trazerTokenParaFrente(tokenId);
                 }
 
@@ -249,7 +232,6 @@ export function useMouseTabletop({
                 const canto = verificarSeMousePodeRedimensionar(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, false);
 
                 if (canto) {
-                    console.log('[MouseTabletop] iniciando redimensionamento (canto:', canto, ')');
                     iniciarRedimensionamento(tokenSobre.token, indiceAtual, canto, { x: mouseX - posicao.x, y: mouseY - posicao.y });
                     event.preventDefault();
                     return;
@@ -258,11 +240,9 @@ export function useMouseTabletop({
                 uiDispatch({ type: 'SELECT_TOKEN', payload: indiceAtual });
 
                 if (emitirSelecao && !dragInProgressRef.current && !resizeInProgressRef.current) {
-                    console.log('[MouseTabletop] emitindo seleção do token:', tokenId);
                     emitirSelecao(tokenId);
                 }
 
-                console.log('[MouseTabletop] iniciando arrasto do token:', tokenId);
                 iniciarArrastoToken(
                     { token: tokenSobre.token, indice: indiceAtual, telaX: tokenSobre.telaX, telaY: tokenSobre.telaY, isGroupDrag: false },
                     mouseX - tokenSobre.telaX,
@@ -276,7 +256,6 @@ export function useMouseTabletop({
             const { x: mundoX, y: mundoY } = converterMouseParaMundo(mouseX, mouseY);
             const camadaEncontrada = fov.encontrarCamadaNaPosicao(mundoX, mundoY);
             if (camadaEncontrada && isMaster) {
-                console.log('[MouseTabletop] camada encontrada:', camadaEncontrada.id);
                 const itemComInfo = camadasComInfo.find(c => c.id === camadaEncontrada.id);
                 if (!itemComInfo) return;
 
@@ -291,7 +270,6 @@ export function useMouseTabletop({
                 );
 
                 if (canto) {
-                    console.log('[MouseTabletop] redimensionando camada');
                     iniciarRedimensionamento(itemClicado, indiceCamada, canto, {
                         x: mouseX - itemComInfo.posicaoTela.x,
                         y: mouseY - itemComInfo.posicaoTela.y
@@ -324,7 +302,6 @@ export function useMouseTabletop({
 
             // 3. Lógica para múltiplos tokens selecionados (arrasto/redimensionamento de grupo)
             if (uiState.tokensSelecionados.length > 1) {
-                console.log('[MouseTabletop] múltiplos tokens selecionados:', uiState.tokensSelecionados.length);
                 const tokensSelecionadosInfo = uiState.tokensSelecionados
                     .map(indice => tokensComInfo[indice])
                     .filter(token => token && !token.bloqueado);
@@ -355,7 +332,6 @@ export function useMouseTabletop({
                     );
 
                     if (tokenClicadoDoGrupo) {
-                        console.log('[MouseTabletop] arrastando grupo');
                         const primeiroTokenGrupo = tokensSelecionadosInfo[0];
                         iniciarArrastoToken(
                             { token: primeiroTokenGrupo, indice: primeiroTokenGrupo.indice, telaX: primeiroTokenGrupo.posicaoTela.x, telaY: primeiroTokenGrupo.posicaoTela.y, isGroupDrag: true },
@@ -371,7 +347,6 @@ export function useMouseTabletop({
                     const mouseNaBorda = mouseX >= areaBorda.x && mouseX <= areaBorda.x + areaBorda.width && mouseY >= areaBorda.y && mouseY <= areaBorda.y + areaBorda.height;
 
                     if (mouseNaBorda) {
-                        console.log('[MouseTabletop] redimensionando grupo');
                         let minXMundo = Infinity, minYMundo = Infinity, maxXMundo = -Infinity, maxYMundo = -Infinity;
                         tokensSelecionadosInfo.forEach(token => {
                             minXMundo = Math.min(minXMundo, token.x);
@@ -399,14 +374,12 @@ export function useMouseTabletop({
 
             // 4. Token já selecionado individualmente (possível redimensionamento)
             if (uiState.tokenSelecionado !== null) {
-                console.log('[MouseTabletop] token já selecionado:', uiState.tokenSelecionado);
                 const token = tokensState[uiState.tokenSelecionado];
                 if (token && !isTokenBloqueado(token.id)) {
                     const posicao = getPosicaoTela(token);
                     const dimensoes = getDimensoesTela(token);
                     const canto = verificarSeMousePodeRedimensionar(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, false);
                     if (canto) {
-                        console.log('[MouseTabletop] redimensionando token selecionado');
                         iniciarRedimensionamento(token, uiState.tokenSelecionado, canto, { x: mouseX - posicao.x, y: mouseY - posicao.y });
                         event.preventDefault();
                         return;
@@ -415,7 +388,6 @@ export function useMouseTabletop({
             }
 
             // 5. Área vazia (inicia área de seleção)
-            console.log('[MouseTabletop] iniciando área de seleção');
             uiDispatch({
                 type: 'SET_MOUSE_DOWN_INFO',
                 payload: { mouseX, mouseY, timestamp: Date.now(), isLeftClick: true, isBlankArea: true }
@@ -488,7 +460,6 @@ export function useMouseTabletop({
                         emitirTokenMoved(id, { x, y });
                     }
                 }
-                console.log('[MouseTabletop] emitirMovimentoToken - token:', id, 'diff:', timeSinceLastEmit, 'ms, emitindo:', emitir);
             };
 
             if (uiState.tokenSendoArrastado || uiState.camadaSendoArrastada) {
@@ -534,7 +505,6 @@ export function useMouseTabletop({
                                 emitirTokenMoved(tokenMovido.id, { x: tokenMovido.x, y: tokenMovido.y });
                             }
                         }
-                        console.log('[MouseTabletop] Movimento token - diff:', timeSinceLastEmit, 'ms, emitindo:', emitir);
                     }
                 } else {
                     const camadaMovida = novosTokens[itemInfo.indice];
@@ -553,7 +523,6 @@ export function useMouseTabletop({
                                 });
                             }
                         }
-                        console.log('[MouseTabletop] Movimento camada - diff:', timeSinceLastEmit, 'ms, emitindo:', emitir);
                     }
                 }
 
@@ -630,7 +599,6 @@ export function useMouseTabletop({
         isTokenBloqueado, teveMovimentoRef, dragStartRef, isRightClickDragRef, rafRef, containerRef, emitirTokenMoved, isMaster]);
 
     const handleMouseUp = useCallback((event) => {
-        console.log('[MouseTabletop] handleMouseUp - button:', event.button);
         const container = containerRef.current;
         if (!container) return;
 
@@ -641,7 +609,6 @@ export function useMouseTabletop({
         if (event.button === 2) {
             if (uiState.mouseDownInfo && uiState.ui.isClickingToken) {
                 const tokenSobre = uiState.mouseDownInfo.token;
-                console.log('[MouseTabletop] abrindo menu de contexto para token:', tokenSobre.token.id);
                 uiDispatch({ type: 'SELECT_TOKEN', payload: tokenSobre.indice });
                 uiDispatch({
                     type: 'OPEN_CONTEXT_MENU',
@@ -673,13 +640,11 @@ export function useMouseTabletop({
 
             if (isDraggingRef.current || dragInProgressRef.current) {
                 if (teveMovimentoRef.current) {
-                    console.log('[MouseTabletop] finalizando arrasto');
                     finalizarArrasto();
                     if (uiState.camadaSendoArrastada && isMaster) {
                         const camadaId = uiState.camadaSendoArrastada.camada.id;
                         const camadaData = fov.camadasNevoa.find(c => c.id === camadaId);
                         if (camadaData) {
-                            console.log('[MouseTabletop] salvando posição final da camada:', camadaId);
                             fov.atualizarPosicaoCamada(camadaId, camadaData.x, camadaData.y);
                         }
                     }
@@ -692,7 +657,6 @@ export function useMouseTabletop({
                     const tokenId = uiState.tokenRedimensionando.token.id;
                     const tokenData = tokensState.find((t) => t.id === tokenId);
                     if (tokenData && salvarToken) {
-                        console.log('[MouseTabletop] salvando redimensionamento do token:', tokenId);
                         salvarToken(tokenId, {
                             escala: tokenData.escala,
                             x: tokenData.x,

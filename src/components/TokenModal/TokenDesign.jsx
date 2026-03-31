@@ -83,17 +83,14 @@ function TokenDesign({
             setMenuContextualToken({
                 aberto: false, x: 0, y: 0, idToken: null, nomeToken: null
             });
-            console.log('[TokenDesign] Modal fechado, estados resetados');
         }
     }, [isOpen, setPastaRenomeando, setNovoNomePasta, setTokenRenomeando, setNovoNomeToken, setMenuContextual]);
 
     const handleModalClick = (e) => e.stopPropagation();
 
     const handleDragStart = (e, dados) => {
-        console.log('[TokenDesign] Drag start - tipo:', dados.tipo, 'id:', dados.id, 'nome:', dados.nome);
         if (dados.tipo === "token") {
             dados.parentId = dados.id;
-            console.log('[TokenDesign] Drag start - parentId definido:', dados.parentId);
         }
         e.dataTransfer.setData('application/json', JSON.stringify(dados));
         e.dataTransfer.effectAllowed = 'move';
@@ -104,7 +101,6 @@ function TokenDesign({
             img.onload = () => {
                 const size = Math.min(60, dados.larguraOriginal || 60);
                 e.dataTransfer.setDragImage(img, size / 2, size / 2);
-                console.log('[TokenDesign] Drag start - imagem carregada para drag:', dados.imagemUrl);
             };
         }
     };
@@ -121,41 +117,32 @@ function TokenDesign({
 
         try {
             const dados = JSON.parse(e.dataTransfer.getData('application/json'));
-            console.log('[TokenDesign] Drop recebido - tipo:', dados.tipo, 'id:', dados.id);
             DragDropSystem.processDrop(e, dados);
         } catch (erro) {
-            console.log("[TokenDesign] Erro no drop:", erro);
+            // Silently ignore
         }
     };
 
     const fazerUploadArquivo = async (arquivo) => {
-        console.log('[TokenDesign] Upload iniciado - arquivo:', arquivo.name, 'tamanho:', arquivo.size, 'tipo:', arquivo.type);
         setUploadLoading(true);
         const formData = new FormData();
         formData.append('file', arquivo);
 
         try {
-            console.log('[TokenDesign] Enviando requisição POST para /api/upload/token');
             const response = await fetch('/api/upload/token', {
                 method: 'POST',
                 body: formData
             });
 
             const data = await response.json();
-            console.log('[TokenDesign] Upload - response status:', response.status);
-            console.log('[TokenDesign] Upload - response data:', data);
             
             if (response.ok) {
-                console.log('[TokenDesign] Upload OK - URL recebida:', data.url);
                 setImagemSelecionada(data.url);
-            } else {
-                console.error('[TokenDesign] Upload erro:', data.error);
             }
         } catch (error) {
-            console.error('[TokenDesign] Upload exceção:', error.message);
+            // Silently ignore
         } finally {
             setUploadLoading(false);
-            console.log('[TokenDesign] Upload finalizado');
         }
     };
 
@@ -347,7 +334,7 @@ function TokenDesign({
                                                                 setTimeout(() => adicionarItemNaPastaAtual(pastaDestino.id, dados), 50);
                                                             }
                                                         } catch (erro) {
-                                                            console.log("erro no drop:", erro);
+                                                            // Silently ignore
                                                         }
                                                     }}
                                                 />
@@ -406,7 +393,7 @@ function TokenDesign({
                                                             }, 50);
                                                         }
                                                     } catch (erro) {
-                                                        console.log("erro ao criar subpasta:", erro);
+                                                        // Silently ignore
                                                         setCriandoSubPasta(false);
                                                     }
                                                 }}
@@ -474,8 +461,6 @@ function TokenDesign({
                 const pastas = itensRaiz.filter(item => item.tipo === "pasta");
                 const tokens = itensRaiz.filter(item => item.tipo === "token");
                 const itensOrdenados = [...pastas, ...tokens];
-
-                console.log('[TokenDesign] Aba Biblioteca - itens raiz:', itensRaiz.length, 'pastas:', pastas.length, 'tokens:', tokens.length);
 
                 if (itensRaiz.length === 0) {
                     return (
@@ -593,7 +578,7 @@ function TokenDesign({
                                                             }
                                                         }
                                                     } catch (erro) {
-                                                        console.error("erro no drop:", erro);
+                                                        // Silently ignore
                                                     }
                                                 }}
                                             />
@@ -645,7 +630,7 @@ function TokenDesign({
                                                     }
                                                 }
                                             } catch (erro) {
-                                                console.error("erro no drop sobre token:", erro);
+                                                // Silently ignore
                                             }
                                         }}
                                     />
@@ -684,7 +669,6 @@ function TokenDesign({
                                 onChange={(e) => {
                                     const arquivo = e.target.files[0];
                                     if (arquivo) {
-                                        console.log('[TokenDesign] Arquivo selecionado para upload:', arquivo.name);
                                         fazerUploadArquivo(arquivo);
                                     }
                                 }}
@@ -720,7 +704,6 @@ function TokenDesign({
                                     const novaUrl = e.target.value;
                                     setUrlExterna(novaUrl);
                                     if (novaUrl.trim()) {
-                                        console.log('[TokenDesign] URL externa definida:', novaUrl);
                                         setImagemSelecionada(novaUrl.trim());
                                     } else {
                                         setImagemSelecionada(null);
@@ -766,12 +749,8 @@ function TokenDesign({
                                                 borderRadius: 4
                                             }}
                                             onError={(e) => {
-                                                console.error('[TokenDesign] Preview - erro ao carregar imagem:', imagemSelecionada);
                                                 e.target.src = '';
                                                 e.target.alt = 'Erro ao carregar imagem';
-                                            }}
-                                            onLoad={() => {
-                                                console.log('[TokenDesign] Preview - imagem carregada:', imagemSelecionada);
                                             }}
                                         />
                                     </Box>
@@ -792,10 +771,7 @@ function TokenDesign({
                                     type="text"
                                     id="nomeToken"
                                     value={nomeToken}
-                                    onChange={(e) => {
-                                        console.log('[TokenDesign] Nome do token alterado:', e.target.value);
-                                        setNomeToken(e.target.value);
-                                    }}
+                                    onChange={(e) => setNomeToken(e.target.value)}
                                     placeholder="Ex: Mapa, Objeto, NPC, Inimigo, Carlos"
                                     style={{
                                         width: '100%',
@@ -887,10 +863,7 @@ function TokenDesign({
 
                     <Tabs
                         value={activeTab}
-                        onChange={(_, v) => {
-                            console.log('[TokenDesign] Aba alterada para:', v === 0 ? 'Biblioteca' : 'Importar');
-                            setActiveTab(v);
-                        }}
+                        onChange={(_, v) => setActiveTab(v)}
                         sx={{
                             minHeight: 48,
                             px: 2,
@@ -1008,12 +981,7 @@ function TokenDesign({
 
                         {activeTab === 1 && (
                             <Button
-                                onClick={() => {
-                                    console.log('[TokenDesign] Botão Salvar Token clicado');
-                                    console.log('[TokenDesign] imagemSelecionada:', imagemSelecionada);
-                                    console.log('[TokenDesign] nomeToken:', nomeToken);
-                                    salvarTokenNaBiblioteca();
-                                }}
+                                onClick={() => salvarTokenNaBiblioteca()}
                                 disabled={!imagemSelecionada || !nomeToken?.trim() || uploadLoading}
                                 variant="contained"
                                 sx={{

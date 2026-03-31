@@ -610,6 +610,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         if (canvas.width !== rect.width || canvas.height !== rect.height) {
             canvas.width = rect.width;
             canvas.height = rect.height;
+            console.log('[TabletopGrid] Canvas redimensionado:', { width: rect.width, height: rect.height });
         }
 
         const contexto = pegarContextoCanvas();
@@ -620,6 +621,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
         desenharGrade();
 
+        console.log('[TabletopGrid] Desenhando tokens, total:', tokensInfo.length);
         renderizarTokens(contexto, todosItens, tokensInfo, isMaster);
 
         desenharArrastoProprio(contexto);
@@ -719,7 +721,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         uiDispatch: despacharUI,
         tokensState: tokensLocal,
         tokensComInfo: tokensInfo,
-        camadasComInfo: camadasInfo,   // <-- aqui o valor é camadasInfo
+        camadasComInfo: camadasInfo,
         converterMouseParaMundo: telaParaMundo,
         verificarSeMouseSobreToken,
         verificarSeMousePodeRedimensionar,

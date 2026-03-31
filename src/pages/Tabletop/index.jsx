@@ -17,7 +17,6 @@ import FichaAbaInferior from '../../components/Tabletop/FichaAbaInferior';
 
 const SENHA_MESTRE = "4455";
 
-// Carrega o TabletopGrid apenas no cliente
 const TabletopGrid = dynamic(() => import('../../components/Tabletop/tabletopgrid'), {
     ssr: false,
     loading: () => (
@@ -50,25 +49,18 @@ export default function registroNoTabletop() {
     useEffect(() => {
         if (!router.isReady) return;
 
-        console.log('[Tabletop] Decidindo modo de acesso');
-        console.log('[Tabletop] sheetId:', sheetId);
-        console.log('[Tabletop] fromDashboard:', fromDashboard);
-
         if (sheetId) {
-            console.log('[Tabletop] Modo PLAYER');
             setIsMaster(false);
             setModoDecidido(true);
             return;
         }
 
         if (fromDashboard === 'true') {
-            console.log('[Tabletop] Modo MESTRE (via Dashboard)');
             setIsMaster(true);
             setModoDecidido(true);
             return;
         }
 
-        console.log('[Tabletop] Aguardando senha do mestre');
         setModalSenhaAberto(true);
         setModoDecidido(true);
     }, [router.isReady, sheetId, fromDashboard]);
@@ -83,19 +75,13 @@ export default function registroNoTabletop() {
                 const data = await response.json();
                 
                 if (response.ok) {
-                    console.log('[Tabletop] Dados do personagem carregados:', {
-                        name: data.name,
-                        player_name: data.player_name
-                    });
                     setCharacterName(data.name || `Personagem ${sheetId}`);
                     setPlayerName(data.player_name || `Player ${sheetId}`);
                 } else {
-                    console.log('[Tabletop] Personagem não encontrado');
                     setCharacterName(`Personagem ${sheetId}`);
                     setPlayerName(`Player ${sheetId}`);
                 }
             } catch (error) {
-                console.error('[Tabletop] Erro ao buscar dados do personagem:', error);
                 setCharacterName(`Personagem ${sheetId}`);
                 setPlayerName(`Player ${sheetId}`);
             } finally {
