@@ -10,10 +10,11 @@ export function useSincronizacaoTokens({
   sheetId,
   playerName,
   tokensLocalRef,          
-  onTokenUpdate,  
-  onUIUpdate,              
+  onTokenUpdate,
+  onUIUpdate,
 }) {
   const [arrastosRemotos, setArrastosRemotos] = useState({});
+  const userId = socket?.id;
 
   const emitirEvento = useCallback(
     (evento, dados) => {
@@ -30,20 +31,20 @@ export function useSincronizacaoTokens({
       emitirEvento('tokenSelected', {
         tabletopId,
         tokenId,
-        userId: socket.id,
+        userId,
         nome: nomeUsuario,
         color: cor,
         sheetId,
       });
     },
-    [socket, tabletopId, isMaster, sheetId, playerName, emitirEvento]
+    [socket, tabletopId, isMaster, sheetId, playerName, emitirEvento, userId]
   );
 
   const emitirDeselecao = useCallback(
     (tokenId) => {
-      emitirEvento('tokenDeselected', { tabletopId, tokenId, userId: socket.id });
+      emitirEvento('tokenDeselected', { tabletopId, tokenId, userId });
     },
-    [socket, tabletopId, emitirEvento]
+    [socket, tabletopId, emitirEvento, userId]
   );
 
   const emitirDragStart = useCallback(
@@ -52,68 +53,68 @@ export function useSincronizacaoTokens({
       emitirEvento('tokenDragStart', {
         tabletopId,
         tokenId,
-        userId: socket.id,
+        userId,
         nome: nomeUsuario,
         sheetId,
       });
     },
-    [socket, tabletopId, isMaster, sheetId, playerName, emitirEvento]
+    [socket, tabletopId, isMaster, sheetId, playerName, emitirEvento, userId]
   );
 
   const emitirDragEnd = useCallback(
     (tokenId) => {
-      emitirEvento('tokenDragEnd', { tabletopId, tokenId, userId: socket.id });
+      emitirEvento('tokenDragEnd', { tabletopId, tokenId, userId });
     },
-    [socket, tabletopId, emitirEvento]
+    [socket, tabletopId, emitirEvento, userId]
   );
 
   const emitirTokenMoved = useCallback(
     (tokenId, dados) => {
-      emitirEvento('tokenMoved', { tabletopId, id: tokenId, ...dados });
+      emitirEvento('tokenMoved', { tabletopId, id: tokenId, userId, ...dados });
     },
-    [socket, tabletopId, emitirEvento]
+    [socket, tabletopId, emitirEvento, userId]
   );
 
   const emitirTokenCreated = useCallback(
     (token) => {
-      emitirEvento('tokenCreated', { tabletopId, ...token });
+      emitirEvento('tokenCreated', { tabletopId, ...token, userId });
     },
-    [socket, tabletopId, emitirEvento]
+    [socket, tabletopId, emitirEvento, userId]
   );
 
   const emitirTokenDeleted = useCallback(
     (tokenId) => {
-      emitirEvento('tokenDeleted', { tabletopId, id: tokenId });
+      emitirEvento('tokenDeleted', { tabletopId, id: tokenId, userId });
     },
-    [socket, tabletopId, emitirEvento]
+    [socket, tabletopId, emitirEvento, userId]
   );
 
   const emitirTokenVisibilityChanged = useCallback(
     (tokenId, oculto) => {
-      emitirEvento('tokenVisibilityChanged', { tabletopId, id: tokenId, oculto });
+      emitirEvento('tokenVisibilityChanged', { tabletopId, id: tokenId, oculto, userId });
     },
-    [socket, tabletopId, emitirEvento]
+    [socket, tabletopId, emitirEvento, userId]
   );
 
   const emitirTokenLockChanged = useCallback(
     (tokenId, bloqueado) => {
-      emitirEvento('tokenLockChanged', { tabletopId, id: tokenId, bloqueado });
+      emitirEvento('tokenLockChanged', { tabletopId, id: tokenId, bloqueado, userId });
     },
-    [socket, tabletopId, emitirEvento]
+    [socket, tabletopId, emitirEvento, userId]
   );
 
   const emitirTokenInverted = useCallback(
     (tokenId, invertido) => {
-      emitirEvento('tokenInverted', { tabletopId, id: tokenId, invertido });
+      emitirEvento('tokenInverted', { tabletopId, id: tokenId, invertido, userId });
     },
-    [socket, tabletopId, emitirEvento]
+    [socket, tabletopId, emitirEvento, userId]
   );
 
   const emitirTokenZIndexChanged = useCallback(
     (tokenId, zIndex) => {
-      emitirEvento('tokenUpdated', { tabletopId, id: tokenId, zIndex });
+      emitirEvento('tokenUpdated', { tabletopId, id: tokenId, zIndex, userId });
     },
-    [socket, tabletopId, emitirEvento]
+    [socket, tabletopId, emitirEvento, userId]
   );
 
   useEffect(() => {
@@ -133,6 +134,9 @@ export function useSincronizacaoTokens({
     if (!socket) return;
 
     const handleTokenUpdated = (data) => {
+      // Ignora eventos originados pelo próprio cliente
+      if (data.userId === userId) return;
+
       if (onTokenUpdate) {
         onTokenUpdate(data, (prev) => {
           const index = prev.findIndex((t) => t.id === data.id);
@@ -159,6 +163,9 @@ export function useSincronizacaoTokens({
     };
 
     const handleTokenCreated = (data) => {
+      // Ignora eventos originados pelo próprio cliente
+      if (data.userId === userId) return;
+
       // Evita duplicação: se o token já existe no estado local, ignora
       if (tokensLocalRef?.current && tokensLocalRef.current.some((t) => t.id === data.id)) {
         return;
@@ -172,13 +179,18 @@ export function useSincronizacaoTokens({
     };
 
     const handleTokenDeleted = (data) => {
+      // Ignora eventos originados pelo próprio cliente
+      if (data.userId === userId) return;
+
       if (onTokenUpdate) {
         onTokenUpdate(data, (prev) => prev.filter((t) => t.id !== data.id));
       }
     };
 
     const handleTokenDragStart = (data) => {
-      if (data.userId === socket.id) return;
+      // Ignora eventos originados pelo próprio cliente
+      if (data.userId === userId) return;
+
       setArrastosRemotos((prev) => ({
         ...prev,
         [data.tokenId]: {
@@ -190,7 +202,9 @@ export function useSincronizacaoTokens({
     };
 
     const handleTokenDragEnd = (data) => {
-      if (data.userId === socket.id) return;
+      // Ignora eventos originados pelo próprio cliente
+      if (data.userId === userId) return;
+
       setArrastosRemotos((prev) => {
         const newState = { ...prev };
         delete newState[data.tokenId];
@@ -211,7 +225,7 @@ export function useSincronizacaoTokens({
       socket.off('tabletop:tokenDragStart', handleTokenDragStart);
       socket.off('tabletop:tokenDragEnd', handleTokenDragEnd);
     };
-  }, [socket, onTokenUpdate, onUIUpdate, tokensLocalRef]);
+  }, [socket, onTokenUpdate, onUIUpdate, tokensLocalRef, userId]);
 
   return {
     arrastosRemotos,
