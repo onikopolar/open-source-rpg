@@ -9,7 +9,7 @@ export function useSincronizacaoTokens({
   isMaster,
   sheetId,
   playerName,
-  tokensLocalRef,          
+  tokensLocalRef,
   onTokenUpdate,
   onUIUpdate,
 }) {
@@ -134,7 +134,6 @@ export function useSincronizacaoTokens({
     if (!socket) return;
 
     const handleTokenUpdated = (data) => {
-      // Ignora eventos originados pelo próprio cliente
       if (data.userId === userId) return;
 
       if (onTokenUpdate) {
@@ -146,6 +145,7 @@ export function useSincronizacaoTokens({
           return novos.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
         });
       }
+
       if (onUIUpdate) {
         if (data.oculto !== undefined) {
           onUIUpdate({
