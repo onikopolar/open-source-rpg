@@ -9,11 +9,11 @@ export function useSincronizacaoTokens({
   isMaster,
   sheetId,
   playerName,
-  onTokenUpdate,      // callback para atualizar o estado local de tokens
-  onUIUpdate,         // callback para despachar ações no UI reducer (bloqueio, visibilidade)
+  tokensLocalRef,          
+  onTokenUpdate,  
+  onUIUpdate,              
 }) {
   const [arrastosRemotos, setArrastosRemotos] = useState({});
-  const tokensLocalRef = useRef([]);
 
   const emitirEvento = useCallback(
     (evento, dados) => {
@@ -159,6 +159,10 @@ export function useSincronizacaoTokens({
     };
 
     const handleTokenCreated = (data) => {
+      // Evita duplicação: se o token já existe no estado local, ignora
+      if (tokensLocalRef?.current && tokensLocalRef.current.some((t) => t.id === data.id)) {
+        return;
+      }
       if (onTokenUpdate) {
         onTokenUpdate(data, (prev) => {
           const novos = [...prev, data];
@@ -207,7 +211,7 @@ export function useSincronizacaoTokens({
       socket.off('tabletop:tokenDragStart', handleTokenDragStart);
       socket.off('tabletop:tokenDragEnd', handleTokenDragEnd);
     };
-  }, [socket, onTokenUpdate, onUIUpdate]);
+  }, [socket, onTokenUpdate, onUIUpdate, tokensLocalRef]);
 
   return {
     arrastosRemotos,

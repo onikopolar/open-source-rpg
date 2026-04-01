@@ -106,6 +106,11 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     } = useTabletopTokens();
 
     const [tokensLocal, setTokensLocal] = useState([]);
+    const tokensLocalRef = useRef(tokensLocal);
+
+    useEffect(() => {
+        tokensLocalRef.current = tokensLocal;
+    }, [tokensLocal]);
 
     const {
         arrastosRemotos,
@@ -126,12 +131,9 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         isMaster,
         sheetId,
         playerName,
+        tokensLocalRef,
         onTokenUpdate: (data, transform) => {
-            setTokensLocal((prev) => {
-                // Evita duplicação: se o token já existe, não adiciona novamente
-                if (prev.some(t => t.id === data.id)) return prev;
-                return transform(prev);
-            });
+            setTokensLocal((prev) => transform(prev));
         },
         onUIUpdate: (action) => {
             despacharUI(action);
