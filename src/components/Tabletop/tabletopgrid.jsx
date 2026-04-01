@@ -974,6 +974,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                 emitirTokenLockChanged={emitirTokenLockChanged}
                 emitirTokenInverted={emitirTokenInverted}
                 tokensLocal={tokensLocal}
+                setTokensLocal={setTokensLocal}
             />
 
             {isMaster && (

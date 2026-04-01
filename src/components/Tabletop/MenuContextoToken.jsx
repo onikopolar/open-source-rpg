@@ -30,6 +30,7 @@ export const MenuContextoToken = React.forwardRef(({
     emitirTokenLockChanged,
     emitirTokenInverted,
     tokensLocal,
+    setTokensLocal, // NOVA PROP: função para atualizar estado local
 }, ref) => {
     if (!aberto) {
         return null;
@@ -87,6 +88,13 @@ export const MenuContextoToken = React.forwardRef(({
         const token = tokensLocal.find((t) => t.id === tokenId);
         const novoEstado = token ? !token.invertido : false;
 
+        // 🔧 CORREÇÃO: Atualiza localmente primeiro (otimista)
+        if (setTokensLocal) {
+            setTokensLocal(prev => prev.map(t => 
+                t.id === tokenId ? { ...t, invertido: novoEstado } : t
+            ));
+        }
+
         atualizarToken(tokenId, { invertido: novoEstado })
             .then(() => {
                 if (socket?.connected) {
@@ -102,6 +110,12 @@ export const MenuContextoToken = React.forwardRef(({
             })
             .catch((err) => {
                 console.error('[MenuContextoToken] Erro ao inverter token:', err);
+                // 🔧 CORREÇÃO: Reverte a mudança local em caso de erro
+                if (setTokensLocal) {
+                    setTokensLocal(prev => prev.map(t => 
+                        t.id === tokenId ? { ...t, invertido: !novoEstado } : t
+                    ));
+                }
                 despacharUI({
                     type: 'SET_FEEDBACK',
                     payload: {
@@ -137,6 +151,13 @@ export const MenuContextoToken = React.forwardRef(({
         const token = tokensLocal.find((t) => t.id === tokenId);
         const novoEstado = token ? !token.bloqueado : false;
 
+        // 🔧 CORREÇÃO: Atualiza localmente primeiro (otimista)
+        if (setTokensLocal) {
+            setTokensLocal(prev => prev.map(t => 
+                t.id === tokenId ? { ...t, bloqueado: novoEstado } : t
+            ));
+        }
+
         atualizarToken(tokenId, { bloqueado: novoEstado })
             .then(() => {
                 despacharUI({
@@ -156,6 +177,12 @@ export const MenuContextoToken = React.forwardRef(({
             })
             .catch((err) => {
                 console.error('[MenuContextoToken] Erro ao alterar bloqueio:', err);
+                // 🔧 CORREÇÃO: Reverte a mudança local em caso de erro
+                if (setTokensLocal) {
+                    setTokensLocal(prev => prev.map(t => 
+                        t.id === tokenId ? { ...t, bloqueado: !novoEstado } : t
+                    ));
+                }
                 despacharUI({
                     type: 'SET_FEEDBACK',
                     payload: {

@@ -2,9 +2,6 @@ import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from '
 import { Box, TextField, IconButton, Typography } from '@mui/material';
 import { Casino } from '@mui/icons-material';
 
-// Versão 3.1.2 - FIX: Removido bloqueio de digitação manual
-console.log('[AttributeComponents] Versão 3.1.2 - FIX: Digitação manual liberada');
-
 // Gerenciador global de sessão de cliques
 let globalClickSession = {
   active: false,
