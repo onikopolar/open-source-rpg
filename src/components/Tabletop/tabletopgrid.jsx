@@ -127,7 +127,11 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         sheetId,
         playerName,
         onTokenUpdate: (data, transform) => {
-            setTokensLocal((prev) => transform(prev));
+            setTokensLocal((prev) => {
+                // Evita duplicação: se o token já existe, não adiciona novamente
+                if (prev.some(t => t.id === data.id)) return prev;
+                return transform(prev);
+            });
         },
         onUIUpdate: (action) => {
             despacharUI(action);
