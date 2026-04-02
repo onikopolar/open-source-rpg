@@ -36,7 +36,7 @@ export function useMobileTabletop({
     socket,
     tabletopId,
     salvarToken,
-        emitirTokenMoved,
+    emitirTokenMoved,
     emitirDragEnd,
     isMaster,
     iniciarCapturaArrasto,
@@ -47,6 +47,8 @@ export function useMobileTabletop({
     const longPressTimerRef = useRef(null);
     const initialPinchDistance = useRef(0);
     const initialZoom = useRef(1);
+    const initialPinchCenter = useRef({ x: 0, y: 0 }); // Centro do pinch (coordenadas da tela)
+    const initialPosition = useRef({ x: 0, y: 0 }); // Posição inicial do mapa
     const ultimoEmitRef = useRef(0);
     const ultimoEmitCamadaRef = useRef(0);
     const dragStartEmitidoRef = useRef(false);
@@ -72,7 +74,7 @@ export function useMobileTabletop({
         };
     }, [uiState.zoom]);
 
-        const iniciarRedimensionamento = useCallback((token, indice, canto, offset, isGroupResize = false, boundingBoxGrupo = null) => {
+    const iniciarRedimensionamento = useCallback((token, indice, canto, offset, isGroupResize = false, boundingBoxGrupo = null) => {
         const larguraMundo = (token.larguraOriginal || 50) * (token.escala || 1);
         const alturaMundo = (token.alturaOriginal || 50) * (token.escala || 1);
 
@@ -98,8 +100,8 @@ export function useMobileTabletop({
                 isGroupResize
             }
         });
-        
-                // Iniciar captura de histórico para redimensionamento de token (não névoa)
+
+        // Iniciar captura de histórico para redimensionamento de token (não névoa)
         if (isMaster && iniciarCapturaArrasto && (!token.tipo || token.tipo !== 'nevoa')) {
             iniciarCapturaArrasto();
         }
@@ -118,7 +120,7 @@ export function useMobileTabletop({
         dragInProgressRef.current = true;
     }, [uiDispatch, isDraggingRef, dragInProgressRef]);
 
-        const finalizarArrasto = useCallback(() => {
+    const finalizarArrasto = useCallback(() => {
         if (dragInProgressRef.current && (uiState.tokenSendoArrastado || uiState.camadaSendoArrastada || uiState.tokensSelecionados.length > 0)) {
             if (uiState.tokenSendoArrastado) {
                 const tokenId = uiState.tokenSendoArrastado.token.id;
@@ -140,7 +142,7 @@ export function useMobileTabletop({
             if (teveMovimentoRef.current) {
                 uiDispatch({ type: 'SELECT_TOKEN', payload: null });
                 uiDispatch({ type: 'SELECT_CAMADA', payload: null });
-                
+
                 // Finalizar captura de histórico se houve movimento
                 if (isMaster && finalizarCapturaArrasto) {
                     finalizarCapturaArrasto();
@@ -171,8 +173,8 @@ export function useMobileTabletop({
         clientX,
         clientY,
         button,
-        preventDefault: () => {},
-        stopPropagation: () => {}
+        preventDefault: () => { },
+        stopPropagation: () => { }
     });
 
     const handleTouchStart = useCallback((event) => {
@@ -180,15 +182,53 @@ export function useMobileTabletop({
         if (!event.touches || event.touches.length === 0) return;
         event.preventDefault();
 
+        const container = containerRef.current;
+        if (!container) return;
+
         const touches = event.touches;
 
         if (touches.length === 2) {
-            initialPinchDistance.current = getTouchDistance(touches);
+            const pinchDistance = getTouchDistance(touches);
+            if (pinchDistance < 10) {
+                // Distância muito pequena, não tratar como pinch
+                return;
+            }
+            initialPinchDistance.current = pinchDistance;
             initialZoom.current = uiState.zoom;
+
+            // Calcular o centro do pinch (média das coordenadas dos dois dedos)
+            const touch1 = touches[0];
+            const touch2 = touches[1];
+            const rect = containerRef.current.getBoundingClientRect();
+
+            // Coordenadas relativas ao container
+            const touch1X = touch1.clientX - rect.left;
+            const touch1Y = touch1.clientY - rect.top;
+            const touch2X = touch2.clientX - rect.left;
+            const touch2Y = touch2.clientY - rect.top;
+
+            initialPinchCenter.current = {
+                x: (touch1X + touch2X) / 2,
+                y: (touch1Y + touch2Y) / 2
+            };
+
+            // Armazenar posição inicial do mapa
+            initialPosition.current = { ...uiState.position };
+
+                        // Debug: console.log('[MobileTabletop] Pinch iniciado:', {
+            //   distance: initialPinchDistance.current,
+            //   zoom: initialZoom.current,
+            //   center: initialPinchCenter.current,
+            //   position: initialPosition.current
+            // });
+
             if (longPressTimerRef.current) {
                 clearTimeout(longPressTimerRef.current);
                 longPressTimerRef.current = null;
             }
+
+            // Limpar touchStartRef para evitar conflitos com outros gestos
+            touchStartRef.current = null;
             return;
         }
 
@@ -260,7 +300,49 @@ export function useMobileTabletop({
                 const currentDistance = getTouchDistance(touches);
                 const scale = currentDistance / initialPinchDistance.current;
                 const newZoom = Math.min(3, Math.max(0.1, initialZoom.current * scale));
-                uiDispatch({ type: 'SET_ZOOM', payload: newZoom });
+
+                // Calcular novo centro (média atual dos dedos)
+                const touch1 = touches[0];
+                const touch2 = touches[1];
+                const rect = containerRef.current.getBoundingClientRect();
+                const touch1X = touch1.clientX - rect.left;
+                const touch1Y = touch1.clientY - rect.top;
+                const touch2X = touch2.clientX - rect.left;
+                const touch2Y = touch2.clientY - rect.top;
+                const currentCenterX = (touch1X + touch2X) / 2;
+                const currentCenterY = (touch1Y + touch2Y) / 2;
+
+                // Aplicar fórmula para manter o ponto do mundo sob o centro do pinch
+                // position1 = center - (center - position0) * (zoom1 / zoom0)
+                const zoomRatio = initialZoom.current > 0.01 ? newZoom / initialZoom.current : 1;
+                const newPosition = {
+                    x: currentCenterX - (currentCenterX - initialPosition.current.x) * zoomRatio,
+                    y: currentCenterY - (currentCenterY - initialPosition.current.y) * zoomRatio
+                };
+
+                                // Restringir posição dentro dos limites (usar novo zoom para cálculo correto)
+                const constrainedPosition = restringirPosicao(newPosition.x, newPosition.y, newZoom);
+
+                                // Debug: console.log('[MobileTabletop] Pinch atualizado:', {
+                //   scale,
+                //   newZoom,
+                //   zoomRatio,
+                //   currentCenter: { x: currentCenterX, y: currentCenterY },
+                //   initialCenter: initialPinchCenter.current,
+                //   newPosition,
+                //   constrainedPosition,
+                //   initialPosition: initialPosition.current
+                // });
+
+                // Atualizar zoom e posição simultaneamente
+                uiDispatch({
+                    type: 'SET_ZOOM_AND_POSITION',
+                    payload: {
+                        zoom: newZoom,
+                        position: constrainedPosition
+                    }
+                });
+
                 event.preventDefault();
                 return;
             }
@@ -295,12 +377,12 @@ export function useMobileTabletop({
                         if (trazerTokenParaFrente) trazerTokenParaFrente(tokenSobre.token.id);
                         uiDispatch({ type: 'SELECT_TOKEN', payload: tokenSobre.indice });
                         if (emitirSelecao) emitirSelecao(tokenSobre.token.id);
-                                                iniciarArrastoToken(
+                        iniciarArrastoToken(
                             { token: tokenSobre.token, indice: tokenSobre.indice, telaX: tokenSobre.telaX, telaY: tokenSobre.telaY, isGroupDrag: false },
                             mouseX - tokenSobre.telaX,
                             mouseY - tokenSobre.telaY
                         );
-                        
+
                         if (isMaster && iniciarCapturaArrasto) {
                             iniciarCapturaArrasto();
                         }
@@ -434,7 +516,7 @@ export function useMobileTabletop({
                 isDraggingRef.current = false;
             }
 
-                        if (resizeInProgressRef.current || uiState.tokenRedimensionando || uiState.camadaRedimensionando) {
+            if (resizeInProgressRef.current || uiState.tokenRedimensionando || uiState.camadaRedimensionando) {
                 if (uiState.tokenRedimensionando) {
                     const tokenId = uiState.tokenRedimensionando.token.id;
                     const tokenData = tokensState.find((t) => t.id === tokenId);
@@ -446,12 +528,12 @@ export function useMobileTabletop({
                         });
                     }
                 }
-                
+
                 // Finalizar captura de histórico para redimensionamento de token
                 if (uiState.tokenRedimensionando && isMaster && finalizarCapturaArrasto) {
                     finalizarCapturaArrasto();
                 }
-                
+
                 resizeInProgressRef.current = false;
                 if (resizeStartStateRef.current) resizeStartStateRef.current = null;
             }
@@ -473,6 +555,8 @@ export function useMobileTabletop({
         touchStartRef.current = null;
         currentTouchId.current = null;
         initialPinchDistance.current = 0;
+        initialPinchCenter.current = { x: 0, y: 0 };
+        initialPosition.current = { x: 0, y: 0 };
         dragStartEmitidoRef.current = false;
         movimentoIniciadoRef.current = false;
         dragInProgressRef.current = false;

@@ -224,12 +224,12 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         emitirDragEnd
     });
 
-    const limitarPosicaoMapa = useCallback(
-        (novaX, novaY) => {
+        const limitarPosicaoMapa = useCallback(
+        (novaX, novaY, zoom = estadoUI.zoom) => {
             if (!containerRef.current) return { x: novaX, y: novaY };
             const rect = containerRef.current.getBoundingClientRect();
-            const mundoLarguraZoom = WORLD_WIDTH * estadoUI.zoom;
-            const mundoAlturaZoom = WORLD_HEIGHT * estadoUI.zoom;
+            const mundoLarguraZoom = WORLD_WIDTH * zoom;
+            const mundoAlturaZoom = WORLD_HEIGHT * zoom;
             const minX = rect.width - mundoLarguraZoom;
             const maxX = 0;
             const minY = rect.height - mundoAlturaZoom;

@@ -466,6 +466,15 @@ export function uiReducer(state, action) {
             };
         }
 
+                case 'SET_ZOOM_AND_POSITION': {
+            const novoZoom = clamp(action.payload.zoom, MIN_ZOOM, MAX_ZOOM);
+            return { 
+                ...state, 
+                zoom: novoZoom, 
+                position: action.payload.position 
+            };
+        }
+
         default:
             return state;
     }
