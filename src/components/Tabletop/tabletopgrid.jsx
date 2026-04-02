@@ -936,23 +936,42 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         }
     }, [estadoUI.ui.mostrarFeedback, despacharUI]);
 
-    useEffect(() => {
+        useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
 
         container.addEventListener('wheel', handleWheel, { passive: false });
-        container.addEventListener('mousedown', handleMouseDown);
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
         container.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        if (isMobile) {
+            // Touch events para mobile
+            container.addEventListener('touchstart', handleMouseDown, { passive: false });
+            container.addEventListener('touchmove', handleMouseMove, { passive: false });
+            container.addEventListener('touchend', handleMouseUp, { passive: false });
+            container.addEventListener('touchcancel', handleMouseUp, { passive: false });
+        } else {
+            // Mouse events para desktop
+            container.addEventListener('mousedown', handleMouseDown);
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
 
         return () => {
             container.removeEventListener('wheel', handleWheel);
-            container.removeEventListener('mousedown', handleMouseDown);
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+            container.removeEventListener('contextmenu', (e) => e.preventDefault());
+            
+            if (isMobile) {
+                container.removeEventListener('touchstart', handleMouseDown);
+                container.removeEventListener('touchmove', handleMouseMove);
+                container.removeEventListener('touchend', handleMouseUp);
+                container.removeEventListener('touchcancel', handleMouseUp);
+            } else {
+                container.removeEventListener('mousedown', handleMouseDown);
+                window.removeEventListener('mousemove', handleMouseMove);
+                window.removeEventListener('mouseup', handleMouseUp);
+            }
         };
-    }, [handleWheel, handleMouseDown, handleMouseMove, handleMouseUp]);
+    }, [handleWheel, handleMouseDown, handleMouseMove, handleMouseUp, isMobile]);
 
     useEffect(() => {
         if (!estadoUI.menuContexto.aberto) return;

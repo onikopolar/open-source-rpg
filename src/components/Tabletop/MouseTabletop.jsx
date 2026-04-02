@@ -93,8 +93,8 @@ export function useMouseTabletop({
             }
         });
         
-        // Iniciar captura de histórico para redimensionamento de token (não névoa)
-        if (isMaster && iniciarCapturaArrasto && token.tipo !== 'nevoa') {
+                // Iniciar captura de histórico para redimensionamento de token (não névoa)
+        if (isMaster && iniciarCapturaArrasto && (!token.tipo || token.tipo !== 'nevoa')) {
             iniciarCapturaArrasto();
         }
     }, [uiDispatch, resizeStartStateRef, isMaster, iniciarCapturaArrasto]);

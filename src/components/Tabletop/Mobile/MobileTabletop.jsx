@@ -36,9 +36,11 @@ export function useMobileTabletop({
     socket,
     tabletopId,
     salvarToken,
-    emitirTokenMoved,
+        emitirTokenMoved,
     emitirDragEnd,
-    isMaster
+    isMaster,
+    iniciarCapturaArrasto,
+    finalizarCapturaArrasto
 }) {
     // Refs para gerenciar estado dos toques
     const touchStartRef = useRef(null);
@@ -70,7 +72,7 @@ export function useMobileTabletop({
         };
     }, [uiState.zoom]);
 
-    const iniciarRedimensionamento = useCallback((token, indice, canto, offset, isGroupResize = false, boundingBoxGrupo = null) => {
+        const iniciarRedimensionamento = useCallback((token, indice, canto, offset, isGroupResize = false, boundingBoxGrupo = null) => {
         const larguraMundo = (token.larguraOriginal || 50) * (token.escala || 1);
         const alturaMundo = (token.alturaOriginal || 50) * (token.escala || 1);
 
@@ -96,7 +98,12 @@ export function useMobileTabletop({
                 isGroupResize
             }
         });
-    }, [uiDispatch, resizeStartStateRef]);
+        
+                // Iniciar captura de histórico para redimensionamento de token (não névoa)
+        if (isMaster && iniciarCapturaArrasto && (!token.tipo || token.tipo !== 'nevoa')) {
+            iniciarCapturaArrasto();
+        }
+    }, [uiDispatch, resizeStartStateRef, isMaster, iniciarCapturaArrasto]);
 
     const iniciarArrastoToken = useCallback((tokenInfo, offsetX, offsetY) => {
         uiDispatch({
@@ -111,7 +118,7 @@ export function useMobileTabletop({
         dragInProgressRef.current = true;
     }, [uiDispatch, isDraggingRef, dragInProgressRef]);
 
-    const finalizarArrasto = useCallback(() => {
+        const finalizarArrasto = useCallback(() => {
         if (dragInProgressRef.current && (uiState.tokenSendoArrastado || uiState.camadaSendoArrastada || uiState.tokensSelecionados.length > 0)) {
             if (uiState.tokenSendoArrastado) {
                 const tokenId = uiState.tokenSendoArrastado.token.id;
@@ -133,12 +140,17 @@ export function useMobileTabletop({
             if (teveMovimentoRef.current) {
                 uiDispatch({ type: 'SELECT_TOKEN', payload: null });
                 uiDispatch({ type: 'SELECT_CAMADA', payload: null });
+                
+                // Finalizar captura de histórico se houve movimento
+                if (isMaster && finalizarCapturaArrasto) {
+                    finalizarCapturaArrasto();
+                }
             }
 
             dragInProgressRef.current = false;
             teveMovimentoRef.current = false;
         }
-    }, [uiState, tokensState, emitirDragEnd, salvarToken, uiDispatch, teveMovimentoRef, dragInProgressRef]);
+    }, [uiState, tokensState, emitirDragEnd, salvarToken, uiDispatch, teveMovimentoRef, dragInProgressRef, isMaster, finalizarCapturaArrasto]);
 
     const getTouchDistance = (touches) => {
         if (!touches || touches.length < 2) return 0;
@@ -283,11 +295,15 @@ export function useMobileTabletop({
                         if (trazerTokenParaFrente) trazerTokenParaFrente(tokenSobre.token.id);
                         uiDispatch({ type: 'SELECT_TOKEN', payload: tokenSobre.indice });
                         if (emitirSelecao) emitirSelecao(tokenSobre.token.id);
-                        iniciarArrastoToken(
+                                                iniciarArrastoToken(
                             { token: tokenSobre.token, indice: tokenSobre.indice, telaX: tokenSobre.telaX, telaY: tokenSobre.telaY, isGroupDrag: false },
                             mouseX - tokenSobre.telaX,
                             mouseY - tokenSobre.telaY
                         );
+                        
+                        if (isMaster && iniciarCapturaArrasto) {
+                            iniciarCapturaArrasto();
+                        }
                     } else {
                         uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
                         dragStartRef.current = { x: touch.clientX - uiState.position.x, y: touch.clientY - uiState.position.y };
@@ -388,7 +404,7 @@ export function useMobileTabletop({
                 event.preventDefault();
             }
         });
-    }, [uiState, tokensState, fov, processarArrastoToken, processarRedimensionamento, setStateDirect, socket, tabletopId, emitirTokenMoved, emitirDragStart, isMaster, restringirPosicao, iniciarArrastoToken, iniciarRedimensionamento, trazerTokenParaFrente, emitirSelecao, isTokenBloqueado]);
+    }, [uiState, tokensState, fov, processarArrastoToken, processarRedimensionamento, setStateDirect, socket, tabletopId, emitirTokenMoved, emitirDragStart, isMaster, restringirPosicao, iniciarArrastoToken, iniciarRedimensionamento, trazerTokenParaFrente, emitirSelecao, isTokenBloqueado, iniciarCapturaArrasto]);
 
     const handleTouchEnd = useCallback((event) => {
         // Verifica se o evento tem touches (pode não ter no touchend)
@@ -418,7 +434,7 @@ export function useMobileTabletop({
                 isDraggingRef.current = false;
             }
 
-            if (resizeInProgressRef.current || uiState.tokenRedimensionando || uiState.camadaRedimensionando) {
+                        if (resizeInProgressRef.current || uiState.tokenRedimensionando || uiState.camadaRedimensionando) {
                 if (uiState.tokenRedimensionando) {
                     const tokenId = uiState.tokenRedimensionando.token.id;
                     const tokenData = tokensState.find((t) => t.id === tokenId);
@@ -430,6 +446,12 @@ export function useMobileTabletop({
                         });
                     }
                 }
+                
+                // Finalizar captura de histórico para redimensionamento de token
+                if (uiState.tokenRedimensionando && isMaster && finalizarCapturaArrasto) {
+                    finalizarCapturaArrasto();
+                }
+                
                 resizeInProgressRef.current = false;
                 if (resizeStartStateRef.current) resizeStartStateRef.current = null;
             }
@@ -460,7 +482,7 @@ export function useMobileTabletop({
 
         uiDispatch({ type: 'SET_MOUSE_DOWN_INFO', payload: null });
         uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: false } });
-    }, [uiState, tokensState, fov, finalizarArrasto, isMaster, salvarToken, emitirSelecao, isTokenBloqueado]);
+    }, [uiState, tokensState, fov, finalizarArrasto, isMaster, salvarToken, emitirSelecao, isTokenBloqueado, finalizarCapturaArrasto]);
 
     return {
         handleMouseDown: handleTouchStart,
