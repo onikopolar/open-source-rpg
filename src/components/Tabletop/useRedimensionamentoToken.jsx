@@ -189,7 +189,7 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
             return tokensAtuais;
         }
 
-        const novaEscala = calcularNovaEscalaToken(
+                const novaEscala = calcularNovaEscalaToken(
             mundo.mundoX, mundo.mundoY,
             itemAtual.x, itemAtual.y,
             itemAtual.larguraOriginal || 50,
@@ -201,6 +201,7 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
                 escala: estadoInicial.itemInicial.escala
             }
         );
+        console.log('[useRedimensionamentoToken] Redimensionando item:', itemAtual.id, 'novaEscala:', novaEscala, 'modo:', modoRedimensionamento);
 
         if (isNaN(novaEscala) || novaEscala <= 0) {
             return tokensAtuais;

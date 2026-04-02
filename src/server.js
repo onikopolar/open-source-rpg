@@ -137,10 +137,30 @@ io.on('connection', (socket) => {
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenDragEnd', data);
   });
 
-  socket.on('tabletop:nevoaMoved', (data) => {
-    console.log('[Socket] nevoaMoved:', data.id);
-    io.to(`tabletop_${data.tabletopId}`).emit('tabletop:nevoaMoved', data);
-  });
+    socket.on('tabletop:nevoaCreated', (data) => {
+      console.log('[Socket] nevoaCreated:', data.id, data.nome || 'Sem nome', 'tabletopId:', data.tabletopId);
+      const room = `tabletop_${data.tabletopId}`;
+      console.log('[Socket] Enviando para sala:', room);
+      io.to(room).emit('tabletop:nevoaCreated', data);
+    });
+
+    socket.on('tabletop:nevoaUpdated', (data) => {
+      console.log('[Socket] nevoaUpdated:', data.id, 'tabletopId:', data.tabletopId);
+      const room = `tabletop_${data.tabletopId}`;
+      io.to(room).emit('tabletop:nevoaUpdated', data);
+    });
+
+    socket.on('tabletop:nevoaDeleted', (data) => {
+      console.log('[Socket] nevoaDeleted:', data.id, 'tabletopId:', data.tabletopId);
+      const room = `tabletop_${data.tabletopId}`;
+      io.to(room).emit('tabletop:nevoaDeleted', data);
+    });
+
+    socket.on('tabletop:nevoaMoved', (data) => {
+      console.log('[Socket] nevoaMoved:', data.id, 'tabletopId:', data.tabletopId);
+      const room = `tabletop_${data.tabletopId}`;
+      io.to(room).emit('tabletop:nevoaMoved', data);
+    });
 
   socket.on('disconnect', () => {
     console.log('[Socket] Cliente desconectado:', socket.id);

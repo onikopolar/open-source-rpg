@@ -39,6 +39,7 @@ import {
 import { useRenderizacaoToken } from './useRenderizacaoToken';
 import { useSincronizacaoTokens } from './HooksNovos/useSincronizacaoTokens';
 import { useDragDropToken } from './HooksNovos/useDragDropToken';
+import { useHistoricoTokens } from './HooksNovos/useHistoricoTokens';
 import { useNuvemFOV } from './NuvemFOV';
 import { useMouseTabletop } from './MouseTabletop';
 import { useMobileTabletop } from './Mobile/MobileTabletop';
@@ -140,23 +141,23 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         },
     });
 
-    useEffect(() => {
-        if (tokens.length > 0 && tokensLocal.length === 0) {
-            const tokensOrdenados = [...tokens].sort(
-                (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
-            );
-            setTokensLocal(tokensOrdenados);
+        useEffect(() => {
+            if (tokens.length > 0 && tokensLocal.length === 0) {
+                const tokensOrdenados = [...tokens].sort(
+                    (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
+                );
+                setTokensLocal(tokensOrdenados);
 
-            tokensOrdenados.forEach((token) => {
-                if (token.bloqueado) {
-                    despacharUI({
-                        type: 'SET_TOKEN_BLOCK',
-                        payload: { tokenId: token.id, bloqueado: true },
-                    });
-                }
-            });
-        }
-    }, [tokens]);
+                tokensOrdenados.forEach((token) => {
+                    if (token.bloqueado) {
+                        despacharUI({
+                            type: 'SET_TOKEN_BLOCK',
+                            payload: { tokenId: token.id, bloqueado: true },
+                        });
+                    }
+                });
+            }
+        }, [tokens]);
 
     const menuAbertoTimestampRef = useRef(0);
     const estaArrastandoRef = useRef(false);
@@ -176,16 +177,50 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     const contextRef = useRef(null);
     const renderCallbackRef = useRef(null);
 
+        // Hook para histórico de undo/redo de tokens
+    const {
+                tokensHistorico,
+        canUndo: canUndoTokens,
+        canRedo: canRedoTokens,
+        handleUndo: handleUndoTokens,
+        handleRedo: handleRedoTokens,
+        capturarAcao,
+        iniciarCapturaArrasto,
+        finalizarCapturaArrasto,
+        atualizarToken: atualizarTokenComHistorico,
+        emitirTokenMoved: emitirTokenMovedComHistorico,
+        emitirTokenCreated: emitirTokenCreatedComHistorico,
+        emitirTokenDeleted: emitirTokenDeletedComHistorico,
+        emitirTokenVisibilityChanged: emitirTokenVisibilityChangedComHistorico,
+        emitirTokenLockChanged: emitirTokenLockChangedComHistorico,
+        emitirTokenInverted: emitirTokenInvertedComHistorico,
+        emitirTokenZIndexChanged: emitirTokenZIndexChangedComHistorico
+    } = useHistoricoTokens({
+        isMaster,
+        socket,
+        tabletopId,
+        tokensState: tokensLocal,
+        setTokensDirect: setTokensLocal,
+        atualizarToken,
+        emitirTokenMoved,
+        emitirTokenCreated,
+        emitirTokenDeleted,
+        emitirTokenVisibilityChanged,
+        emitirTokenLockChanged,
+        emitirTokenInverted,
+        emitirTokenZIndexChanged
+    });
+
     const { processarArrastoToken } = useMovimentoToken();
     const { processarRedimensionamento, resizeStartStateRef, redimensionandoRef: redimensionandoRefHook, finalizarRedimensionamento } = useRedimensionamentoToken({
         salvarToken: (tokenId, dados) => {
-            atualizarToken(tokenId, dados);
+            atualizarTokenComHistorico(tokenId, dados);
             if (socket?.connected) {
-                emitirTokenMoved(tokenId, dados);
+                emitirTokenMovedComHistorico(tokenId, dados);
                 emitirDragEnd(tokenId);
             }
         },
-        emitirTokenMoved,
+        emitirTokenMoved: emitirTokenMovedComHistorico,
         emitirDragEnd
     });
 
@@ -400,8 +435,10 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         contexto.restore();
     }, [estadoUI.zoom, estadoUI.position, gradesVisiveis, pegarContextoCanvas]);
 
-    const agendarRender = useCallback(() => {
+        const agendarRender = useCallback(() => {
         const agora = Date.now();
+
+        console.log('[TabletopGrid] agendarRender chamado, callback existe?', !!renderCallbackRef.current);
 
         if (agora - ultimoRenderTimeRef.current < RENDER_INTERVAL) {
             if (!renderAgendadoRef.current) {
@@ -410,7 +447,10 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                     renderAgendadoRef.current = false;
                     ultimoRenderTimeRef.current = Date.now();
                     if (renderCallbackRef.current) {
+                        console.log('[TabletopGrid] Executando renderCallback');
                         renderCallbackRef.current();
+                    } else {
+                        console.warn('[TabletopGrid] renderCallbackRef.current é null!');
                     }
                 });
             }
@@ -419,7 +459,10 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
         ultimoRenderTimeRef.current = agora;
         if (renderCallbackRef.current) {
+            console.log('[TabletopGrid] Executando renderCallback imediatamente');
             renderCallbackRef.current();
+        } else {
+            console.warn('[TabletopGrid] renderCallbackRef.current é null!');
         }
     }, []);
 
@@ -433,13 +476,13 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         desenharSelecao
     );
 
-    useDragDropToken({
+        useDragDropToken({
         isMaster,
         containerRef,
         setModalTokenAberto,
         criarToken,
         telaParaMundo,
-        emitirTokenCreated,
+        emitirTokenCreated: emitirTokenCreatedComHistorico,
         socket,
     });
 
@@ -607,7 +650,8 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         [arrastosRemotos, tokensLocal, todosItens, isMaster]
     );
 
-    const renderizarTudo = useCallback(() => {
+        const renderizarTudo = useCallback(() => {
+        console.log('[TabletopGrid] renderizarTudo chamado. Camadas névoa:', nevoa.camadasNevoa.length);
         const canvas = canvasRef.current;
         const container = containerRef.current;
         if (!canvas || !container) return;
@@ -684,7 +728,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         }
     }, [estadoUI.menuContexto.aberto]);
 
-    const { handleWheel, handleDragOver } = useEventosMouse(
+        const { handleWheel, handleDragOver } = useEventosMouse(
         estadoUI,
         despacharUI,
         containerRef,
@@ -692,7 +736,9 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         limitarPosicaoMapa
     );
 
-    const handleTrazerParaFrente = useCallback(
+    
+
+        const handleTrazerParaFrente = useCallback(
         (tokenId) => {
             const token = tokensLocal.find((t) => t.id === tokenId);
             if (!token) return;
@@ -700,17 +746,17 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
             const maxZIndex = Math.max(...tokensLocal.map((t) => t.zIndex || 0), 0);
             const novoZIndex = maxZIndex + 1;
 
-            atualizarToken(tokenId, { zIndex: novoZIndex })
+            atualizarTokenComHistorico(tokenId, { zIndex: novoZIndex })
                 .then(() => {
                     if (socket?.connected) {
-                        emitirTokenZIndexChanged(tokenId, novoZIndex);
+                        emitirTokenZIndexChangedComHistorico(tokenId, novoZIndex);
                     }
                 })
                 .catch((err) => {
                     console.error('[TabletopGrid] Erro ao atualizar token:', err);
                 });
         },
-        [tokensLocal, atualizarToken, socket, emitirTokenZIndexChanged]
+        [tokensLocal, atualizarTokenComHistorico, socket, emitirTokenZIndexChangedComHistorico]
     );
 
     const commonProps = useMemo(() => ({
@@ -736,22 +782,24 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         processarArrastoToken,
         processarRedimensionamento,
         setStateDirect: setTokensLocal,
-        atualizarToken: atualizarToken,
+        atualizarToken: atualizarTokenComHistorico,
         socket: socket,
         tabletopId: tabletopId,
         emitirSelecao: emitirSelecao,
         emitirDragStart: emitirDragStart,
         emitirDragEnd: emitirDragEnd,
-        emitirTokenMoved: emitirTokenMoved,
+        emitirTokenMoved: emitirTokenMovedComHistorico,
         fov: nevoa,
         trazerTokenParaFrente: handleTrazerParaFrente,
         finalizarRedimensionamento,
         redimensionandoRef: redimensionandoRefHook,
-        isMaster,
-        salvarToken: (tokenId, dados) => {
-            atualizarToken(tokenId, dados);
+                isMaster,
+        iniciarCapturaArrasto,
+        finalizarCapturaArrasto,
+                salvarToken: (tokenId, dados) => {
+            atualizarTokenComHistorico(tokenId, dados);
             if (socket?.connected) {
-                emitirTokenMoved(tokenId, dados);
+                emitirTokenMovedComHistorico(tokenId, dados);
                 emitirDragEnd(tokenId);
             }
         },
@@ -777,19 +825,21 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         limitarPosicaoMapa,
         processarArrastoToken,
         processarRedimensionamento,
-        setTokensLocal,
-        atualizarToken,
+                setTokensLocal,
+        atualizarTokenComHistorico,
         socket,
         tabletopId,
         emitirSelecao,
         emitirDragStart,
         emitirDragEnd,
-        emitirTokenMoved,
+        emitirTokenMovedComHistorico,
         nevoa,
         handleTrazerParaFrente,
         finalizarRedimensionamento,
         redimensionandoRefHook,
         isMaster,
+        iniciarCapturaArrasto,
+        finalizarCapturaArrasto,
     ]);
 
     const isMobile = isMobileDevice();
@@ -797,21 +847,55 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     const mobileEvents = useMobileTabletop(commonProps);
     const { handleMouseDown, handleMouseMove, handleMouseUp } = isMobile ? mobileEvents : mouseEvents;
 
-    const handleUndo = useCallback(() => {
-        despacharUI({
-            type: 'SET_FEEDBACK',
-            payload: { message: 'Histórico não disponível em modo online', type: 'warning' },
-        });
-        setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
-    }, [despacharUI]);
+        const handleUndo = useCallback(() => {
+        if (isMaster) {
+            const resultado = handleUndoTokens();
+            if (resultado) {
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: { message: 'Ação desfeita', type: 'success' },
+                });
+                setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
+            } else {
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: { message: 'Nada para desfazer', type: 'info' },
+                });
+                setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
+            }
+        } else {
+            despacharUI({
+                type: 'SET_FEEDBACK',
+                payload: { message: 'Histórico não disponível para jogadores', type: 'warning' },
+            });
+            setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
+        }
+    }, [isMaster, handleUndoTokens, despacharUI]);
 
     const handleRedo = useCallback(() => {
-        despacharUI({
-            type: 'SET_FEEDBACK',
-            payload: { message: 'Histórico não disponível em modo online', type: 'warning' },
-        });
-        setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
-    }, [despacharUI]);
+        if (isMaster) {
+            const resultado = handleRedoTokens();
+            if (resultado) {
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: { message: 'Ação refeita', type: 'success' },
+                });
+                setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
+            } else {
+                despacharUI({
+                    type: 'SET_FEEDBACK',
+                    payload: { message: 'Nada para refazer', type: 'info' },
+                });
+                setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
+            }
+        } else {
+            despacharUI({
+                type: 'SET_FEEDBACK',
+                payload: { message: 'Histórico não disponível para jogadores', type: 'warning' },
+            });
+            setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
+        }
+    }, [isMaster, handleRedoTokens, despacharUI]);
 
     useAtalhosTeclado(handleUndo, handleRedo);
 
@@ -822,7 +906,8 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         };
     }, [pegarContextoCanvas]);
 
-    useEffect(() => {
+        useEffect(() => {
+        console.log('[TabletopGrid] Dependências mudaram, agendando render. Camadas névoa:', nevoa.camadasNevoa.length);
         agendarRender();
     }, [
         todosItens,
@@ -839,6 +924,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         estadoUI.tokensBloqueados,
         arrastosRemotos,
         agendarRender,
+        nevoa.camadasNevoa,
     ]);
 
     useEffect(() => {
@@ -962,17 +1048,17 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                         : estadoUI.tokensBloqueados[estadoUI.menuContexto.tokenId] === true
                 }
                 isMaster={isMaster}
-                onFechar={() => despacharUI({ type: 'CLOSE_CONTEXT_MENU' })}
+                                onFechar={() => despacharUI({ type: 'CLOSE_CONTEXT_MENU' })}
                 deletarToken={deletarToken}
-                atualizarToken={atualizarToken}
+                atualizarToken={atualizarTokenComHistorico}
                 socket={socket}
                 tabletopId={tabletopId}
                 nevoa={nevoa}
                 despacharUI={despacharUI}
-                emitirTokenDeleted={emitirTokenDeleted}
-                emitirTokenVisibilityChanged={emitirTokenVisibilityChanged}
-                emitirTokenLockChanged={emitirTokenLockChanged}
-                emitirTokenInverted={emitirTokenInverted}
+                emitirTokenDeleted={emitirTokenDeletedComHistorico}
+                emitirTokenVisibilityChanged={emitirTokenVisibilityChangedComHistorico}
+                emitirTokenLockChanged={emitirTokenLockChangedComHistorico}
+                emitirTokenInverted={emitirTokenInvertedComHistorico}
                 tokensLocal={tokensLocal}
                 setTokensLocal={setTokensLocal}
             />

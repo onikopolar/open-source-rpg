@@ -17,6 +17,45 @@ export function useNuvemFOV({
     const uiStateRef = useRef({ zoom: 1, position: { x: 0, y: 0 } });
     const initialLoadDone = useRef(false);
 
+    // ✅ FIX PRINCIPAL: Refs espelho dos states
+    // renderizarNevoa lê SEMPRE dessas refs, nunca do closure do useCallback.
+    // Isso garante que qualquer versão antiga de renderizarTudo (via renderCallbackRef
+    // no TabletopGrid) ainda enxergue as camadas mais recentes — resolvendo o problema
+    // do player não ver a névoa sem precisar de F5.
+    const camadasNevoaRef = useRef([]);
+    const desenhandoRef = useRef(false);
+    const inicioDesenhoRef = useRef({ x: 0, y: 0 });
+    const fimDesenhoRef = useRef({ x: 0, y: 0 });
+
+    // ✅ FIX: Ref estável para o callback de render — evita race condition no carregamento
+    const onRenderCallbackRef = useRef(onRenderCallback);
+    useEffect(() => {
+        onRenderCallbackRef.current = onRenderCallback;
+    }, [onRenderCallback]);
+
+        const dispararRender = useCallback(() => {
+        console.log('[NuvemFOV] dispararRender chamado, callback existe?', !!onRenderCallbackRef.current);
+        if (onRenderCallbackRef.current) onRenderCallbackRef.current();
+    }, []);
+
+    // ✅ Sincroniza refs com os states e dispara render a cada mudança
+    useEffect(() => {
+        camadasNevoaRef.current = camadasNevoa;
+        dispararRender();
+    }, [camadasNevoa, dispararRender]);
+
+    useEffect(() => {
+        desenhandoRef.current = desenhando;
+    }, [desenhando]);
+
+    useEffect(() => {
+        inicioDesenhoRef.current = inicioDesenho;
+    }, [inicioDesenho]);
+
+    useEffect(() => {
+        fimDesenhoRef.current = fimDesenho;
+    }, [fimDesenho]);
+
     const criarCamadaServidor = useCallback(async (camada) => {
         if (!isMaster) return null;
         try {
@@ -90,35 +129,57 @@ export function useNuvemFOV({
         }
     }, [isMaster]);
 
+        // ✅ Garantir que o socket entre na sala do tabletop
     useEffect(() => {
         if (!socket) return;
 
+        console.log('[NuvemFOV] Entrando na sala do tabletop:', tabletopId);
+        
+        if (!socket.connected) {
+            socket.on('connect', () => {
+                socket.emit('tabletop:join', { tabletopId });
+            });
+            return;
+        }
+
+        socket.emit('tabletop:join', { tabletopId });
+    }, [socket, tabletopId]);
+
+    // ✅ FIX: Master ignora eventos de socket que ele mesmo emitiu — evita duplicação
+    useEffect(() => {
+        if (!socket) return;
+
+        console.log('[NuvemFOV] Registrando ouvintes de socket para névoa');
+
         const handleNevoaCreated = (data) => {
             console.log('[NuvemFOV] nevoaCreated recebido:', data);
-            setCamadasNevoa(prev => [...prev, { ...data, tipo: 'nevoa' }]);
-            if (onRenderCallback) onRenderCallback();
+            if (isMaster) return;
+            setCamadasNevoa(prev => {
+                if (prev.some(c => c.id === data.id)) return prev;
+                return [...prev, { ...data, tipo: 'nevoa' }];
+            });
         };
 
-        const handleNevoaUpdated = (data) => {
-            console.log('[NuvemFOV] nevoaUpdated recebido:', data);
+                const handleNevoaUpdated = (data) => {
+            console.log('[NuvemFOV] nevoaUpdated recebido:', data, 'escala:', data.escala, 'x:', data.x, 'y:', data.y);
+            if (isMaster) return;
             setCamadasNevoa(prev =>
                 prev.map(c => c.id === data.id ? { ...c, ...data } : c)
             );
-            if (onRenderCallback) onRenderCallback();
         };
 
         const handleNevoaDeleted = (data) => {
             console.log('[NuvemFOV] nevoaDeleted recebido:', data);
+            if (isMaster) return;
             setCamadasNevoa(prev => prev.filter(c => c.id !== data.id));
-            if (onRenderCallback) onRenderCallback();
         };
 
         const handleNevoaMoved = (data) => {
             console.log('[NuvemFOV] nevoaMoved recebido:', data);
+            if (isMaster) return;
             setCamadasNevoa(prev =>
                 prev.map(c => c.id === data.id ? { ...c, x: data.x, y: data.y } : c)
             );
-            if (onRenderCallback) onRenderCallback();
         };
 
         socket.on('tabletop:nevoaCreated', handleNevoaCreated);
@@ -132,8 +193,9 @@ export function useNuvemFOV({
             socket.off('tabletop:nevoaDeleted', handleNevoaDeleted);
             socket.off('tabletop:nevoaMoved', handleNevoaMoved);
         };
-    }, [socket, onRenderCallback]);
+    }, [socket, isMaster]);
 
+    // ✅ FIX: Array vazio — roda exatamente uma vez, sem dependência instável
     useEffect(() => {
         if (initialLoadDone.current) return;
         initialLoadDone.current = true;
@@ -143,9 +205,8 @@ export function useNuvemFOV({
                 const response = await fetch('/api/Tabletop/nevoa');
                 const data = await response.json();
                 if (response.ok) {
-                    console.log('[NuvemFOV] Camadas carregadas:', data.length);
                     setCamadasNevoa(data.map(c => ({ ...c, tipo: 'nevoa' })));
-                    if (onRenderCallback) onRenderCallback();
+                    // dispararRender é chamado automaticamente pelo useEffect de camadasNevoa
                 } else {
                     console.error('[NuvemFOV] Erro ao carregar camadas:', data.error);
                 }
@@ -153,62 +214,71 @@ export function useNuvemFOV({
                 console.error('[NuvemFOV] Erro na requisição GET:', error);
             }
         };
-        carregarCamadas();
-    }, [onRenderCallback]);
 
-    const adicionarCamada = useCallback(async (camada) => {
+        carregarCamadas();
+    }, []); // ✅ Array vazio — sem dependências instáveis
+
+        const adicionarCamada = useCallback(async (camada) => {
         if (!isMaster) return;
 
+        console.log('[NuvemFOV] adicionarCamada chamado:', camada);
         const camadaPersistida = await criarCamadaServidor(camada);
         if (!camadaPersistida) return;
 
+        // ✅ Master adiciona localmente
         setCamadasNevoa(prev => {
-            const nova = [...prev, { ...camadaPersistida, tipo: 'nevoa' }];
-            if (onRenderCallback) onRenderCallback();
-            return nova;
+            if (prev.some(c => c.id === camadaPersistida.id)) return prev;
+            return [...prev, { ...camadaPersistida, tipo: 'nevoa' }];
         });
 
+        // ✅ Emite para os outros (servidor deve usar broadcast, não io.emit)
+        console.log('[NuvemFOV] Emitindo nevoaCreated, socket conectado?', socket?.connected);
         if (socket?.connected) {
             socket.emit('tabletop:nevoaCreated', { tabletopId, ...camadaPersistida });
+        } else {
+            console.warn('[NuvemFOV] Socket não conectado, não emitindo evento');
         }
-    }, [isMaster, criarCamadaServidor, socket, tabletopId, onRenderCallback]);
+    }, [isMaster, criarCamadaServidor, socket, tabletopId]);
 
-    const atualizarCamada = useCallback(async (id, alteracoes) => {
+        const atualizarCamada = useCallback(async (id, alteracoes) => {
         if (!isMaster) return;
 
+        console.log('[NuvemFOV] atualizarCamada chamado:', id, alteracoes);
         setCamadasNevoa(prev => {
             const nova = prev.map(c =>
                 c.id === id ? { ...c, ...alteracoes } : c
             );
             const camadaAlterada = nova.find(c => c.id === id);
-            if (camadaAlterada && onRenderCallback) onRenderCallback();
+            if (!camadaAlterada) return prev;
 
             atualizarCamadaServidor(camadaAlterada);
 
+            console.log('[NuvemFOV] Emitindo nevoaUpdated, socket conectado?', socket?.connected);
             if (socket?.connected) {
                 socket.emit('tabletop:nevoaUpdated', { tabletopId, ...camadaAlterada });
+            } else {
+                console.warn('[NuvemFOV] Socket não conectado, não emitindo evento');
             }
 
             return nova;
         });
-    }, [isMaster, atualizarCamadaServidor, socket, tabletopId, onRenderCallback]);
+    }, [isMaster, atualizarCamadaServidor, socket, tabletopId]);
 
-    const removerCamada = useCallback(async (id) => {
+        const removerCamada = useCallback(async (id) => {
         if (!isMaster) return;
 
-        setCamadasNevoa(prev => {
-            const nova = prev.filter(c => c.id !== id);
-            if (onRenderCallback) onRenderCallback();
+        console.log('[NuvemFOV] removerCamada chamado:', id);
+        setCamadasNevoa(prev => prev.filter(c => c.id !== id));
 
-            deletarCamadaServidor(id);
+        deletarCamadaServidor(id);
 
-            if (socket?.connected) {
-                socket.emit('tabletop:nevoaDeleted', { tabletopId, id });
-            }
-
-            return nova;
-        });
-    }, [isMaster, deletarCamadaServidor, socket, tabletopId, onRenderCallback]);
+        console.log('[NuvemFOV] Emitindo nevoaDeleted, socket conectado?', socket?.connected);
+        if (socket?.connected) {
+            socket.emit('tabletop:nevoaDeleted', { tabletopId, id });
+        } else {
+            console.warn('[NuvemFOV] Socket não conectado, não emitindo evento');
+        }
+    }, [isMaster, deletarCamadaServidor, socket, tabletopId]);
 
     const ativarModoDesenho = useCallback(() => {
         if (!isMaster) return;
@@ -243,10 +313,10 @@ export function useNuvemFOV({
         setFimDesenho(mundo);
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
         rafRef.current = requestAnimationFrame(() => {
-            if (onRenderCallback) onRenderCallback();
+            dispararRender();
             rafRef.current = null;
         });
-    }, [isMaster, desenhando, telaParaMundo, onRenderCallback]);
+    }, [isMaster, desenhando, telaParaMundo, dispararRender]);
 
     const finalizarDesenho = useCallback(() => {
         if (!isMaster || !desenhando) return;
@@ -274,8 +344,8 @@ export function useNuvemFOV({
         }
 
         setDesenhando(false);
-        if (onRenderCallback) onRenderCallback();
-    }, [isMaster, desenhando, inicioDesenho, fimDesenho, adicionarCamada, onRenderCallback]);
+        dispararRender();
+    }, [isMaster, desenhando, inicioDesenho, fimDesenho, adicionarCamada, dispararRender]);
 
     const limparTudo = useCallback(() => {
         if (!isMaster) return;
@@ -320,6 +390,7 @@ export function useNuvemFOV({
             const telaAltura = alturaMundo * zoom;
             context.fillRect(telaX, telaY, telaLargura, telaAltura);
         });
+
         if (desenhando && isMaster) {
             const x1 = Math.min(inicioDesenho.x, fimDesenho.x);
             const y1 = Math.min(inicioDesenho.y, fimDesenho.y);
@@ -411,7 +482,7 @@ export function useNuvemFOV({
             return { x: mundoX * zoom + position.x, y: mundoY * zoom + position.y };
         },
         setUIStateRef,
-        registrarCallbackRender: () => {},
+        registrarCallbackRender: () => { },
         renderizarNevoa,
         getCamadaComInfo,
         encontrarCamadaNaPosicao,

@@ -35,9 +35,11 @@ export function useMouseTabletop({
     socket,
     tabletopId,
     salvarToken,
-    emitirTokenMoved,
+        emitirTokenMoved,
     emitirDragEnd,
-    isMaster
+    isMaster,
+    iniciarCapturaArrasto,
+    finalizarCapturaArrasto
 }) {
 
     const ultimoEmitRef = useRef(0);
@@ -64,7 +66,7 @@ export function useMouseTabletop({
         };
     }, [uiState.zoom]);
 
-    const iniciarRedimensionamento = useCallback((token, indice, canto, offset, isGroupResize = false, boundingBoxGrupo = null) => {
+        const iniciarRedimensionamento = useCallback((token, indice, canto, offset, isGroupResize = false, boundingBoxGrupo = null) => {
         const larguraMundo = (token.larguraOriginal || 50) * (token.escala || 1);
         const alturaMundo = (token.alturaOriginal || 50) * (token.escala || 1);
 
@@ -90,7 +92,12 @@ export function useMouseTabletop({
                 isGroupResize
             }
         });
-    }, [uiDispatch, resizeStartStateRef]);
+        
+        // Iniciar captura de histórico para redimensionamento de token (não névoa)
+        if (isMaster && iniciarCapturaArrasto && token.tipo !== 'nevoa') {
+            iniciarCapturaArrasto();
+        }
+    }, [uiDispatch, resizeStartStateRef, isMaster, iniciarCapturaArrasto]);
 
     const iniciarArrastoToken = useCallback((tokenInfo, offsetX, offsetY) => {
         uiDispatch({
@@ -105,7 +112,7 @@ export function useMouseTabletop({
         dragInProgressRef.current = true;
     }, [uiDispatch, isDraggingRef, dragInProgressRef]);
 
-    const finalizarArrasto = useCallback(() => {
+        const finalizarArrasto = useCallback(() => {
         if (dragInProgressRef.current && (uiState.tokenSendoArrastado || uiState.camadaSendoArrastada || uiState.tokensSelecionados.length > 0)) {
             if (uiState.tokenSendoArrastado) {
                 const tokenId = uiState.tokenSendoArrastado.token.id;
@@ -129,10 +136,15 @@ export function useMouseTabletop({
                 uiDispatch({ type: 'SELECT_CAMADA', payload: null });
             }
 
+            // Finalizar captura de histórico se houve movimento
+            if (teveMovimentoRef.current && isMaster && finalizarCapturaArrasto) {
+                finalizarCapturaArrasto();
+            }
+
             dragInProgressRef.current = false;
             teveMovimentoRef.current = false;
         }
-    }, [uiState, tokensState, emitirDragEnd, salvarToken, uiDispatch, teveMovimentoRef, dragInProgressRef]);
+    }, [uiState, tokensState, emitirDragEnd, salvarToken, uiDispatch, teveMovimentoRef, dragInProgressRef, isMaster, finalizarCapturaArrasto]);
 
     const handleMouseDown = useCallback((event) => {
         const container = containerRef.current;
@@ -174,11 +186,15 @@ export function useMouseTabletop({
                 if (!tokenBloqueado) {
                     uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: true } });
                     const posicao = { x: tokenSobre.telaX, y: tokenSobre.telaY };
-                    iniciarArrastoToken(
+                                        iniciarArrastoToken(
                         { token: tokenSobre.token, indice: tokenSobre.indice, telaX: posicao.x, telaY: posicao.y, isGroupDrag: false },
                         mouseX - posicao.x,
                         mouseY - posicao.y
                     );
+                    
+                    if (isMaster && iniciarCapturaArrasto) {
+                        iniciarCapturaArrasto();
+                    }
                 } else {
                     uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: true } });
                     isRightClickDragRef.current = false;
@@ -243,11 +259,15 @@ export function useMouseTabletop({
                     emitirSelecao(tokenId);
                 }
 
-                iniciarArrastoToken(
+                                iniciarArrastoToken(
                     { token: tokenSobre.token, indice: indiceAtual, telaX: tokenSobre.telaX, telaY: tokenSobre.telaY, isGroupDrag: false },
                     mouseX - tokenSobre.telaX,
                     mouseY - tokenSobre.telaY
                 );
+                
+                if (isMaster && iniciarCapturaArrasto) {
+                    iniciarCapturaArrasto();
+                }
                 event.preventDefault();
                 return;
             }
@@ -333,11 +353,15 @@ export function useMouseTabletop({
 
                     if (tokenClicadoDoGrupo) {
                         const primeiroTokenGrupo = tokensSelecionadosInfo[0];
-                        iniciarArrastoToken(
+                                                iniciarArrastoToken(
                             { token: primeiroTokenGrupo, indice: primeiroTokenGrupo.indice, telaX: primeiroTokenGrupo.posicaoTela.x, telaY: primeiroTokenGrupo.posicaoTela.y, isGroupDrag: true },
                             mouseX - primeiroTokenGrupo.posicaoTela.x,
                             mouseY - primeiroTokenGrupo.posicaoTela.y
                         );
+                        
+                        if (isMaster && iniciarCapturaArrasto) {
+                            iniciarCapturaArrasto();
+                        }
                         event.preventDefault();
                         return;
                     }
@@ -559,7 +583,7 @@ export function useMouseTabletop({
                     }
                 }
 
-                const arrayAtual = isNevoa ? fov.camadasNevoa : tokensState;
+                                const arrayAtual = isNevoa ? fov.camadasNevoa : tokensState;
                 const novosTokens = processarRedimensionamento(
                     mouseX, mouseY, itemInfo, uiState.modoRedimensionamento,
                     uiState.tamanhoInicialRedimensionamento, uiState.boundingBoxGrupo,
@@ -572,15 +596,37 @@ export function useMouseTabletop({
                 }
 
                 if (isNevoa && fov.setCamadasNevoa) {
+                    console.log('[MouseTabletop] Atualizando camadas de névoa durante redimensionamento, total:', novosTokens.length, 'escala da camada:', novosTokens[itemInfo.indice]?.escala);
                     fov.setCamadasNevoa(novosTokens);
                 } else if (!isNevoa && setStateDirect) {
                     setStateDirect(novosTokens);
                 }
 
-                if (!isNevoa) {
+                                if (!isNevoa) {
                     const tokenRedimensionado = novosTokens[itemInfo.indice];
                     if (tokenRedimensionado && tokenRedimensionado.escala !== itemInfo.token?.escala) {
                         emitirMovimentoToken(tokenRedimensionado, tokenRedimensionado.id, tokenRedimensionado.x, tokenRedimensionado.y, tokenRedimensionado.escala);
+                    }
+                } else {
+                    // Emitir evento de atualização para névoa redimensionada
+                    const camadaRedimensionada = novosTokens[itemInfo.indice];
+                                        if (camadaRedimensionada && socket?.connected && isMaster) {
+                        const agora = Date.now();
+                        const timeSinceLastEmit = agora - ultimoEmitCamadaRef.current;
+                        const emitir = timeSinceLastEmit >= THROTTLE_MS;
+                        if (emitir) {
+                            ultimoEmitCamadaRef.current = agora;
+                            console.log('[MouseTabletop] Emitindo nevoaUpdated durante redimensionamento:', camadaRedimensionada.id, 'escala:', camadaRedimensionada.escala);
+                            socket.emit('tabletop:nevoaUpdated', {
+                                tabletopId,
+                                id: camadaRedimensionada.id,
+                                escala: camadaRedimensionada.escala,
+                                x: camadaRedimensionada.x,
+                                y: camadaRedimensionada.y,
+                                larguraOriginal: camadaRedimensionada.larguraOriginal,
+                                alturaOriginal: camadaRedimensionada.alturaOriginal
+                            });
+                        }
                     }
                 }
                 event.preventDefault();
@@ -652,7 +698,7 @@ export function useMouseTabletop({
                 isDraggingRef.current = false;
             }
 
-            if (resizeInProgressRef.current || uiState.tokenRedimensionando || uiState.camadaRedimensionando) {
+                        if (resizeInProgressRef.current || uiState.tokenRedimensionando || uiState.camadaRedimensionando) {
                 if (uiState.tokenRedimensionando) {
                     const tokenId = uiState.tokenRedimensionando.token.id;
                     const tokenData = tokensState.find((t) => t.id === tokenId);
@@ -664,6 +710,20 @@ export function useMouseTabletop({
                         });
                     }
                 }
+                                if (uiState.camadaRedimensionando && isMaster) {
+                    const camadaId = uiState.camadaRedimensionando.camada.id;
+                    const camadaData = fov.camadasNevoa.find(c => c.id === camadaId);
+                    if (camadaData) {
+                                console.log('[MouseTabletop] Finalizando redimensionamento de névoa, atualizando escala:', camadaData.escala);
+                                fov.atualizarEscalaCamada(camadaId, camadaData.escala);
+                    }
+                }
+                
+                // Finalizar captura de histórico para redimensionamento de token
+                if (uiState.tokenRedimensionando && isMaster && finalizarCapturaArrasto) {
+                    finalizarCapturaArrasto();
+                }
+                
                 resizeInProgressRef.current = false;
                 if (resizeStartStateRef.current) {
                     resizeStartStateRef.current = null;
