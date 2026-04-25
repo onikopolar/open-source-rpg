@@ -11,7 +11,6 @@ import DiamondWeb, { diamondWebStyles } from './Yearzero-modos/DiamondWeb';
 import {
   AttributeWithSkills,
   attributeSkillMap,
-  attributeComponentsStyles
 } from './Yearzero-modos/AttributeComponents';
 import EquipmentNotepad from './Yearzero-modos/EquipmentNotepad';
 import RadiationTracker, { radiationStyles } from './Yearzero-modos/RadiationTracker';
@@ -19,6 +18,7 @@ import ExperienceHistoryTracker, { experienceHistoryStyles } from './Yearzero-mo
 import PersonalMetaTalents from './Yearzero-modos/PersonalMetaTalents';
 import ArmasArmadura from './Yearzero-modos/ArmasArmadura';
 import ConditionsConsumablesTracker from './Yearzero-modos/ConditionsConsumablesTracker';
+import { attributeComponentsStyles } from './Yearzero-modos/design/AttributeDesignStyles'
 
 const mainStyles = (theme) => ({
   mainContainer: {

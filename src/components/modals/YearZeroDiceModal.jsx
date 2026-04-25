@@ -1,159 +1,497 @@
 import React, { useState } from 'react';
 import { withStyles } from '@mui/styles';
-import {
-    TextField, Dialog, DialogActions, DialogContent, DialogContentText,
-    DialogTitle, Button, Grid, Box, Paper, Typography, Collapse
-} from '@mui/material'
-import { Casino, Replay, Warning, Psychology } from '@mui/icons-material';
-
-import { api } from '../../utils'
-
-const styles = theme => ({
-    modal: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-    },
-    paper: {
-        backgroundColor: theme.palette.background.paper,
-        boxShadow: theme.shadows[5],
-        padding: theme.spacing(2, 4, 3),
-        maxWidth: "90vw",
-        maxHeight: "90vh",
-        overflow: "auto"
-    },
-    // Estilos para pânico - cores sérias de perigo extremo
-    panicAlert: {
-        position: "relative",
-        background: "#0a0a0a",
-        border: "3px solid #ff0000",
-        borderRadius: "8px",
-        padding: "20px",
-        margin: "20px 0",
-        color: "#ffffff",
-        textAlign: "center",
-        boxShadow: "0 0 40px rgba(255, 0, 0, 0.8)",
-        overflow: "hidden"
-    },
-    panicGlow: {
-        position: "absolute",
-        top: "0",
-        left: "0",
-        right: "0",
-        height: "3px",
-        background: "#ff0000",
-        animation: "$panicFlash 1s infinite"
-    },
-    panicHeader: {
-        fontSize: "1.8rem",
-        fontWeight: "900",
-        marginBottom: "15px",
-        color: "#ff0000",
-        letterSpacing: "3px",
-        textTransform: "uppercase"
-    },
-    panicDiceGrid: {
-        display: "flex",
-        flexWrap: "wrap",
-        gap: "8px",
-        justifyContent: "center",
-        margin: "15px 0"
-    },
-    panicDie: {
-        width: "40px",
-        height: "40px",
-        borderRadius: "6px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontWeight: "bold",
-        fontSize: "1.2rem",
-        position: "relative",
-        border: "2px solid",
-        transition: "all 0.3s ease"
-    },
-    panicDieHighlight: {
-        background: "linear-gradient(135deg, #FFD700 0%, #FFA500 100%)",
-        borderColor: "#FF8C00",
-        color: "#8B0000",
-        boxShadow: "0 0 15px #FFD700, inset 0 0 10px rgba(255, 255, 255, 0.5)",
-        animation: "$panicShake 0.5s infinite"
-    },
-    stressDie: {
-        background: "linear-gradient(135deg, #FFA500 0%, #FF6347 100%)",
-        borderColor: "#FF4500",
-        color: "white"
-    },
-    normalDie: {
-        background: "linear-gradient(135deg, #FFFFFF 0%, #F0F0F0 100%)",
-        borderColor: "#CCCCCC",
-        color: "#333333"
-    },
-    panicBadge: {
-        position: "absolute",
-        top: "-5px",
-        right: "-5px",
-        background: "#ff0000",
-        color: "white",
-        borderRadius: "50%",
-        width: "20px",
-        height: "20px",
-        fontSize: "0.8rem",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontWeight: "bold",
-        boxShadow: "0 0 10px #ff0000"
-    },
-    resultBox: {
-        background: "rgba(255, 0, 0, 0.1)",
-        border: "1px solid #ff0000",
-        borderRadius: "6px",
-        padding: "15px",
-        margin: "15px 0",
-        color: "#ffffff"
-    },
-    resultText: {
-        fontSize: "0.9rem",
-        lineHeight: "1.4",
-        textAlign: "left"
-    },
-    instructionText: {
-        fontSize: "0.8rem",
-        fontStyle: "italic",
-        color: "#ff6b6b",
-        textAlign: "center",
-        marginTop: "10px"
-    },
-    // Animações
-    "@keyframes panicFlash": {
-        "0%": { opacity: "1" },
-        "50%": { opacity: "0.3" },
-        "100%": { opacity: "1" }
-    },
-    "@keyframes panicShake": {
-        "0%": { transform: "translateX(0)" },
-        "25%": { transform: "translateX(-2px)" },
-        "50%": { transform: "translateX(2px)" },
-        "75%": { transform: "translateX(-2px)" },
-        "100%": { transform: "translateX(0)" }
-    }
-})
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import CasinoIcon from '@mui/icons-material/Casino';
+import ReplayIcon from '@mui/icons-material/Replay';
+import WarningIcon from '@mui/icons-material/Warning';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import { api } from '../../utils';
 
 const PANIC_TABLE = [
-    { range: "1–6", effect: "SEGURANDO A ONDA. Você consegue manter seus nervos sob controle. Muito mal." },
-    { range: "7", effect: "TIQUE NERVOSO. Seu NÍVEL DE ESTRESSE, e o NÍVEL DE ESTRESSE de todos os PJs amigáveis em uma distância CURTA de você, aumentam em um." },
-    { range: "8", effect: "TREMEDEIRA. Você começa a tremer incontrolavelmente. Todas as rolagens de habilidade usando AGILIDADE sofrem uma modificação de -2 até que seu pânico pare." },
-    { range: "9", effect: "SOLTAR ITEM. Seja por estresse, confusão ou pela percepção de que todos vão morrer de qualquer maneira, você solta uma arma ou outro item importante — a MJ decide qual. Seu NÍVEL DE ESTRESSE aumenta imediatamente em um." },
-    { range: "10", effect: "CONGELAR. Você está paralisado pelo medo ou pelo estresse por uma Rodada, perdendo sua próxima ação lenta. Seu NÍVEL DE ESTRESSE, e o NÍVEL DE ESTRESSE de todos os PJs amigáveis em uma distância CURTA de você, aumentam em um." },
-    { range: "11", effect: "BUSCAR COBERTURA. Você deve usar sua próxima ação para se afastar do perigo e encontrar um local seguro, se possível. Você tem permissão para fazer um teste de recuo se você tiver um inimigo no alcance ENGAJADO. Seu NÍVEL DE ESTRESSE diminui em um, mas o NÍVEL DE ESTRESSE de todos os PJs amigáveis à distância CURTA de você aumenta em um. Após uma Rodada, você pode agir normalmente." },
-    { range: "12", effect: "GRITO. Você grita o mais alto possível por uma Rodada, perdendo sua próxima ação lenta. Seu NÍVEL DE ESTRESSE diminui em um, mas todo personagem amigável que ouve seu grito deve fazer uma Rolagem de Pânico imediata." },
-    { range: "13", effect: "FUGA. Você simplesmente não aguenta mais. Você deve fugir para um lugar seguro e se recusar a deixá-lo. Você não atacará ninguém e não tentará nada perigoso. Você não tem permissão para fazer um teste de recuo se você tiver um inimigo no alcance ENGAJADO. Seu NÍVEL DE ESTRESSE diminui em um, mas todo personagem amigável que te vê fugir deve fazer uma Rolagem de Pânico imediata." },
-    { range: "14", effect: "FRENESI. Você deve atacar imediatamente a pessoa ou criatura mais próxima, amigável ou não. Você não vai parar até que você ou seu alvo esteja Quebrado. Todo personagem amistoso que testemunhar sua fúria deve fazer uma Rolagem de Pânico imediata." },
-    { range: "15+", effect: "CATATÔNICO. Você cai no chão e não pode falar ou se mover, olhando fixamente para o nada." }
+    { range: "1–6", label: "SEGURANDO A ONDA",  effect: "Você consegue manter seus nervos sob controle. Muito mal." },
+    { range: "7",   label: "TIQUE NERVOSO",      effect: "Seu NÍVEL DE ESTRESSE, e o de todos os PJs amigáveis em distância CURTA de você, aumentam em 1." },
+    { range: "8",   label: "TREMEDEIRA",         effect: "Todas as rolagens de habilidade usando AGILIDADE sofrem −2 até que seu pânico pare." },
+    { range: "9",   label: "SOLTAR ITEM",        effect: "Você solta uma arma ou outro item importante — a MJ decide qual. Seu NÍVEL DE ESTRESSE aumenta em 1." },
+    { range: "10",  label: "CONGELAR",           effect: "Paralisado pelo medo por uma Rodada, perdendo sua próxima ação. Seu estresse e o de aliados próximos aumentam em 1." },
+    { range: "11",  label: "BUSCAR COBERTURA",   effect: "Use sua próxima ação para se afastar do perigo. Seu estresse diminui em 1, mas o de aliados próximos aumenta em 1." },
+    { range: "12",  label: "GRITO",              effect: "Você grita por uma Rodada. Seu estresse diminui em 1, mas aliados que ouvem devem fazer uma Rolagem de Pânico." },
+    { range: "13",  label: "FUGA",               effect: "Fuja para um lugar seguro. Não ataca nem arrisca. Seu estresse diminui em 1, mas aliados que te veem devem rolar pânico." },
+    { range: "14",  label: "FRENESI",            effect: "Ataque a pessoa/criatura mais próxima — amigável ou não — até que um de vocês esteja Quebrado." },
+    { range: "15+", label: "CATATÔNICO",         effect: "Você cai no chão, imóvel e mudo, olhando fixamente para o nada." },
 ];
 
-function YearZeroDiceModal({
+const panicSeverity = (total) => {
+    if (total <= 6)  return { color: '#22c55e', bg: '#0f1f0f', label: 'ESTÁVEL' };
+    if (total <= 8)  return { color: '#facc15', bg: '#1f1a00', label: 'MODERADO' };
+    if (total <= 11) return { color: '#f97316', bg: '#1f1000', label: 'GRAVE' };
+    if (total <= 13) return { color: '#ef4444', bg: '#1f0a0a', label: 'CRÍTICO' };
+    return             { color: '#ef4444', bg: '#1a0505', label: 'CATASTRÓFICO' };
+};
+
+const DOT_POSITIONS = {
+    1: [[50, 50]],
+    2: [[30, 30], [70, 70]],
+    3: [[25, 25], [50, 50], [75, 75]],
+    4: [[25, 25], [75, 25], [25, 75], [75, 75]],
+    5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
+    6: [[25, 22], [75, 22], [25, 50], [75, 50], [25, 78], [75, 78]],
+};
+
+const styles = () => ({
+    dialogPaper: {
+        background: '#1e1e1e',
+        border: '0.5px solid #2e2e2e',
+        borderRadius: 16,
+        boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+        fontFamily: "'Rajdhani', sans-serif",
+        color: '#e0e0e0',
+        overflow: 'hidden',
+    },
+    dialogPaperPanic: {
+        background: '#1e1e1e',
+        border: '1px solid #7f1f1f',
+        borderRadius: 16,
+        boxShadow: '0 8px 40px rgba(239,68,68,0.15)',
+        fontFamily: "'Rajdhani', sans-serif",
+        color: '#e0e0e0',
+        overflow: 'hidden',
+    },
+    header: {
+        padding: '16px 20px',
+        borderBottom: '0.5px solid #2a2a2a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        background: '#171717',
+    },
+    headerPanic: {
+        padding: '16px 20px',
+        borderBottom: '0.5px solid #7f1f1f',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        background: '#1a0a0a',
+        position: 'relative',
+    },
+    headerSubtitle: {
+        fontSize: 10,
+        letterSpacing: '0.15em',
+        textTransform: 'uppercase',
+        marginBottom: 2,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 700,
+        lineHeight: 1,
+    },
+    headerIconBox: {
+        width: 36,
+        height: 36,
+        borderRadius: 8,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#2a2a2a',
+        border: '0.5px solid #444',
+    },
+    headerIconBoxPanic: {
+        width: 36,
+        height: 36,
+        borderRadius: 8,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#2a0a0a',
+        border: '1px solid #ef4444',
+    },
+    content: {
+        padding: '20px',
+    },
+    // --- Input screen ---
+    inputGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: 12,
+        marginBottom: 16,
+    },
+    inputField: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+    },
+    inputLabel: {
+        fontSize: 10,
+        color: '#666',
+        textTransform: 'uppercase',
+        letterSpacing: '0.1em',
+    },
+    inputControl: {
+        display: 'flex',
+        alignItems: 'center',
+        background: '#171717',
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    inputBtn: {
+        border: 'none',
+        background: 'transparent',
+        fontSize: 18,
+        padding: '4px 12px',
+        cursor: 'pointer',
+        lineHeight: 1,
+    },
+    inputValue: {
+        minWidth: 28,
+        textAlign: 'center',
+        fontSize: 18,
+        fontWeight: 700,
+        color: '#f1f5f9',
+    },
+    totalsBar: {
+        background: '#171717',
+        borderRadius: 10,
+        padding: '10px 16px',
+        display: 'flex',
+        gap: 16,
+        border: '0.5px solid #2a2a2a',
+        alignItems: 'center',
+    },
+    totalsLabel: {
+        fontSize: 11,
+        color: '#555',
+    },
+    totalsValue: {
+        fontSize: 18,
+        fontWeight: 700,
+    },
+    // --- Result screen ---
+    successBlock: {
+        textAlign: 'center',
+        padding: '20px 0 16px',
+        borderBottom: '0.5px solid #2a2a2a',
+        marginBottom: 16,
+    },
+    successLabel: {
+        fontSize: 11,
+        color: '#555',
+        letterSpacing: '0.15em',
+        textTransform: 'uppercase',
+        marginBottom: 4,
+    },
+    successNumber: {
+        fontSize: 64,
+        fontWeight: 900,
+        lineHeight: 1,
+        fontFamily: "'Share Tech Mono', monospace",
+    },
+    successText: {
+        fontSize: 12,
+        marginTop: 4,
+    },
+    diceGroupLabel: {
+        fontSize: 10,
+        color: '#555',
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        marginBottom: 8,
+    },
+    diceGrid: {
+        display: 'flex',
+        gap: 8,
+        flexWrap: 'wrap',
+        marginBottom: 16,
+    },
+    pushWarning: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        background: '#1f1a00',
+        border: '0.5px solid #854f0b',
+        borderRadius: 8,
+        padding: '8px 12px',
+        fontSize: 12,
+        color: '#facc15',
+        marginTop: 4,
+    },
+    // --- Panic screen ---
+    panicCalcPanel: {
+        background: '#1a0a0a',
+        border: '0.5px solid #7f1f1f',
+        borderRadius: 12,
+        padding: 16,
+        marginTop: 4,
+    },
+    panicCalcHeader: {
+        fontSize: 10,
+        color: '#ef4444',
+        letterSpacing: '0.15em',
+        textTransform: 'uppercase',
+        marginBottom: 12,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+    },
+    panicCalcRow: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+        marginBottom: 16,
+    },
+    panicCalcItem: {
+        textAlign: 'center',
+    },
+    panicCalcItemLabel: {
+        fontSize: 11,
+        color: '#555',
+        marginBottom: 3,
+    },
+    panicCalcItemValue: {
+        fontSize: 32,
+        fontWeight: 900,
+        fontFamily: "'Share Tech Mono', monospace",
+    },
+    panicCalcSep: {
+        fontSize: 20,
+        color: '#333',
+        marginTop: 14,
+    },
+    revealButton: {
+        width: '100%',
+        padding: '10px 0',
+        borderRadius: 8,
+        background: 'transparent',
+        fontSize: 13,
+        fontWeight: 700,
+        letterSpacing: '0.08em',
+        cursor: 'pointer',
+        textTransform: 'uppercase',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        transition: 'background 0.2s',
+    },
+    effectBox: {
+        borderLeft: '3px solid',
+        borderRadius: 0,
+        padding: '12px 14px',
+    },
+    effectLabel: {
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        marginBottom: 6,
+    },
+    effectText: {
+        fontSize: 13,
+        lineHeight: 1.55,
+    },
+    effectFooter: {
+        fontSize: 11,
+        color: '#555',
+        marginTop: 8,
+        fontStyle: 'italic',
+    },
+    // --- Footer ---
+    footer: {
+        padding: '12px 20px',
+        borderTop: '0.5px solid #2a2a2a',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: '#171717',
+    },
+    footerPanic: {
+        padding: '12px 20px',
+        borderTop: '0.5px solid #2a1a1a',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: '#171717',
+    },
+    btnClose: {
+        background: 'transparent',
+        border: '0.5px solid #444',
+        color: '#aaa',
+        borderRadius: 8,
+        padding: '7px 16px',
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: 'pointer',
+    },
+    btnSecondary: {
+        background: 'transparent',
+        border: '0.5px solid #444',
+        color: '#aaa',
+        borderRadius: 8,
+        padding: '7px 16px',
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: 'pointer',
+    },
+    btnPush: {
+        background: '#1f1a00',
+        border: '0.5px solid #854f0b',
+        color: '#facc15',
+        borderRadius: 8,
+        padding: '7px 16px',
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+    },
+    btnRoll: {
+        background: '#2a2a2a',
+        border: '1px solid #ff6b35',
+        color: '#ff6b35',
+        borderRadius: 8,
+        padding: '7px 20px',
+        fontSize: 14,
+        fontWeight: 700,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
+    },
+    '@keyframes diePop': {
+        '0%':   { transform: 'scale(1)' },
+        '50%':  { transform: 'scale(1.12)' },
+        '100%': { transform: 'scale(1)' },
+    },
+    '@keyframes dieShake': {
+        '0%,100%': { transform: 'translateX(0) rotate(0)' },
+        '25%':     { transform: 'translateX(-3px) rotate(-4deg)' },
+        '75%':     { transform: 'translateX(3px) rotate(4deg)' },
+    },
+    '@keyframes fadeUp': {
+        from: { opacity: 0, transform: 'translateY(6px)' },
+        to:   { opacity: 1, transform: 'translateY(0)' },
+    },
+});
+
+// ─── Die face SVG ──────────────────────────────────────────────────────────────
+function DieFace({ value, type, animate = false }) {
+    const isSuccess = value === 6;
+    const isPanic   = type === 'yellow' && value === 1;
+    const dots      = DOT_POSITIONS[Math.min(Math.max(value, 1), 6)] || DOT_POSITIONS[1];
+    const r         = 52 * 0.14;
+
+    let fill, stroke, dotColor;
+    if (type === 'yellow') {
+        if (isPanic) {
+            fill = '#3a0a0a'; stroke = '#ef4444'; dotColor = '#ef4444';
+        } else if (isSuccess) {
+            fill = '#1f1a00'; stroke = '#facc15'; dotColor = '#facc15';
+        } else {
+            fill = '#1f1800'; stroke = '#facc15'; dotColor = '#facc15';
+        }
+    } else {
+        if (isSuccess) {
+            fill = '#0f1f0f'; stroke = '#22c55e'; dotColor = '#22c55e';
+        } else {
+            fill = '#2a2a2a'; stroke = '#555'; dotColor = '#888';
+        }
+    }
+
+    const shakeStyle = isPanic && animate
+        ? { display: 'inline-block', animation: 'dieShake 0.4s infinite' }
+        : isSuccess && animate
+            ? { display: 'inline-block', animation: 'diePop 0.5s ease' }
+            : { display: 'inline-block' };
+
+    return (
+        <div style={shakeStyle}>
+            <svg width={52} height={52} viewBox="0 0 100 100">
+                <rect x="4" y="4" width="92" height="92" rx="16" fill={fill} stroke={stroke} strokeWidth="2.5" />
+                {dots.map(([cx, cy], i) => (
+                    <circle key={i} cx={cx} cy={cy} r={r} fill={dotColor} />
+                ))}
+            </svg>
+        </div>
+    );
+}
+
+// ─── Stepper input ─────────────────────────────────────────────────────────────
+function DiceInput({ classes, label, value, onChange, accentColor, hint }) {
+    return (
+        <div className={classes.inputField}>
+            <label className={classes.inputLabel}>{label}</label>
+            <div className={classes.inputControl} style={{ border: `0.5px solid ${accentColor}44` }}>
+                <button className={classes.inputBtn} style={{ color: accentColor }}
+                    onClick={() => onChange(Math.max(0, value - 1))}>−</button>
+                <span className={classes.inputValue}>{value}</span>
+                <button className={classes.inputBtn} style={{ color: accentColor }}
+                    onClick={() => onChange(value + 1)}>+</button>
+            </div>
+            {hint && <span style={{ fontSize: 10, color: '#555' }}>{hint}</span>}
+        </div>
+    );
+}
+
+// ─── Panic panel ───────────────────────────────────────────────────────────────
+function PanicPanel({ classes, panicRollResult, showEffect, onReveal }) {
+    if (!panicRollResult) return null;
+    const sev = panicSeverity(panicRollResult.totalPanicRoll);
+
+    return (
+        <div className={classes.panicCalcPanel}>
+            <div className={classes.panicCalcHeader}>
+                <WarningIcon style={{ fontSize: 14 }} />
+                Rolagem de pânico — {sev.label}
+            </div>
+
+            <div className={classes.panicCalcRow}>
+                <div className={classes.panicCalcItem}>
+                    <div className={classes.panicCalcItemLabel}>1D6</div>
+                    <div className={classes.panicCalcItemValue} style={{ color: '#f1f5f9' }}>{panicRollResult.panicRoll}</div>
+                </div>
+                <div className={classes.panicCalcSep}>+</div>
+                <div className={classes.panicCalcItem}>
+                    <div className={classes.panicCalcItemLabel}>Estresse</div>
+                    <div className={classes.panicCalcItemValue} style={{ color: '#f97316' }}>{panicRollResult.stressLevel}</div>
+                </div>
+                <div className={classes.panicCalcSep}>=</div>
+                <div className={classes.panicCalcItem}>
+                    <div className={classes.panicCalcItemLabel}>Total</div>
+                    <div className={classes.panicCalcItemValue} style={{ color: sev.color }}>{panicRollResult.totalPanicRoll}</div>
+                </div>
+            </div>
+
+            {!showEffect ? (
+                <button
+                    className={classes.revealButton}
+                    style={{ border: `1px solid ${sev.color}`, color: sev.color }}
+                    onMouseEnter={e => e.currentTarget.style.background = `${sev.color}18`}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    onClick={onReveal}
+                >
+                    <PsychologyIcon style={{ fontSize: 16 }} />
+                    Revelar Efeito
+                </button>
+            ) : (
+                <div className={classes.effectBox}
+                    style={{ borderLeftColor: sev.color, background: `${sev.bg}` }}>
+                    <div className={classes.effectLabel} style={{ color: sev.color }}>
+                        {panicRollResult.effect.range} — {panicRollResult.effect.label}
+                    </div>
+                    <div className={classes.effectText} style={{ color: '#ffffff' }}>
+                        {panicRollResult.effect.effect}
+                    </div>
+                    <div className={classes.effectText} style={{ color: '#bd8e8e' }} >Leia este resultado para o Mestre</div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
+function YearZeroDiceModalRaw({
     classes,
     handleClose,
     characterId,
@@ -162,543 +500,256 @@ function YearZeroDiceModal({
     gearDice = 0,
     attributeName = '',
     skillName = '',
-    character,
-    stressSquares = [], // NOVO: Receber os quadrados de estresse
+    stressSquares = [],
     onDiceRoll,
-    onPushRoll
+    onPushRoll,
 }) {
-    const [skillDiceInput, setSkillDiceInput] = useState(skillDice);
-    const [attributeDiceInput, setAttributeDiceInput] = useState(baseDice);
-    const [gearDiceInput, setGearDiceInput] = useState(gearDice);
-    
-    // NOVO: Calcular nível de estresse baseado nos quadrados
     const stressLevel = stressSquares ? stressSquares.filter(Boolean).length : 0;
-    const [stressDiceInput, setStressDiceInput] = useState(stressLevel);
 
-    const [buttonDisabled, setButtonDisabled] = useState(false);
-    const [result, setResult] = useState(null);
-    const [pushState, setPushState] = useState('initial');
-    const [showPanicAlert, setShowPanicAlert] = useState(false);
-    const [panicRollResult, setPanicRollResult] = useState(null);
-    const [showPanicEffect, setShowPanicEffect] = useState(false);
+    const [attr,   setAttr]   = useState(baseDice);
+    const [skill,  setSkill]  = useState(skillDice);
+    const [gear,   setGear]   = useState(gearDice);
+    const [stress, setStress] = useState(stressLevel);
 
-    const rollSingleDie = () => {
-        return Math.floor(Math.random() * 6) + 1;
-    }
+    const [result,      setResult]      = useState(null);
+    const [pushState,   setPushState]   = useState('initial');
+    const [panicResult, setPanicResult] = useState(null);
+    const [showEffect,  setShowEffect]  = useState(false);
+    const [rolling,     setRolling]     = useState(false);
+    const [animate,     setAnimate]     = useState(false);
 
-    const rollPanic = () => {
-        const panicRoll = rollSingleDie();
-        // NOVO: Usar o nível de estresse calculado dos quadrados
-        const totalPanicRoll = panicRoll + stressLevel;
-        
-        let panicEffect;
-        if (totalPanicRoll <= 6) panicEffect = PANIC_TABLE[0];
-        else if (totalPanicRoll <= 7) panicEffect = PANIC_TABLE[1];
-        else if (totalPanicRoll <= 8) panicEffect = PANIC_TABLE[2];
-        else if (totalPanicRoll <= 9) panicEffect = PANIC_TABLE[3];
-        else if (totalPanicRoll <= 10) panicEffect = PANIC_TABLE[4];
-        else if (totalPanicRoll <= 11) panicEffect = PANIC_TABLE[5];
-        else if (totalPanicRoll <= 12) panicEffect = PANIC_TABLE[6];
-        else if (totalPanicRoll <= 13) panicEffect = PANIC_TABLE[7];
-        else if (totalPanicRoll <= 14) panicEffect = PANIC_TABLE[8];
-        else panicEffect = PANIC_TABLE[9];
+    const roll1 = () => Math.floor(Math.random() * 6) + 1;
 
-        setPanicRollResult({
-            panicRoll: panicRoll,
-            stressLevel: stressLevel, // NOVO: Usar stressLevel calculado
-            totalPanicRoll: totalPanicRoll,
-            effect: panicEffect
-        });
-        setShowPanicEffect(false);
-    }
+    const rollPanic = (lvl) => {
+        const d = roll1();
+        const total = d + lvl;
+        let effect;
+        if      (total <= 6)  effect = PANIC_TABLE[0];
+        else if (total <= 7)  effect = PANIC_TABLE[1];
+        else if (total <= 8)  effect = PANIC_TABLE[2];
+        else if (total <= 9)  effect = PANIC_TABLE[3];
+        else if (total <= 10) effect = PANIC_TABLE[4];
+        else if (total <= 11) effect = PANIC_TABLE[5];
+        else if (total <= 12) effect = PANIC_TABLE[6];
+        else if (total <= 13) effect = PANIC_TABLE[7];
+        else if (total <= 14) effect = PANIC_TABLE[8];
+        else                  effect = PANIC_TABLE[9];
+        setPanicResult({ panicRoll: d, stressLevel: lvl, totalPanicRoll: total, effect });
+        setShowEffect(false);
+    };
 
-    const revealPanicEffect = () => {
-        setShowPanicEffect(true);
-    }
-
-    const rollYearZeroDice = () => {
-        setButtonDisabled(true);
-        setShowPanicAlert(false);
-        setPanicRollResult(null);
-        setShowPanicEffect(false);
-
-        const totalDice = skillDiceInput + attributeDiceInput + gearDiceInput + stressDiceInput;
-
-        if(totalDice < 1) {
-            setButtonDisabled(false);
-            return window.alert('É necessário pelo menos 1 dado para rolar');
-        }
-
-        const whiteDiceCount = attributeDiceInput + skillDiceInput + gearDiceInput;
-        const yellowDiceCount = stressDiceInput;
-
-        const whiteResults = Array.from({ length: whiteDiceCount }, rollSingleDie);
-        const yellowResults = Array.from({ length: yellowDiceCount }, rollSingleDie);
-
-        const allResults = [...whiteResults, ...yellowResults];
-
-        const whiteSuccesses = whiteResults.filter(value => value === 6).length;
-        const yellowSuccesses = yellowResults.filter(value => value === 6).length;
-        const panics = yellowResults.filter(value => value === 1).length;
-
-        const totalSuccesses = whiteSuccesses + yellowSuccesses;
-        const hasPanic = panics > 0;
-
-        const rollResult = {
-            dice: allResults,
-            whiteResults: whiteResults,
-            yellowResults: yellowResults,
-            successes: totalSuccesses,
-            failures: allResults.filter(value => value === 1).length,
-            pushState: 'initial',
-            totalDice: totalDice,
-            whiteDiceCount: whiteDiceCount,
-            yellowDiceCount: yellowDiceCount,
-            whiteSuccesses: whiteSuccesses,
-            yellowSuccesses: yellowSuccesses,
-            panics: panics,
-            hasPanic: hasPanic
-        };
-
-        setResult(rollResult);
-        setPushState('initial');
-        setButtonDisabled(false);
-
-        if (hasPanic) {
-            setShowPanicAlert(true);
-            rollPanic();
-        }
-
-        if (onDiceRoll) {
-            onDiceRoll(rollResult);
-        }
-
-        api.post('roll', {
-            character_id: characterId,
-            max_number: 6,
-            times: totalDice
-        }).catch(err => {
-            console.log(err);
-        });
-    }
-
-    const pushRoll = () => {
-        setButtonDisabled(true);
-        setShowPanicAlert(false);
-        setPanicRollResult(null);
-        setShowPanicEffect(false);
-
-        if (onPushRoll) {
-            onPushRoll();
-        }
-
-        const newWhiteDice = result.whiteResults.map(die => {
-            return die === 6 || die === 1 ? die : rollSingleDie();
-        });
-
-        const newYellowDice = result.yellowResults.map(die => {
-            return die === 6 || die === 1 ? die : rollSingleDie();
-        });
-
-        const allNewResults = [...newWhiteDice, ...newYellowDice];
-
-        const whiteSuccesses = newWhiteDice.filter(value => value === 6).length;
-        const yellowSuccesses = newYellowDice.filter(value => value === 6).length;
-        const panics = newYellowDice.filter(value => value === 1).length;
-
-        const totalSuccesses = whiteSuccesses + yellowSuccesses;
-        const hasPanic = panics > 0;
-
-        const pushResult = {
-            dice: allNewResults,
-            whiteResults: newWhiteDice,
-            yellowResults: newYellowDice,
-            successes: totalSuccesses,
-            failures: allNewResults.filter(value => value === 1).length,
-            pushState: 'pushed',
-            totalDice: result.totalDice,
-            whiteDiceCount: result.whiteDiceCount,
-            yellowDiceCount: result.yellowDiceCount,
-            whiteSuccesses: whiteSuccesses,
-            yellowSuccesses: yellowSuccesses,
-            panics: panics,
-            hasPanic: hasPanic
-        };
-
-        setResult(pushResult);
-        setPushState('pushed');
-        setButtonDisabled(false);
-
-        if (hasPanic) {
-            setShowPanicAlert(true);
-            rollPanic();
-        }
-    }
-
-    const getDieStyle = (value, index) => {
-        const isYellowDie = index >= result.whiteResults.length;
-        const isPanicDie = isYellowDie && value === 1;
-
-        if (isPanicDie) {
-            return {
-                backgroundColor: '#FF8C00',
-                color: '#000000',
-                fontWeight: 'bold',
-                border: '3px solid #FF4500',
-                boxShadow: '0 0 15px rgba(255, 140, 0, 0.8)'
-            };
-        }
-        if(value === 6) {
-            return {
-                backgroundColor: isYellowDie ? '#ffeb3b' : '#4caf50',
-                color: isYellowDie ? '#000000' : 'white',
-                fontWeight: 'bold',
-                border: isYellowDie ? '2px solid #ff9800' : 'none'
-            };
-        }
-        if(value === 1) {
-            return {
-                backgroundColor: isYellowDie ? '#fff9c4' : '#e0e0e0',
-                color: isYellowDie ? '#000000' : '#000000',
-                fontWeight: 'bold',
-                border: isYellowDie ? '1px solid #ffd54f' : '1px solid #bdbdbd'
-            };
-        }
+    const buildResult = (white, yellow, pushed = false) => {
+        const wS = white.filter(v => v === 6).length;
+        const yS = yellow.filter(v => v === 6).length;
+        const panics = yellow.filter(v => v === 1).length;
         return {
-            backgroundColor: isYellowDie ? '#f2de28ce' : '#a2b69848',
-            border: isYellowDie ? '1px solid #f8c312ff' : '1px solid #bdbdbd'
+            whiteResults: white, yellowResults: yellow,
+            whiteDiceCount: white.length, yellowDiceCount: yellow.length,
+            whiteSuccesses: wS, yellowSuccesses: yS,
+            successes: wS + yS,
+            panics, hasPanic: panics > 0,
+            pushState: pushed ? 'pushed' : 'initial',
         };
     };
 
-    const getDialogTitle = () => {
-        if (result) {
-            if (result.hasPanic) {
-                return 'PÂNICO - Rolagem Year Zero Engine';
-            }
-            return 'Resultado Year Zero Engine';
-        }
-
-        if (skillName && attributeName) {
-            return `Rolar ${skillName} (${attributeName})`;
-        } else if (attributeName) {
-            return `Rolar ${attributeName}`;
-        }
-        return 'Rolar Year Zero Engine';
+    const triggerAnimate = () => {
+        setAnimate(true);
+        setTimeout(() => setAnimate(false), 700);
     };
 
-    const handleNewRoll = () => {
-        setShowPanicAlert(false);
-        setPanicRollResult(null);
-        setShowPanicEffect(false);
-        handleClose();
+    const doRoll = () => {
+        const total = attr + skill + gear + stress;
+        if (total < 1) return alert('É necessário pelo menos 1 dado para rolar');
+        setRolling(true);
+        setTimeout(() => {
+            const white  = Array.from({ length: attr + skill + gear }, roll1);
+            const yellow = Array.from({ length: stress }, roll1);
+            const r = buildResult(white, yellow);
+            setResult(r);
+            setPushState('initial');
+            triggerAnimate();
+            if (r.hasPanic) rollPanic(stress);
+            if (onDiceRoll) onDiceRoll(r);
+            api.post('roll', { character_id: characterId, max_number: 6, times: total }).catch(() => {});
+            setRolling(false);
+        }, 300);
     };
 
-    const PanicAlert = () => (
-        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <Paper className={classes.panicAlert}>
-                <div className={classes.panicGlow} />
-                
-                <Typography className={classes.panicHeader}>
-                    [PÂNICO!!!]
-                </Typography>
+    const doPush = () => {
+        if (onPushRoll) onPushRoll();
+        const newWhite  = result.whiteResults.map(d  => (d === 6 || d === 1) ? d : roll1());
+        const newYellow = result.yellowResults.map(d => (d === 6 || d === 1) ? d : roll1());
+        const r = buildResult(newWhite, newYellow, true);
+        setResult(r);
+        setPushState('pushed');
+        triggerAnimate();
+        if (r.hasPanic) rollPanic(stress);
+    };
 
-                <Box className={classes.panicDiceGrid}>
-                    {result.dice.map((value, index) => {
-                        const isYellowDie = index >= result.whiteResults.length;
-                        const isPanicDie = isYellowDie && value === 1;
-                        const dieClass = isPanicDie ? classes.panicDieHighlight : 
-                                       isYellowDie ? classes.stressDie : classes.normalDie;
-                        
-                        return (
-                            <Box key={index} className={`${classes.panicDie} ${dieClass}`}>
-                                {value}
-                                {isPanicDie && (
-                                    <Box className={classes.panicBadge}>
-                                        !
-                                    </Box>
-                                )}
-                            </Box>
-                        );
-                    })}
-                </Box>
+    const resetAll = () => {
+        setResult(null);
+        setPanicResult(null);
+        setShowEffect(false);
+        setPushState('initial');
+    };
 
-                {panicRollResult && (
-                    <Box className={classes.centeredContent}>
-                        <Box className={classes.calculationBox}>
-                            <Typography className={classes.calculationText}>
-                                <strong>CÁLCULO AUTOMÁTICO DO PÂNICO</strong>
-                            </Typography>
-                            
-                            <Box className={classes.inlineCalculation}>
-                                <Typography className={classes.calculationPart}>
-                                    1D6, resultado = {panicRollResult.panicRoll}
-                                </Typography>
-                                <Typography className={classes.calculationPart}>
-                                    +
-                                </Typography>
-                                <Typography className={classes.calculationPart}>
-                                    Estresse atual = {panicRollResult.stressLevel}
-                                </Typography>
-                            </Box>
-                            
-                            <Typography className={classes.calculationFormula}>
-                                <strong>TOTAL = {panicRollResult.totalPanicRoll}</strong>
-                            </Typography>
-
-                            {!showPanicEffect && (
-                                <Box className={classes.revealButtonContainer}>
-                                    <Button
-                                        className={classes.revealButton}
-                                        onClick={revealPanicEffect}
-                                        startIcon={<Psychology />}
-                                        size="large"
-                                    >
-                                        REVELAR EFEITO DO PÂNICO
-                                    </Button>
-                                </Box>
-                            )}
-
-                            {showPanicEffect && (
-                                <Collapse in={showPanicEffect}>
-                                    <Box className={classes.resultBox}>
-                                        <Typography className={classes.resultText}>
-                                            <strong>EFEITO: {panicRollResult.effect.range}</strong><br/>
-                                            {panicRollResult.effect.effect}
-                                        </Typography>
-                                    </Box>
-                                    <Typography className={classes.instructionText}>
-                                        Leia este resultado para o Mestre
-                                    </Typography>
-                                </Collapse>
-                            )}
-                        </Box>
-                    </Box>
-                )}
-            </Paper>
-        </Box>
-    );
+    const isPanic      = result?.hasPanic;
+    const canPush      = pushState === 'initial' && result && !isPanic && result.successes === 0;
+    const title        = skillName && attributeName ? `${skillName} · ${attributeName}` : skillName || attributeName || 'Year Zero Engine';
+    const totalWhite   = attr + skill + gear;
 
     return (
         <Dialog
-            open={true}
+            open
             onClose={handleClose}
-            fullWidth
             maxWidth="sm"
+            fullWidth
+            classes={{ paper: isPanic ? classes.dialogPaperPanic : classes.dialogPaper }}
         >
-            <DialogTitle>
-                {getDialogTitle()}
-            </DialogTitle>
-            <DialogContent>
-                {
-                    result ? (
-                        <Grid container spacing={2}>
-                            <Grid item xs={12}>
-                                <DialogContentText>
-                                    {skillName && attributeName
-                                        ? `${skillName} (${attributeName})`
-                                        : 'Sistema Year Zero Engine'
-                                    }
-                                </DialogContentText>
-                            </Grid>
+            {/* ── Header ── */}
+            {isPanic ? (
+                <div className={classes.headerPanic}>
+                    <div>
+                        <div className={classes.headerSubtitle} style={{ color: '#ef4444' }}>
+                            Year Zero Engine — Pânico
+                        </div>
+                        <div className={classes.headerTitle} style={{ color: '#fca5a5' }}>{title}</div>
+                    </div>
+                    <div className={classes.headerIconBoxPanic}>
+                        <WarningIcon style={{ color: '#ef4444', fontSize: 18 }} />
+                    </div>
+                </div>
+            ) : (
+                <div className={classes.header}>
+                    <div>
+                        <div className={classes.headerSubtitle} style={{ color: '#9f9f9f' }}>Year Zero Engine</div>
+                        <div className={classes.headerTitle} style={{ color: '#f1f5f9' }}>{title}</div>
+                    </div>
+                    <div className={classes.headerIconBox}>
+                        <CasinoIcon style={{ color: '#ff6b35', fontSize: 18 }} />
+                    </div>
+                </div>
+            )}
 
-                            {result.hasPanic && <PanicAlert />}
-
-                            {!result.hasPanic && (
-                                <Grid item xs={12}>
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, justifyContent: 'center' }}>
-                                        {result.dice.map((value, index) => (
-                                            <Box
-                                                key={index}
-                                                sx={{
-                                                    width: 40,
-                                                    height: 40,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    borderRadius: 1,
-                                                    fontWeight: 'bold',
-                                                    ...getDieStyle(value, index)
-                                                }}
-                                            >
-                                                {value}
-                                            </Box>
-                                        ))}
-                                    </Box>
-                                </Grid>
-                            )}
-
-                            <Grid item xs={6}>
-                                <DialogContentText>
-                                    Dados Brancos: {result.whiteDiceCount}
-                                </DialogContentText>
-                                <DialogContentText>
-                                    Sucessos Brancos: {result.whiteSuccesses}
-                                </DialogContentText>
-                            </Grid>
-                            <Grid item xs={6}>
-                                <DialogContentText>
-                                    Dados Amarelos: {result.yellowDiceCount}
-                                </DialogContentText>
-                                <DialogContentText>
-                                    Sucessos Amarelos: {result.yellowSuccesses}
-                                </DialogContentText>
-                            </Grid>
-
-                            <Grid item xs={12}>
-                                <DialogContentText variant="h6">
-                                    Total de Sucessos: {result.successes}
-                                </DialogContentText>
-                                {result.panics > 0 && (
-                                    <DialogContentText>
-                                        Dados de Pânico: {result.panics}
-                                    </DialogContentText>
-                                )}
-                            </Grid>
-
-                            {pushState === 'initial' && !result.hasPanic && (
-                                <Grid item xs={12}>
-                                    <DialogContentText>
-                                        <Warning style={{ verticalAlign: 'middle', marginRight: 8 }} />
-                                        Você pode empurrar a rolagem para rerrolar dados que não são 1 ou 6.
-                                    </DialogContentText>
-                                </Grid>
-                            )}
-
-                            {pushState === 'pushed' && (
-                                <Grid item xs={12}>
-                                    <DialogContentText>
-                                        {result.successes > 0
-                                            ? `Ação bem-sucedida com ${result.successes} sucesso(s)`
-                                            : 'Ação falhou'
-                                        }
-                                    </DialogContentText>
-                                </Grid>
-                            )}
-                        </Grid>
-                    ) : (
-                        <Grid container spacing={2}>
-                            <Grid item xs={12}>
-                                <DialogContentText>
-                                    {skillName && attributeName
-                                        ? `${skillName} vinculada a ${attributeName}`
-                                        : 'Sistema Year Zero Engine - Cada 6 é um sucesso'
-                                    }
-                                </DialogContentText>
-                                {/* NOVO: Mostrar nível de estresse calculado dos quadrados */}
-                                {stressLevel > 0 && (
-                                    <DialogContentText>
-                                        Estresse Atual (Quadrados): {stressLevel} (sugestão)
-                                    </DialogContentText>
-                                )}
-                            </Grid>
-
-                            <Grid item xs={3}>
-                                <TextField
-                                    autoFocus
-                                    label="Dados de Habilidade"
-                                    type="number"
-                                    fullWidth
-                                    variant="outlined"
-                                    value={skillDiceInput}
-                                    onChange={({ target }) => {
-                                        setSkillDiceInput(Number(target.value));
-                                    }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={3}>
-                                <TextField
-                                    label="Dados de Atributo"
-                                    type="number"
-                                    fullWidth
-                                    variant="outlined"
-                                    value={attributeDiceInput}
-                                    onChange={({ target }) => {
-                                        setAttributeDiceInput(Number(target.value));
-                                    }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={3}>
-                                <TextField
-                                    label="Dados de Equipamento"
-                                    type="number"
-                                    fullWidth
-                                    variant="outlined"
-                                    value={gearDiceInput}
-                                    onChange={({ target }) => {
-                                        setGearDiceInput(Number(target.value));
-                                    }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={3}>
-                                <TextField
-                                    label="Dados de Estresse"
-                                    type="number"
-                                    fullWidth
-                                    variant="outlined"
-                                    value={stressDiceInput}
-                                    onChange={({ target }) => {
-                                        setStressDiceInput(Number(target.value));
-                                    }}
-                                    helperText={`Quadrados: ${stressLevel}`}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12}>
-                                <DialogContentText>
-                                    Total de dados brancos: {skillDiceInput + attributeDiceInput + gearDiceInput}
-                                </DialogContentText>
-                                <DialogContentText>
-                                    Dados amarelos (estresse): {stressDiceInput}
-                                </DialogContentText>
-                                <DialogContentText variant="h6">
-                                    Total geral: {(skillDiceInput + attributeDiceInput + gearDiceInput) + stressDiceInput}     
-                                </DialogContentText>
-                            </Grid>
-                        </Grid>
-                    )
-                }
-            </DialogContent>
-            <DialogActions>
-                <Button
-                    onClick={handleClose}
-                    color="secondary"
-                >
-                    Fechar
-                </Button>
-
-                {result ? (
-                    <Box>
-                        {pushState === 'initial' && !result.hasPanic && result.successes === 0 && (
-                            <Button
-                                onClick={pushRoll}
-                                startIcon={<Replay />}
-                                color="warning"
-                                style={{ marginRight: 8 }}
-                            >
-                                Empurrar Rolagem (+1 Estresse)
-                            </Button>
-                        )}
-                        <Button
-                            onClick={handleNewRoll}
-                        >
-                            Nova Rolagem
-                        </Button>
-                    </Box>
+            {/* ── Content ── */}
+            <DialogContent className={classes.content} style={{ padding: 20 }}>
+                {!result ? (
+                    /* Input screen */
+                    <>
+                        <div className={classes.inputGrid}>
+                            <DiceInput classes={classes} label="Atributo"     value={attr}   onChange={setAttr}   accentColor="#ff6b35" />
+                            <DiceInput classes={classes} label="Habilidade"   value={skill}  onChange={setSkill}  accentColor="#60a5fa" />
+                            <DiceInput classes={classes} label="Equipamento"  value={gear}   onChange={setGear}   accentColor="#888" />
+                            <DiceInput classes={classes} label="Estresse"     value={stress} onChange={setStress} accentColor="#facc15"
+                                hint={stressLevel > 0 ? `Quadrados ativos: ${stressLevel}` : undefined} />
+                        </div>
+                        <div className={classes.totalsBar}>
+                            <span className={classes.totalsLabel}>Brancos</span>
+                            <span className={classes.totalsValue} style={{ color: '#ddd' }}>{totalWhite}</span>
+                            <span style={{ color: '#2a2a2a', margin: '0 4px' }}>│</span>
+                            <span className={classes.totalsLabel}>Amarelos</span>
+                            <span className={classes.totalsValue} style={{ color: '#facc15' }}>{stress}</span>
+                            <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span className={classes.totalsLabel}>Total</span>
+                                <span className={classes.totalsValue} style={{ color: '#f1f5f9' }}>{totalWhite + stress}</span>
+                            </span>
+                        </div>
+                    </>
                 ) : (
-                    <Button
-                        onClick={rollYearZeroDice}
-                        disabled={buttonDisabled}
-                        startIcon={<Casino />}
-                    >
-                        Rolar
-                    </Button>
+                    /* Result screen */
+                    <>
+                        {/* Success block — always shown */}
+                        <div className={classes.successBlock}>
+                            <div className={classes.successLabel}>Sucessos</div>
+                            <div className={classes.successNumber}
+                                style={{ color: result.successes > 0 ? '#22c55e' : '#ef4444' }}>
+                                {result.successes}
+                            </div>
+                            <div className={classes.successText}
+                                style={{ color: result.successes > 0 ? '#22c55e' : '#ef4444' }}>
+                                {result.successes > 0 ? 'Ação bem-sucedida!' : 'Ação falhou'}
+                            </div>
+                        </div>
+
+                        {/* White dice group */}
+                        {result.whiteDiceCount > 0 && (
+                            <>
+                                <div className={classes.diceGroupLabel}>
+                                    Dados brancos · {result.whiteSuccesses} sucesso{result.whiteSuccesses !== 1 ? 's' : ''}
+                                </div>
+                                <div className={classes.diceGrid}
+                                    style={{ animation: animate ? 'fadeUp 0.3s ease' : 'none' }}>
+                                    {result.whiteResults.map((v, i) => (
+                                        <DieFace key={`w${i}`} value={v} type="white" animate={animate} />
+                                    ))}
+                                </div>
+                            </>
+                        )}
+
+                        {/* Yellow dice group */}
+                        {result.yellowDiceCount > 0 && (
+                            <>
+                                <div className={classes.diceGroupLabel}>
+                                    Dados de estresse · {result.yellowSuccesses} sucesso{result.yellowSuccesses !== 1 ? 's' : ''}
+                                    {result.panics > 0 && (
+                                        <span style={{ color: '#ef4444', marginLeft: 8 }}>
+                                            · {result.panics} pânico{result.panics !== 1 ? 's' : ''}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className={classes.diceGrid}
+                                    style={{ animation: animate ? 'fadeUp 0.3s ease' : 'none' }}>
+                                    {result.yellowResults.map((v, i) => (
+                                        <DieFace key={`y${i}`} value={v} type="yellow" animate={animate} />
+                                    ))}
+                                </div>
+                            </>
+                        )}
+
+                        {/* Push warning */}
+                        {canPush && (
+                            <div className={classes.pushWarning}>
+                                <WarningIcon style={{ fontSize: 14 }} />
+                                Empurre para rerolar dados que não sejam 1 ou 6.
+                            </div>
+                        )}
+
+                        {/* Panic panel */}
+                        {isPanic && (
+                            <PanicPanel
+                                classes={classes}
+                                panicRollResult={panicResult}
+                                showEffect={showEffect}
+                                onReveal={() => setShowEffect(true)}
+                            />
+                        )}
+                    </>
                 )}
-            </DialogActions>
+            </DialogContent>
+
+            {/* ── Footer ── */}
+            <div className={isPanic ? classes.footerPanic : classes.footer}>
+                <button className={classes.btnClose} onClick={handleClose}>Fechar</button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    {result && (
+                        <button className={classes.btnSecondary} onClick={resetAll}>Nova Rolagem</button>
+                    )}
+                    {canPush && (
+                        <button className={classes.btnPush} onClick={doPush}>
+                            <ReplayIcon style={{ fontSize: 14 }} />
+                            Empurrar (+1 Estresse)
+                        </button>
+                    )}
+                    {!result && (
+                        <button className={classes.btnRoll} onClick={doRoll} disabled={rolling}>
+                            <CasinoIcon style={{ fontSize: 16 }} />
+                            {rolling ? 'Rolando…' : 'Rolar'}
+                        </button>
+                    )}
+                </div>
+            </div>
         </Dialog>
-    )
+    );
 }
 
-export default withStyles(styles)(YearZeroDiceModal);
+export default withStyles(styles)(YearZeroDiceModalRaw);
