@@ -23,12 +23,12 @@ export const styles = (theme) => ({
     overflow: 'hidden',
   },
   setupButton: {
-    background: 'linear-gradient(135deg, #639EC2 0%, #4a7a9c 100%)',
+    background: 'linear-gradient(135deg, #226a97 0%, #1f4b67 100%)',
     color: 'white',
     fontWeight: 'bold',
     marginTop: '10px',
     '&:hover': {
-      background: 'linear-gradient(135deg, #7ab3d9 0%, #5b8bb3 100%)',
+      background: 'linear-gradient(135deg, #2471a3 0%, #1a5276 100%)',
     },
     '&:disabled': {
       background: 'rgba(140, 140, 140, 0.3)',

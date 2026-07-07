@@ -276,8 +276,7 @@ function CharacterSheet({ rawCharacter, error: serverError }) {
     try {
       const result = await originalHandleSystemChange(newSystem, api);
       
-      console.log('[id.jsx] Mudança de sistema concluída, acionando refreshData');
-      refreshData();
+      console.log('[id.jsx] Mudanca de sistema concluida (dados ja atualizados pela API)');
       return result;
     } catch (error) {
       console.error('[id.jsx] Erro na mudança de sistema:', error);

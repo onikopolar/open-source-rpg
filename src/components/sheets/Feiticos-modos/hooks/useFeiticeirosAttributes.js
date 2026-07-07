@@ -167,7 +167,8 @@ export const useFeiticeirosAttributes = (state, setState, stateRef, character, o
         characterId: character.id,
         characterName: character.name,
         skillName: attributeName,
-        skillValue: attr.value
+        skillValue: attr.value,
+        initialTimes: parseInt(attr.value) || 1
       });
     }
   }, [stateRef, character, diceRollModal]);

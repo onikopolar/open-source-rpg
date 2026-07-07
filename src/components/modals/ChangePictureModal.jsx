@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { withStyles } from '@mui/styles';
 import {
     TextField, Dialog, DialogActions, DialogContent,
-    DialogTitle, Button, Grid, Link, Tabs, Tab,
+    DialogTitle, Button, Grid, Tabs, Tab,
     Box, IconButton, Typography
 } from '@mui/material';
 import Cropper from 'react-easy-crop';
@@ -84,19 +84,30 @@ const styles = theme => ({
         fontWeight: 'bold',
     },
     previewLabel: {
-        fontSize: '0.85rem',
-        color: '#ffffffff',
-        marginBottom: 4,
+        fontSize: '0.8rem',
+        color: '#555',
+        marginBottom: 6,
         textAlign: 'center',
-        fontWeight: '500',
+        fontWeight: 500,
     },
     uploadPreviewLabel: {
-        fontSize: '0.85rem',
+        fontSize: '0.8rem',
         color: '#666',
-        marginBottom: 8,
+        marginBottom: 6,
         textAlign: 'center',
-        fontWeight: '500',
+        fontWeight: 500,
         fontStyle: 'italic',
+    },
+    infoBox: {
+        padding: '4px 0 12px 0',
+        fontSize: '0.82rem',
+        color: '#e6e6e6',
+        lineHeight: 1.5,
+    },
+    cropActions: {
+        display: 'flex',
+        gap: 12,
+        marginTop: 16,
     },
 });
 
@@ -409,97 +420,70 @@ function ChangePictureModal({
 
                 <Box className={classes.tabPanel}>
                     {activeTab === 0 ? (
-                        <Grid container spacing={3}>
+                        <Grid container spacing={2}>
                             <Grid item xs={12}>
-                                <Typography variant="body2" paragraph>
-                                    <strong>Modo URL:</strong> Cole URLs do Imgur ou Discord.
-                                </Typography>
-                                <Typography variant="body2" paragraph>
-                                    As artes devem estar no tamanho <strong>420x600</strong> e em formato <strong>PNG</strong>.
-                                </Typography>
-                                <Typography variant="body2" paragraph>
-                                    URLs aceitas: <Link href="https://imgur.com/" target="_blank">Imgur</Link> ou Discord.
-                                </Typography>
-                                <Typography variant="body2" color="primary" fontStyle="italic">
-                                    Dica: Use esse modo pra links externos que já existem.
-                                </Typography>
+                                <Box className={classes.infoBox}>
+                                    <Typography variant="body2">
+                                        <strong>Modo URL:</strong> Cole links do Imgur ou Discord. As imagens devem estar em <strong>420x600 (PNG)</strong>.
+                                        Use este modo para links externos que ja existem.
+                                    </Typography>
+                                </Box>
                             </Grid>
 
-                            {/* Seção da Imagem Padrão */}
+                            {/* Imagem Padrao */}
                             <Grid item xs={12}>
-                                <div className={classes.sectionHeader}>
-                                    <Typography variant="h6">
-                                        Imagem Padrão
+                                <Box className={classes.sectionHeader}>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                                        Imagem Padrao
                                     </Typography>
                                     {hasPreview('standard') && (
-                                        <span className={classes.previewBadge}>
-                                            <CheckIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                                            Preview disponível
-                                        </span>
+                                        <Typography variant="caption" sx={{ color: '#4caf50', fontWeight: 700 }}>
+                                            <CheckIcon sx={{ fontSize: 14, mr: 0.25, verticalAlign: 'middle' }} />
+                                            Carregada
+                                        </Typography>
                                     )}
-                                </div>
+                                </Box>
 
                                 {hasPreview('standard') && (
-                                    <div>
-                                        <div className={classes.previewLabel}>
-                                            Pré-visualização atual:
-                                        </div>
-                                        <div className={classes.previewContainer}>
-                                            <img 
-                                                src={getPreviewUrl('standard')} 
-                                                alt="Preview Padrão"
-                                                className={classes.previewImage}
-                                            />
-                                        </div>
-                                    </div>
+                                    <Box sx={{ textAlign: 'center', mb: 1 }}>
+                                        <Box component="img" src={getPreviewUrl('standard')}
+                                            sx={{ maxWidth: '100%', maxHeight: 180, borderRadius: 1, border: '2px solid #696969ff' }} />
+                                    </Box>
                                 )}
 
                                 <TextField
                                     autoFocus
-                                    label="URL da Imagem Padrão"
+                                    label="URL da Imagem Padrao"
                                     type="text"
                                     fullWidth
                                     variant="outlined"
                                     size="small"
                                     value={pictureURLs.standard_character_picture_url}
-                                    onChange={({ target }) => {
-                                        setPictureURLs(prevState => ({
-                                            ...prevState,
-                                            standard_character_picture_url: target.value
-                                        }));
-                                    }}
-                                    helperText="Cole uma URL do Imgur ou Discord. Deixe vazio se já fez upload acima."
+                                    onChange={({ target }) => setPictureURLs(prev => ({ ...prev, standard_character_picture_url: target.value }))}
+                                    helperText="Cole uma URL do Imgur ou Discord"
                                     placeholder="https://i.imgur.com/..."
                                 />
                             </Grid>
 
-                            {/* Seção da Imagem Machucada */}
+                            {/* Imagem Machucada */}
                             <Grid item xs={12}>
-                                <div className={classes.sectionHeader}>
-                                    <Typography variant="h6">
+                                <Box className={classes.sectionHeader}>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                                         Imagem Machucada
                                     </Typography>
                                     {hasPreview('injured') && (
-                                        <span className={classes.previewBadge}>
-                                            <CheckIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                                            Preview disponível
-                                        </span>
+                                        <Typography variant="caption" sx={{ color: '#4caf50', fontWeight: 700 }}>
+                                            <CheckIcon sx={{ fontSize: 14, mr: 0.25, verticalAlign: 'middle' }} />
+                                            Carregada
+                                        </Typography>
                                     )}
-                                </div>
+                                </Box>
 
                                 {hasPreview('injured') && (
-                                    <div>
-                                        <div className={classes.previewLabel}>
-                                            Pré-visualização atual:
-                                        </div>
-                                        <div className={classes.previewContainer}>
-                                            <img 
-                                                src={getPreviewUrl('injured')} 
-                                                alt="Preview Machucado"
-                                                className={classes.previewImage}
-                                            />
-                                        </div>
-                                    </div>
+                                    <Box sx={{ textAlign: 'center', mb: 1 }}>
+                                        <Box component="img" src={getPreviewUrl('injured')}
+                                            sx={{ maxWidth: '100%', maxHeight: 180, borderRadius: 1, border: '2px solid #696969ff' }} />
+                                    </Box>
                                 )}
 
                                 <TextField
@@ -509,13 +493,8 @@ function ChangePictureModal({
                                     variant="outlined"
                                     size="small"
                                     value={pictureURLs.injured_character_picture_url}
-                                    onChange={({ target }) => {
-                                        setPictureURLs(prevState => ({
-                                            ...prevState,
-                                            injured_character_picture_url: target.value
-                                        }));
-                                    }}
-                                    helperText="Cole uma URL do Imgur ou Discord. Deixe vazio se já fez upload acima."
+                                    onChange={({ target }) => setPictureURLs(prev => ({ ...prev, injured_character_picture_url: target.value }))}
+                                    helperText="Cole uma URL do Imgur ou Discord"
                                     placeholder="https://i.imgur.com/..."
                                 />
                             </Grid>
@@ -523,136 +502,81 @@ function ChangePictureModal({
                     ) : (
                         <Grid container spacing={2}>
                             <Grid item xs={12}>
-                                <Typography variant="body2" paragraph>
-                                    <strong>Modo Upload:</strong> A imagem é  salva diretamente no banco de dados (melhor opção).
-                                </Typography>
-                                <Typography variant="body2" paragraph>
-                                    <strong>Vantagem:</strong> Funciona sem depender de serviços externos.
-                                </Typography>
-                                <Typography variant="body2" sx={{ color: '#ff4d4dff', fontWeight: 'bold' }}>
-                                    Importante: Imagens grandes podem dar problema. Use o crop abaixo pra otimizar.
-                                </Typography>
+                                <Box className={classes.infoBox}>
+                                    <Typography variant="body2">
+                                        <strong>Modo Upload:</strong> A imagem e salva diretamente no banco de dados. 
+                                        Funciona sem depender de servicos externos. Formatos aceitos: JPG, PNG, GIF (convertido para PNG 420x600).
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#d32f2f', fontWeight: 600, mt: 0.5 }}>
+                                        Importante: Imagens muito grandes podem causar problemas. Use o crop abaixo para otimizar.
+                                    </Typography>
+                                </Box>
                             </Grid>
-                            
+
                             <Grid item xs={12}>
-                                <input
-                                    accept="image/*"
-                                    type="file"
-                                    onChange={handleFileChange}
-                                    style={{ display: 'none' }}
-                                    id="upload-image"
-                                />
+                                <input accept="image/*" type="file" onChange={handleFileChange}
+                                    style={{ display: 'none' }} id="upload-image" />
                                 <label htmlFor="upload-image">
-                                    <div className={classes.uploadArea}>
-                                        <UploadIcon style={{ fontSize: 40, color: '#666' }} />
-                                        <p>Clique para selecionar uma imagem</p>
-                                        <p><small>Formatos: JPG, PNG, GIF (será convertido para PNG 420x600)</small></p>
-                                    </div>
+                                    <Box className={classes.uploadArea}>
+                                        <UploadIcon sx={{ fontSize: 40, color: '#888', mb: 1 }} />
+                                        <Typography>Clique para selecionar uma imagem</Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            Formatos: JPG, PNG, GIF
+                                        </Typography>
+                                    </Box>
                                 </label>
                             </Grid>
 
                             {imageSrc && (
                                 <>
                                     <Grid item xs={12}>
-                                        <div className={classes.cropContainer}>
-                                            <Cropper
-                                                image={imageSrc}
-                                                crop={crop}
-                                                zoom={zoom}
-                                                aspect={420 / 600}
-                                                onCropChange={setCrop}
-                                                onCropComplete={onCropComplete}
-                                                onZoomChange={setZoom}
-                                            />
-                                        </div>
-                                        <div className={classes.controls}>
-                                            <div className={classes.sliderContainer}>
-                                                <span>Zoom:</span>
-                                                <input
-                                                    type="range"
-                                                    value={zoom}
-                                                    min={1}
-                                                    max={3}
-                                                    step={0.1}
+                                        <Box className={classes.cropContainer}>
+                                            <Cropper image={imageSrc} crop={crop} zoom={zoom} aspect={420 / 600}
+                                                onCropChange={setCrop} onCropComplete={onCropComplete} onZoomChange={setZoom} />
+                                        </Box>
+                                        <Box className={classes.controls}>
+                                            <Box className={classes.sliderContainer}>
+                                                <Typography variant="body2" sx={{ mr: 1 }}>Zoom:</Typography>
+                                                <input type="range" value={zoom} min={1} max={3} step={0.1}
                                                     className={classes.slider}
-                                                    onChange={(e) => setZoom(parseFloat(e.target.value))}
-                                                />
-                                            </div>
-                                        </div>
+                                                    onChange={(e) => setZoom(parseFloat(e.target.value))} />
+                                            </Box>
+                                        </Box>
                                     </Grid>
 
-                                    <Grid item xs={6}>
-                                        <div className={classes.sectionHeader}>
-                                            <Typography variant="h6">
-                                                Imagem Padrão
-                                            </Typography>
-                                        </div>
-                                        
-                                        {hasPreview('standard') && (
-                                            <div>
-                                                <div className={classes.uploadPreviewLabel}>
-                                                    Imagem já salva:
-                                                </div>
-                                                <div className={classes.previewContainer}>
-                                                    <img 
-                                                        src={getPreviewUrl('standard')} 
-                                                        alt="Preview Padrão"
-                                                        className={classes.previewImage}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <Button
-                                            fullWidth
-                                            variant="contained"
-                                            color="primary"
-                                            onClick={() => handleUploadImage('standard')}
-                                            disabled={uploading}
-                                            sx={{ mt: 1 }}
-                                        >
-                                            {uploading ? 'Salvando...' : 'Salvar como Imagem Padrão'}
-                                        </Button>
-                                        <Typography variant="caption" display="block" textAlign="center" mt={0.5}>
-                                            (Salva direto no banco via endpoint de uploads)
-                                        </Typography>
-                                    </Grid>
-
-                                    <Grid item xs={6}>
-                                        <div className={classes.sectionHeader}>
-                                            <Typography variant="h6">
-                                                Imagem Machucada
-                                            </Typography>
-                                        </div>
-                                        
-                                        {hasPreview('injured') && (
-                                            <div>
-                                                <div className={classes.uploadPreviewLabel}>
-                                                    Imagem já salva:
-                                                </div>
-                                                <div className={classes.previewContainer}>
-                                                    <img 
-                                                        src={getPreviewUrl('injured')} 
-                                                        alt="Preview Machucado"
-                                                        className={classes.previewImage}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <Button
-                                            fullWidth
-                                            variant="contained"
-                                            color="primary"
-                                            onClick={() => handleUploadImage('injured')}
-                                            disabled={uploading}
-                                            sx={{ mt: 1 }}
-                                        >
-                                            {uploading ? 'Salvando...' : 'Salvar como Imagem Machucada'}
-                                        </Button>
-                                        <Typography variant="caption" display="block" textAlign="center" mt={0.5}>
-                                            (Salva direto no banco via endpoint de uploads)
-                                        </Typography>
+                                    <Grid item xs={12}>
+                                        <Box className={classes.cropActions}>
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                                                    Imagem Padrao
+                                                </Typography>
+                                                {hasPreview('standard') && (
+                                                    <Box sx={{ textAlign: 'center', mb: 0.5 }}>
+                                                        <Box component="img" src={getPreviewUrl('standard')}
+                                                            sx={{ maxWidth: '100%', maxHeight: 100, borderRadius: 1, border: '2px solid #696969ff' }} />
+                                                    </Box>
+                                                )}
+                                                <Button fullWidth variant="contained"
+                                                    onClick={() => handleUploadImage('standard')} disabled={uploading}>
+                                                    {uploading ? 'Salvando...' : 'Salvar como Imagem Padrao'}
+                                                </Button>
+                                            </Box>
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                                                    Imagem Machucada
+                                                </Typography>
+                                                {hasPreview('injured') && (
+                                                    <Box sx={{ textAlign: 'center', mb: 0.5 }}>
+                                                        <Box component="img" src={getPreviewUrl('injured')}
+                                                            sx={{ maxWidth: '100%', maxHeight: 100, borderRadius: 1, border: '2px solid #696969ff' }} />
+                                                    </Box>
+                                                )}
+                                                <Button fullWidth variant="contained"
+                                                    onClick={() => handleUploadImage('injured')} disabled={uploading}>
+                                                    {uploading ? 'Salvando...' : 'Salvar como Imagem Machucada'}
+                                                </Button>
+                                            </Box>
+                                        </Box>
                                     </Grid>
                                 </>
                             )}

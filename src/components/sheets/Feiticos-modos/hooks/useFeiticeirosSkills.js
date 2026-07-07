@@ -57,6 +57,7 @@ export const useFeiticeirosSkills = (state, setState, stateRef, character, onUpd
         characterName: character.name,
         skillName: pericia.nome,
         skillValue: total,
+        initialTimes: parseInt(total) || 1,
         skillDescription: `${pericia.descricao} (${pericia.atributo})`
       });
     }
