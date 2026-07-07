@@ -38,6 +38,7 @@ const DistributionModal = React.memo(({
   confirmDistribution,
   resetDistribution,
   canConfirm,
+  rollAttributeRolagem,
   classes
 }) => {
   if (!showDistribution) {
@@ -154,21 +155,30 @@ const DistributionModal = React.memo(({
         variant: "outlined",
         disabled: isLoading
       }),
-      React.createElement(IconButton, {
+      selectedMethod?.id === 'ROLAGEM' ? React.createElement(IconButton, {
         size: "small",
         onClick: () => {
-          if (character && !isLoading) {
+          if (!isLoading && diceRollModal && character) {
             diceRollModal.appear({
               characterId: character.id,
               characterName: character.name,
-              skillName: attribute.name,
-              skillValue: attribute.value
+              skillName: `Rolagem - ${attribute.name}`,
+              skillValue: attribute.value,
+              initialTimes: 4,
+              initialFaces: 6,
+              onDiceRoll: (rollResult) => {
+                if (rollResult && typeof rollAttributeRolagem === 'function') {
+                  rollAttributeRolagem(index, rollResult.total);
+                }
+              }
             });
           }
         },
         className: classes.diceButtonWheel,
-        disabled: isLoading
+        disabled: isLoading || !character,
+        title: 'Abrir rolador 4d6'
       }, React.createElement(Casino))
+      : null
     );
   };
 
@@ -292,32 +302,36 @@ const DistributionModal = React.memo(({
       renderStatusAlerts()
     ),
     
-    React.createElement(DialogActions, { sx: { justifyContent: 'space-between', p: 3 } },
+    React.createElement(DialogActions, { sx: { justifyContent: 'space-between', px: 3, py: 2, alignItems: 'center' } },
       React.createElement(Button, {
         onClick: handleResetClick,
         startIcon: React.createElement(Shuffle),
         variant: "outlined",
-        disabled: isLoading
+        size: "medium",
+        disabled: isLoading,
+        sx: { minWidth: 120 }
       }, 'Reiniciar'),
       
-      React.createElement(Box, { display: "flex", gap: 1 },
+      React.createElement(Box, { display: "flex", gap: 1.5, alignItems: 'center' },
         React.createElement(Button, {
           onClick: handleBackClick,
           variant: "outlined",
-          disabled: isLoading
+          size: "medium",
+          disabled: isLoading,
+          sx: { minWidth: 110 }
         }, '← Voltar'),
         
         React.createElement(Button, {
           onClick: handleConfirmClick,
           variant: "contained",
+          size: "medium",
           startIcon: React.createElement(Check),
           disabled: !canConfirm || !canConfirm() || isLoading,
-          className: classes.setupButton,
           sx: {
-            backgroundColor: '#4a148c',
-            '&:hover': {
-              backgroundColor: '#6a1b9a'
-            }
+            minWidth: 140,
+            background: 'linear-gradient(135deg, #639EC2 0%, #4a7a9c 100%)',
+            '&:hover': { background: 'linear-gradient(135deg, #7ab3d9 0%, #5b8bb3 100%)' },
+            '&:disabled': { background: 'rgba(140,140,140,0.3)', color: 'rgba(255,255,255,0.5)' }
           }
         }, isLoading ? 'Salvando...' : 'Confirmar')
       )

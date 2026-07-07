@@ -169,7 +169,21 @@ const mainStyles = (theme) => {
       minWidth: '520px',
       maxWidth: '600px',
       margin: '0',
-    }
+    },
+
+    // Mobile: reduz padding dos cards de vida/energia
+    healthCard: {
+      ...originalStyles.healthCard,
+      '@media (max-width: 900px)': { padding: '10px' },
+    },
+    soulCard: {
+      ...originalStyles.soulCard,
+      '@media (max-width: 900px)': { padding: '10px' },
+    },
+    energyCard: {
+      ...originalStyles.energyCard,
+      '@media (max-width: 900px)': { padding: '10px' },
+    },
   };
 };
 
@@ -195,11 +209,13 @@ function FeiticeirosSheet({
       characterName: custom.characterName,
       skillName: custom.skillName,
       skillValue: custom.skillValue,
-      onDiceRoll: (rollResult) => {
+      initialTimes: custom.initialTimes,
+      initialFaces: custom.initialFaces,
+      onDiceRoll: custom.onDiceRoll || ((rollResult) => {
         if (custom.skillName && rollResult) {
           const rollValue = rollResult.total;
         }
-      },
+      }),
       zIndex: 10000
     });
   }, { defaultZIndex: 10000 });
@@ -273,6 +289,7 @@ function FeiticeirosSheet({
     resetDistribution = () => {},
     updateAttribute = () => {},
     handleAttributeRoll = () => {},
+    rollAttributeRolagem = () => {},
     handleInputChange = () => {},
     handleBlur = () => {},
     handleKeyDown = () => {},
@@ -328,6 +345,7 @@ function FeiticeirosSheet({
           confirmDistribution={confirmDistribution}
           resetDistribution={resetDistribution}
           canConfirm={canConfirm}
+          rollAttributeRolagem={rollAttributeRolagem}
           classes={classes}
           isMobile={isMobile}
         />
@@ -363,17 +381,18 @@ function FeiticeirosSheet({
     confirmDistribution,
     resetDistribution,
     canConfirm,
+    rollAttributeRolagem,
     isMobile
   ]);
 
-  const scaleValue = isSmallMobile ? 0.65 : isMobile ? 0.75 : isTablet ? 0.85 : 0.85;
+  const wheelScale = isSmallMobile ? 0.50 : isMobile ? 0.60 : 1.0;
+  const contentScale = isSmallMobile ? 0.75 : isMobile ? 0.85 : 1.0;
+  const mobileSx = (scale) => isMobile ? { transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: `${(scale - 1) * 120}%` } : undefined;
 
   return (
     <Box 
       className={classes.layoutContainer}
       sx={{
-        transform: `scale(${scaleValue})`,
-        transformOrigin: 'top center',
         minHeight: '100vh',
         pb: 1,
       }}
@@ -391,6 +410,7 @@ function FeiticeirosSheet({
             p: isSmallMobile ? 1 : isMobile ? 1.5 : 2,
             width: '100%',
             maxWidth: '1200px',
+            ...(isMobile ? { transform: `scale(${contentScale})`, transformOrigin: 'top center' } : {}),
           }}
         >
           <Typography 
@@ -434,7 +454,7 @@ function FeiticeirosSheet({
         </Paper>
       </Box>
 
-      <Box className={classes.layoutTopRow}>
+      <Box className={classes.layoutTopRow} sx={isMobile ? { gap: 0, transform: `scale(${contentScale})`, transformOrigin: 'top center', marginBottom: `${(contentScale - 1) * 120}%` } : {}}>
         <Box className={classes.topRowComponent}>
           <CharacterInfoSection
             characterInfo={characterInfo}
@@ -475,8 +495,8 @@ function FeiticeirosSheet({
       </Box>
 
       {isMobile ? (
-        <Box className={classes.mobileMiddleRow}>
-          <Box className={classes.expandedPericiasContainer}>
+        <Box className={classes.mobileMiddleRow} sx={isMobile ? { gap: 0, marginTop: '-35%' } : undefined}>
+          <Box className={classes.expandedPericiasContainer} sx={mobileSx(contentScale)}>
             <PericiasSection
               pericias={pericias}
               localAttributes={localAttributes}
@@ -489,7 +509,7 @@ function FeiticeirosSheet({
               isSmallMobile={isSmallMobile}
             />
           </Box>
-          <Box className={classes.centerColumnWrapper}>
+          <Box className={classes.centerColumnWrapper} sx={mobileSx(wheelScale)}>
             <AttributesSection
               localAttributes={localAttributes}
               canvasRef={canvasRef}
@@ -505,7 +525,7 @@ function FeiticeirosSheet({
               isTablet={false}
             />
           </Box>
-          <Box className={classes.expandedOficiosContainer}>
+          <Box className={classes.expandedOficiosContainer} sx={isMobile ? { transform: `scale(${contentScale})`, transformOrigin: 'top center', marginTop: '-50%' } : undefined}>
             <OficiosSection
               oficios={oficios}
               resistencias={resistencias}

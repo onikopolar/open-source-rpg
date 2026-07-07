@@ -132,20 +132,30 @@ const EditDialogModal = React.memo(({
       )
     ),
     
-    React.createElement(DialogActions, null,
+    React.createElement(DialogActions, { sx: { px: 3, py: 2, gap: 1.5, justifyContent: 'flex-end' } },
       React.createElement(Button, {
         onClick: handleClose,
         variant: "outlined",
-        onKeyDown: handleKeyDown
+        size: "medium",
+        onKeyDown: handleKeyDown,
+        sx: { minWidth: 110 }
       }, 'Cancelar'),
       
       React.createElement(Button, {
         onClick: handleSave,
         variant: "contained",
+        size: "medium",
         startIcon: React.createElement(Save),
         disabled: isReadOnly,
-        className: classes.setupButton,
-        onKeyDown: handleKeyDown
+        onKeyDown: handleKeyDown,
+        sx: {
+          minWidth: 120,
+          color: 'white',
+          fontWeight: 'bold',
+          background: 'linear-gradient(135deg, #639EC2 0%, #4a7a9c 100%)',
+          '&:hover': { background: 'linear-gradient(135deg, #7ab3d9 0%, #5b8bb3 100%)' },
+          '&:disabled': { background: 'rgba(140,140,140,0.3)', color: 'rgba(255,255,255,0.5)' }
+        }
       }, 'Salvar')
     )
   );

@@ -1,921 +1,112 @@
-// hooks/useFeiticeirosSheet.js - VERSÃO CORRIGIDA E OTIMIZADA
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { calculateModifier, calculateAdditionalValues, validateNumberInput, calcularTotalPericia } from '../utils/characterCalculations';
-import {
-  DEFAULT_ATTRIBUTES,
-  FIXED_VALUES,
-  TABELA_CUSTOS,
-  PERICIAS,
-  OFICIOS,
-  RESISTENCIAS,
-  ATAQUES,
-  ESPECIALIZACOES_PV,
-  ESPECIALIZACOES_PE,
-  METODOS_CRIACAO
-} from '../constants/characterSheet';
-
-const FIELD_CONFIG = {
-  nivel: { display: 'Nível', desc: 'Nível atual do personagem' },
-  origem: { display: 'Origem', desc: 'Origem ou background do personagem' },
-  treino: { display: 'Treino', desc: 'Bônus de treinamento' },
-  especializacao: { display: 'Especialização', desc: 'Especialização principal' },
-  tecnica: { display: 'Técnica', desc: 'Técnica ou escola de feitiçaria' },
-  experiencia: { display: 'Experiência (EXP)', desc: 'Pontos de experiência acumulados' },
-  multiclasse: { display: 'Multiclasse', desc: 'Classes adicionais' },
-  grau: { display: 'Grau', desc: 'Grau de poder do feiticeiro' }
-};
-
-const WHEEL_CONFIG = [
-  { angle: 45, name: 'SABEDORIA' },
-  { angle: 90, name: 'DESTREZA' },
-  { angle: 135, name: 'CONSTITUIÇÃO' },
-  { angle: 225, name: 'INTELIGÊNCIA' },
-  { angle: 270, name: 'FORÇA' },
-  { angle: 315, name: 'PRESENÇA' },
-  { angle: 0, type: 'empty' },
-  { angle: 180, type: 'empty' }
-];
-
-const createDebounce = (wait) => {
-  let timeout;
-  return (func) => {
-    return (...args) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), wait);
-    };
-  };
-};
-
-const parseDerivedBonuses = (bonuses) => {
-  if (!bonuses) return { atencao: 0, defesa: 0, iniciativa: 0, deslocamento: 0 };
-  
-  if (typeof bonuses === 'string') {
-    try {
-      const parsed = JSON.parse(bonuses);
-      return {
-        atencao: parseInt(parsed.atencao) || 0,
-        defesa: parseInt(parsed.defesa) || 0,
-        iniciativa: parseInt(parsed.iniciativa) || 0,
-        deslocamento: parseInt(parsed.deslocamento) || 0
-      };
-    } catch (e) {
-      return { atencao: 0, defesa: 0, iniciativa: 0, deslocamento: 0 };
-    }
-  }
-  
-  return {
-    atencao: parseInt(bonuses.atencao) || 0,
-    defesa: parseInt(bonuses.defesa) || 0,
-    iniciativa: parseInt(bonuses.iniciativa) || 0,
-    deslocamento: parseInt(bonuses.deslocamento) || 0
-  };
-};
+// hooks/useFeiticeirosSheet.js — Hook principal (orquestrador)
+// Versão refatorada: hooks separados por responsabilidade
+import { useRef, useEffect, useCallback } from 'react';
+import { useFeiticeirosState } from './useFeiticeirosState';
+import { useFeiticeirosAttributes } from './useFeiticeirosAttributes';
+import { useFeiticeirosHealth } from './useFeiticeirosHealth';
+import { useFeiticeirosSkills } from './useFeiticeirosSkills';
+import { useFeiticeirosInfo } from './useFeiticeirosInfo';
+import { validateNumberInput } from '../utils/characterCalculations';
 
 export const useFeiticeirosSheet = (character, onUpdate, diceRollModal) => {
-  const [state, setState] = useState(() => {
-    const hasFeiticeirosAttributes = character?.feiticeiros_attributes && character.feiticeiros_attributes.length > 0;
-    const hasMetodoCriacao = character?.feiticeiros_metodo_criacao;
+  const { state, setState, stateRef } = useFeiticeirosState(character);
 
-    return {
-      showMethodSelection: !hasMetodoCriacao && !hasFeiticeirosAttributes,
-      selectedMethod: hasMetodoCriacao ? METODOS_CRIACAO[hasMetodoCriacao] : null,
-      showDistribution: false,
-      editDialog: { open: false, type: '', title: '' },
-      isLoading: false,
-      localErrors: {},
+  const stableRef = useRef({ character, onUpdate, diceRollModal });
+  useEffect(() => { stableRef.current = { character, onUpdate, diceRollModal }; }, [character, onUpdate, diceRollModal]);
 
-      showDerivedValuesModal: false,
-      derivedValuesBonuses: parseDerivedBonuses(character?.derived_values_bonuses),
+  const attrs = useFeiticeirosAttributes(state, setState, stateRef, character, onUpdate, diceRollModal);
+  const health = useFeiticeirosHealth(state, setState, character, onUpdate);
+  const skills = useFeiticeirosSkills(state, setState, stateRef, character, onUpdate);
+  const info = useFeiticeirosInfo(state, setState, stateRef, character, onUpdate);
 
-      localAttributes: hasFeiticeirosAttributes
-        ? DEFAULT_ATTRIBUTES.map(defaultAttr => {
-            const charAttr = character.feiticeiros_attributes.find(attr =>
-              attr.attribute?.name === defaultAttr.name
-            );
-            return {
-              ...defaultAttr,
-              value: charAttr?.value || defaultAttr.value
-            };
-          })
-        : DEFAULT_ATTRIBUTES,
-      availableValues: [...FIXED_VALUES],
-      distributionAttributes: DEFAULT_ATTRIBUTES.map(attr => ({
-        ...attr,
-        value: 10,
-        assignedValue: null
-      })),
-      pontosDisponiveis: 17,
-
-      currentHP: character?.current_hit_points || 0,
-      currentSoul: character?.current_soul_integrity || 0,
-      currentPE: character?.current_energy_points || 0,
-      maxHP: character?.max_hit_points || 10,
-      maxPE: character?.max_energy_points || 0,
-
-      pericias: character?.feiticeiros_pericias && character.feiticeiros_pericias.length > 0
-        ? PERICIAS.map(pericia => {
-            const charPericia = character.feiticeiros_pericias.find(p => p.nome === pericia.nome);
-            return charPericia ? { ...pericia, ...charPericia } : pericia;
-          })
-        : [...PERICIAS],
-      oficios: character?.feiticeiros_oficios && character.feiticeiros_oficios.length > 0
-        ? OFICIOS.map(oficio => {
-            const charOficio = character.feiticeiros_oficios.find(o => o.nome === oficio.nome);
-            return charOficio ? { ...oficio, ...charOficio } : oficio;
-          })
-        : [...OFICIOS],
-      resistencias: character?.feiticeiros_resistencias && character.feiticeiros_resistencias.length > 0
-        ? RESISTENCIAS.map(resistencia => {
-            const charResistencia = character.feiticeiros_resistencias.find(r => r.nome === resistencia.nome);
-            return charResistencia ? { ...resistencia, ...charResistencia } : resistencia;
-          })
-        : [...RESISTENCIAS],
-      ataques: character?.feiticeiros_ataques && character.feiticeiros_ataques.length > 0
-        ? ATAQUES.map(ataque => {
-            const charAtaque = character.feiticeiros_ataques.find(a => a.nome === ataque.nome);
-            return charAtaque ? { ...ataque, ...charAtaque } : ataque;
-          })
-        : [...ATAQUES],
-
-      characterInfo: {
-        nivel: character?.level || 1,
-        origem: character?.origem || '',
-        treino: character?.treino || '',
-        especializacao: character?.especializacao || '',
-        tecnica: character?.tecnica || '',
-        experiencia: character?.experiencia || 0,
-        multiclasse: character?.multiclasse || '',
-        grau: character?.grau || ''
-      }
-    };
-  });
-
-  const canConfirm = useCallback(() => {
-    if (state.selectedMethod?.id === 'FIXOS') {
-      return state.availableValues.length === 0;
-    }
-    if (state.selectedMethod?.id === 'COMPRA') {
-      return state.pontosDisponiveis === 0;
-    }
-    if (state.selectedMethod?.id === 'ROLAGEM') {
-      return state.distributionAttributes.every(attr => attr.value >= 8 && attr.value <= 15);
-    }
-    return false;
-  }, [state.selectedMethod?.id, state.availableValues.length, state.pontosDisponiveis, state.distributionAttributes]);
-
-  // Ref para armazenar estado atual para evitar problemas de closure
-  const stateRef = useRef(state);
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  const stableRef = useRef({
-    character,
-    onUpdate,
-    diceRollModal,
-    characterInfo: state.characterInfo,
-
-    debouncedCharacterUpdate: createDebounce(150)((field, value) => {
-      if (stableRef.current.character && stableRef.current.onUpdate) {
-        stableRef.current.onUpdate('character', field, value);
-      }
-    }),
-
-    debouncedFeiticeirosUpdate: createDebounce(150)((type, identifier, data) => {
-      if (stableRef.current.character && stableRef.current.onUpdate) {
-        stableRef.current.onUpdate(type, identifier, data);
-      }
-    }),
-
-    handleCharacterInfoUpdate: (field, value) => {
-      setState(prev => {
-        const newCharacterInfo = { ...prev.characterInfo, [field]: value };
-        stableRef.current.characterInfo = newCharacterInfo;
-        stableRef.current.debouncedCharacterUpdate(field, value);
-        return { ...prev, characterInfo: newCharacterInfo };
-      });
-    },
-
-    handleCharacterInfoClick: (field) => {
-      const config = FIELD_CONFIG[field] || { display: field, desc: '' };
-      setState(prev => ({
-        ...prev,
-        editDialog: {
-          open: true,
-          type: 'characterInfo',
-          title: `Editar ${config.display}`,
-          field: field,
-          current: stableRef.current.characterInfo[field],
-          description: config.desc
-        }
-      }));
-    },
-
-    handleSaveDerivedValuesBonuses: async (newBonuses) => {
-      const validatedBonuses = {
-        atencao: parseInt(newBonuses.atencao) || 0,
-        defesa: parseInt(newBonuses.defesa) || 0,
-        iniciativa: parseInt(newBonuses.iniciativa) || 0,
-        deslocamento: parseInt(newBonuses.deslocamento) || 0
-      };
-      
-      setState(prev => ({
-        ...prev,
-        derivedValuesBonuses: validatedBonuses,
-        showDerivedValuesModal: false
-      }));
-
-      if (stableRef.current.character) {
-        try {          
-          const response = await fetch('/api/feiticeiros/derived-values', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              characterId: stableRef.current.character.id,
-              bonuses: validatedBonuses
-            })
-          });
-
-          const result = await response.json();
-          if (!result.success) {
-            throw new Error(result.error || 'Erro ao salvar derived values');
-          }
-        } catch (error) {
-          setState(prev => ({
-            ...prev,
-            derivedValuesBonuses: stateRef.current.derivedValuesBonuses
-          }));
-          throw error;
-        }
-      }
-    },
-
-    handleOpenDerivedValuesModal: () => {
-      setState(prev => ({ ...prev, showDerivedValuesModal: true }));
-    },
-
-    handleCloseDerivedValuesModal: () => {
-      setState(prev => ({ ...prev, showDerivedValuesModal: false }));
-    },
-
-    handleSaveEdit: (type, current, max, field) => {
-      if (type === 'hp') {
-        const newCurrent = Math.max(0, current);
-        const newMax = Math.max(1, max);
-        setState(prev => ({ ...prev, currentHP: newCurrent, maxHP: newMax }));
-        if (stableRef.current.character && stableRef.current.onUpdate) {
-          stableRef.current.onUpdate('character', 'current_hit_points', newCurrent);
-          stableRef.current.onUpdate('character', 'max_hit_points', newMax);
-        }
-      } else if (type === 'soul') {
-        const newCurrent = Math.max(0, current);
-        setState(prev => ({ ...prev, currentSoul: newCurrent }));
-        if (stableRef.current.character && stableRef.current.onUpdate) {
-          stableRef.current.onUpdate('character', 'current_soul_integrity', newCurrent);
-        }
-      } else if (type === 'energy') {
-        const newCurrent = Math.max(0, current);
-        const newMax = Math.max(1, max);
-        setState(prev => ({ ...prev, currentPE: newCurrent, maxPE: newMax }));
-        if (stableRef.current.character && stableRef.current.onUpdate) {
-          stableRef.current.onUpdate('character', 'current_energy_points', newCurrent);
-          stableRef.current.onUpdate('character', 'max_energy_points', newMax);
-        }
-      } else if (type === 'characterInfo' && field) {
-        stableRef.current.handleCharacterInfoUpdate(field, current);
-      }
-      setState(prev => ({ ...prev, editDialog: { open: false, type: '', title: '' } }));
-    },
-
-    handleHealthClick: () => {
-      setState(prev => ({
-        ...prev,
-        editDialog: {
-          open: true,
-          type: 'hp',
-          title: 'Editar Pontos de Vida',
-          current: prev.currentHP,
-          max: prev.maxHP,
-          description: 'Pontos de Vida atuais e máximos do personagem'
-        }
-      }));
-    },
-
-    handleSoulClick: () => {
-      setState(prev => ({
-        ...prev,
-        editDialog: {
-          open: true,
-          type: 'soul',
-          title: 'Editar Integridade da Alma',
-          current: prev.currentSoul,
-          max: prev.maxHP,
-          description: 'Integridade da Alma atual (máximo igual aos Pontos de Vida)'
-        }
-      }));
-    },
-
-    handleEnergyClick: () => {
-      setState(prev => ({
-        ...prev,
-        editDialog: {
-          open: true,
-          type: 'energy',
-          title: 'Editar Pontos de Energia Amaldiçoada (PE)',
-          current: prev.currentPE,
-          max: prev.maxPE,
-          description: 'Pontos de Energia Amaldiçoada atuais e máximos do personagem'
-        }
-      }));
-    },
-
-    handleQuickAction: (type, amount) => {
-      setState(prev => {
-        const updates = {
-          heal: () => [Math.min(prev.maxHP, prev.currentHP + amount), 'current_hit_points'],
-          damage: () => [Math.max(0, prev.currentHP - amount), 'current_hit_points'],
-          soul_heal: () => [Math.min(prev.maxHP, prev.currentSoul + amount), 'current_soul_integrity'],
-          soul_damage: () => [Math.max(0, prev.currentSoul - amount), 'current_soul_integrity'],
-          energy: () => [Math.min(prev.maxPE, prev.currentPE + amount), 'current_energy_points'],
-          energy_remove: () => [Math.max(0, prev.currentPE - amount), 'current_energy_points']
-        };
-
-        const [newValue, field] = updates[type]?.() || [];
-        if (newValue === undefined) return prev;
-
-        const newState = {
-          ...prev,
-          ...(type === 'heal' || type === 'damage' ? { currentHP: newValue } :
-              type === 'soul_heal' || type === 'soul_damage' ? { currentSoul: newValue } :
-              { currentPE: newValue })
-        };
-
-        if (stableRef.current.character && stableRef.current.onUpdate) {
-          stableRef.current.onUpdate('character', field, newValue);
-        }
-
-        return newState;
-      });
-    },
-
-    handleToggleTreinada: (itemNome, checked, tipo, modulo) => {
-      setState(prev => ({
-        ...prev,
-        [modulo]: prev[modulo].map(p => {
-          if (p.nome !== itemNome) return p;
-          if (tipo === 'treinada') return { ...p, treinada: checked };
-          if (tipo === 'mestre') return { ...p, mestre: checked, treinada: checked ? true : p.treinada };
-          return p;
-        })
-      }));
-
-      if (stableRef.current.character && stableRef.current.onUpdate) {
-        const typeMap = {
-          pericias: 'pericia',
-          oficios: 'oficio',
-          resistencias: 'resistencia',
-          ataques: 'ataque'
-        };
-        const type = typeMap[modulo];
-        if (type) {
-          const updatedItem = stateRef.current[modulo].find(p => p.nome === itemNome);
-          if (updatedItem) {
-            stableRef.current.debouncedFeiticeirosUpdate(
-              type,
-              itemNome,
-              {
-                treinada: tipo === 'mestre' ? true : checked,
-                mestre: tipo === 'mestre' ? checked : updatedItem.mestre,
-                outros: updatedItem.outros || 0
-              }
-            );
-          }
-        }
-      }
-    },
-
-    handleOutrosChange: (itemNome, outros, modulo) => {
-      setState(prev => ({
-        ...prev,
-        [modulo]: prev[modulo].map(p =>
-          p.nome === itemNome ? { ...p, outros } : p
-        )
-      }));
-
-      if (stableRef.current.character && stableRef.current.onUpdate) {
-        const typeMap = {
-          pericias: 'pericia',
-          oficios: 'oficio',
-          resistencias: 'resistencia',
-          ataques: 'ataque'
-        };
-        const type = typeMap[modulo];
-        if (type) {
-          const updatedItem = stateRef.current[modulo].find(p => p.nome === itemNome);
-          if (updatedItem) {
-            stableRef.current.debouncedFeiticeirosUpdate(
-              type,
-              itemNome,
-              {
-                treinada: updatedItem.treinada || false,
-                mestre: updatedItem.mestre || false,
-                outros: parseInt(outros) || 0
-              }
-            );
-          }
-        }
-      }
-    },
-
-    handlePericiaRoll: (pericia, total) => {
-      if (stableRef.current.character && stableRef.current.diceRollModal) {
-        stableRef.current.diceRollModal.appear({
-          characterId: stableRef.current.character.id,
-          characterName: stableRef.current.character.name,
-          skillName: pericia.nome,
-          skillValue: total,
-          skillDescription: `${pericia.descricao} (${pericia.atributo})`
-        });
-      }
-    },
-
-    handleMethodSelect: (method) => {
-      setState(prev => ({
-        ...prev,
-        selectedMethod: method,
-        showMethodSelection: false,
-        showDistribution: true
-      }));
-
-      if (method.id === 'FIXOS') {
-        setState(prev => ({
-          ...prev,
-          availableValues: [...FIXED_VALUES],
-          distributionAttributes: DEFAULT_ATTRIBUTES.map(attr => ({
-            ...attr,
-            value: 10,
-            assignedValue: null
-          })),
-          pontosDisponiveis: 17
-        }));
-      } else if (method.id === 'COMPRA') {
-        setState(prev => ({
-          ...prev,
-          pontosDisponiveis: 17,
-          distributionAttributes: DEFAULT_ATTRIBUTES.map(attr => ({
-            ...attr,
-            value: 10
-          }))
-        }));
-      }
-    },
-
-    assignValueToAttribute: (attributeIndex, value) => {
-      setState(prev => {
-        const newAttributes = [...prev.distributionAttributes];
-        const attribute = newAttributes[attributeIndex];
-
-        if (attribute.assignedValue !== null) {
-          const newAvailableValues = [...prev.availableValues, attribute.assignedValue].sort((a, b) => b - a);
-          return {
-            ...prev,
-            availableValues: newAvailableValues,
-            distributionAttributes: newAttributes.map((attr, idx) =>
-              idx === attributeIndex ? { ...attr, assignedValue: value, value: value } : attr
-            )
-          };
-        }
-
-        return {
-          ...prev,
-          availableValues: prev.availableValues.filter(v => v !== value),
-          distributionAttributes: newAttributes.map((attr, idx) =>
-            idx === attributeIndex ? { ...attr, assignedValue: value, value: value } : attr
-          )
-        };
-      });
-    },
-
-    removeValueFromAttribute: (attributeIndex) => {
-      setState(prev => {
-        const newAttributes = [...prev.distributionAttributes];
-        const attribute = newAttributes[attributeIndex];
-
-        if (attribute.assignedValue !== null) {
-          const newAvailableValues = [...prev.availableValues, attribute.assignedValue].sort((a, b) => b - a);
-          return {
-            ...prev,
-            availableValues: newAvailableValues,
-            distributionAttributes: newAttributes.map((attr, idx) =>
-              idx === attributeIndex ? { ...attr, assignedValue: null, value: 10 } : attr
-            )
-          };
-        }
-
-        return prev;
-      });
-    },
-
-    calcularCustoAtributo: (valorAtual, novoValor) => {
-      const custoAtual = TABELA_CUSTOS[valorAtual] || 0;
-      const custoNovo = TABELA_CUSTOS[novoValor] || 0;
-      return custoNovo - custoAtual;
-    },
-
-    ajustarAtributoCompra: (attributeIndex, novoValor) => {
-      if (novoValor < 8 || novoValor > 15) return;
-
-      setState(prev => {
-        const atributo = prev.distributionAttributes[attributeIndex];
-        const custo = stableRef.current.calcularCustoAtributo(atributo.value, novoValor);
-
-        if (prev.pontosDisponiveis >= custo) {
-          const novosAtributos = [...prev.distributionAttributes];
-          novosAtributos[attributeIndex] = { ...atributo, value: novoValor };
-
-          return {
-            ...prev,
-            distributionAttributes: novosAtributos,
-            pontosDisponiveis: prev.pontosDisponiveis - custo
-          };
-        }
-        return prev;
-      });
-    },
-
-    confirmDistribution: async () => {
-      console.log('🔥 confirmDistribution - INICIANDO PROCESSO DE SALVAMENTO');
-      
-      // Usar stateRef para garantir dados corretos (evitar problema de closure)
-      const currentState = stateRef.current;
-      
-      console.log('🔥 DADOS REAIS PARA API:', 
-        currentState.distributionAttributes.map(attr => `${attr.name}=${attr.value}`).join(', ')
-      );
-      
-      setState(prev => ({
-        ...prev,
-        isLoading: true,
-        showDistribution: false
-      }));
-      
-      try {
-        if (stableRef.current.character && stableRef.current.character.id && currentState.selectedMethod) {
-          console.log('🔥 Iniciando salvamento via API...');
-          
-          const response = await fetch('/api/feiticeiros/distribution', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              characterId: stableRef.current.character.id,
-              distributionData: currentState.distributionAttributes,
-              metodo: currentState.selectedMethod.id
-            })
-          });
-
-          const result = await response.json();
-
-          if (result.success) {
-            console.log('✅ DISTRIBUIÇÃO SALVA COM SUCESSO!');
-            
-            setState(prev => ({
-              ...prev,
-              isLoading: false,
-              localAttributes: currentState.distributionAttributes,
-              showMethodSelection: false,
-              localErrors: { ...prev.localErrors, distribution: null }
-            }));
-
-            if (stableRef.current.onUpdate) {
-              stableRef.current.onUpdate('character', 'feiticeiros_metodo_criacao', currentState.selectedMethod.id);
-              stableRef.current.onUpdate('character', 'feiticeiros_distribution_completed', true);
-            }
-          } else {
-            throw new Error(result.error || 'Erro ao salvar distribuição');
-          }
-        } else {
-          throw new Error('Character ou método não disponível para salvamento');
-        }
-      } catch (error) {
-        console.error('❌ ERRO ao confirmar distribuição:', error);
-        
-        setState(prev => ({
-          ...prev,
-          isLoading: false,
-          showDistribution: true,
-          localErrors: {
-            ...prev.localErrors,
-            distribution: 'Erro ao salvar atributos. Tente novamente.'
-          }
-        }));
-      }
-    },
-
-    resetDistribution: () => {
-      setState(prev => {
-        if (prev.selectedMethod?.id === 'FIXOS') {
-          return {
-            ...prev,
-            availableValues: [...FIXED_VALUES],
-            distributionAttributes: DEFAULT_ATTRIBUTES.map(attr => ({
-              ...attr,
-              value: 10,
-              assignedValue: null
-            }))
-          };
-        } else if (prev.selectedMethod?.id === 'COMPRA') {
-          return {
-            ...prev,
-            pontosDisponiveis: 17,
-            distributionAttributes: DEFAULT_ATTRIBUTES.map(attr => ({
-              ...attr,
-              value: 10
-            }))
-          };
-        } else if (prev.selectedMethod?.id === 'ROLAGEM') {
-          return {
-            ...prev,
-            distributionAttributes: DEFAULT_ATTRIBUTES.map(attr => ({
-              ...attr,
-              value: 10
-            }))
-          };
-        }
-        return prev;
-      });
-
-      setState(prev => ({
-        ...prev,
-        localErrors: { ...prev.localErrors, distribution: null }
-      }));
-    },
-
-    updateAttribute: (attributeName, value) => {
-      const numValue = value === "" ? 0 : Math.max(0, Math.min(30, parseInt(value) || 0));
-
-      setState(prev => ({
-        ...prev,
-        localAttributes: prev.localAttributes.map(attr =>
-          attr.name === attributeName ? { ...attr, value: numValue } : attr
-        )
-      }));
-
-      if (stableRef.current.character && stableRef.current.onUpdate) {
-        stableRef.current.debouncedFeiticeirosUpdate(
-          'attribute',
-          attributeName,
-          { value: numValue }
-        );
-      }
-    },
-
-    handleAttributeRoll: (attributeName) => {
-      const attribute = stateRef.current.localAttributes.find(attr => attr.name === attributeName);
-      if (attribute && stableRef.current.character && stableRef.current.diceRollModal) {
-        stableRef.current.diceRollModal.appear({
-          characterId: stableRef.current.character.id,
-          characterName: stableRef.current.character.name,
-          skillName: attributeName,
-          skillValue: attribute.value
-        });
-      }
-    },
-
-    handleInputChange: (e, callback, name) => {
-      const value = e.target.value;
-      if (value === '') {
-        callback(name, '');
-        return;
-      }
-      const numValue = parseInt(value);
-      if (!isNaN(numValue)) callback(name, numValue);
-    },
-
-    handleBlur: (e, callback, name) => {
-      const value = e.target.value;
-      const validatedValue = validateNumberInput(value);
-      callback(name, validatedValue);
-    },
-
-    handleKeyDown: (e, currentValue, callback, name) => {
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        callback(name, Math.min(30, currentValue + 1));
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        callback(name, Math.max(0, currentValue - 1));
-      }
-    }
-  });
-
-  useEffect(() => {
-    stableRef.current.character = character;
-    stableRef.current.onUpdate = onUpdate;
-    stableRef.current.diceRollModal = diceRollModal;
-  }, [character, onUpdate, diceRollModal]);
-
-  useEffect(() => {
-    stableRef.current.characterInfo = state.characterInfo;
-  }, [state.characterInfo]);
-
-  const wheelPositions = useMemo(() => {
-    const centerX = 260;
-    const centerY = 290;
-    const radius = 230;
-
-    return WHEEL_CONFIG.map((pos) => {
-      const rad = pos.angle * Math.PI / 180;
-      const x = centerX + radius * Math.cos(rad);
-      const y = centerY + radius * Math.sin(rad);
-
-      return pos.name ? {
-        x, y, type: 'attribute', angle: pos.angle, name: pos.name
-      } : {
-        x, y, type: 'empty', angle: pos.angle
-      };
-    });
+  const handleInputChange = useCallback((e, callback, name) => {
+    const value = e.target.value;
+    if (value === '') { callback(name, ''); return; }
+    const num = parseInt(value);
+    if (!isNaN(num)) callback(name, num);
   }, []);
 
-  const additionalValues = useMemo(() => {
-    return calculateAdditionalValues(
-      state.localAttributes,
-      state.characterInfo.nivel,
-      state.characterInfo.especializacao,
-      state.pericias
-    );
-  }, [state.localAttributes, state.characterInfo.nivel, state.characterInfo.especializacao, state.pericias]);
+  const handleBlur = useCallback((e, callback, name) => {
+    callback(name, validateNumberInput(e.target.value));
+  }, []);
 
-  const derivedValuesWithBonuses = useMemo(() => {
-    const baseValues = {
-      ATENÇÃO: additionalValues?.ATENÇÃO?.valor || 10,
-      DEFESA: additionalValues?.DEFESA?.valor || 10,
-      INICIATIVA: additionalValues?.INICIATIVA?.valor || 0,
-      DESLOCAMENTO: additionalValues?.DESLOCAMENTO?.valor || 9
-    };
-
-    return {
-      ATENÇÃO: {
-        ...additionalValues?.ATENÇÃO,
-        valor: baseValues.ATENÇÃO + (state.derivedValuesBonuses.atencao || 0)
-      },
-      DEFESA: {
-        ...additionalValues?.DEFESA,
-        valor: baseValues.DEFESA + (state.derivedValuesBonuses.defesa || 0)
-      },
-      INICIATIVA: {
-        ...additionalValues?.INICIATIVA,
-        valor: baseValues.INICIATIVA + (state.derivedValuesBonuses.iniciativa || 0)
-      },
-      DESLOCAMENTO: {
-        ...additionalValues?.DESLOCAMENTO,
-        valor: baseValues.DESLOCAMENTO + (state.derivedValuesBonuses.deslocamento || 0)
-      }
-    };
-  }, [additionalValues, state.derivedValuesBonuses]);
+  const handleKeyDown = useCallback((e, currentValue, callback, name) => {
+    if (e.key === 'ArrowUp') { e.preventDefault(); callback(name, Math.min(30, currentValue + 1)); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); callback(name, Math.max(0, currentValue - 1)); }
+  }, []);
 
   const canvasRef = useRef(null);
   const animationFrameRef = useRef(null);
 
-const drawMahoragaWheels = useCallback(() => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-
+  // Desenha as linhas e círculos da roda de atributos (Mahoraga)
+  const drawMahoragaWheels = useCallback(() => {
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     animationFrameRef.current = requestAnimationFrame(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 1.8;
-
-      // Cores da paleta azul do tema
-      ctx.strokeStyle = 'rgba(99, 158, 194, 0.9)'; // #639EC2 com transparência
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 1.8;
+      ctx.strokeStyle = 'rgba(99, 158, 194, 0.9)';
       ctx.lineWidth = 8;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 120, 0, 2 * Math.PI);
+      ctx.arc(cx, cy, 120, 0, 2 * Math.PI);
       ctx.stroke();
-
-      ctx.fillStyle = 'rgba(99, 158, 194, 1)'; // #639EC2 sólido
+      ctx.fillStyle = 'rgba(99, 158, 194, 1)';
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 40, 0, 2 * Math.PI);
+      ctx.arc(cx, cy, 40, 0, 2 * Math.PI);
       ctx.fill();
-
-      ctx.strokeStyle = 'rgba(140, 140, 140, 0.9)'; // #8c8c8c com transparência
+      ctx.strokeStyle = 'rgba(140, 140, 140, 0.9)';
       ctx.lineWidth = 6;
       const connections = [[1, 4], [7, 6], [0, 3], [2, 5]];
-
-      connections.forEach(([startIdx, endIdx]) => {
-        const startPos = wheelPositions[startIdx];
-        const endPos = wheelPositions[endIdx];
-        if (startPos && endPos) {
+      const wp = attrs.wheelPositions;
+      connections.forEach(([a, b]) => {
+        if (wp[a] && wp[b]) {
           ctx.beginPath();
-          ctx.moveTo(startPos.x, startPos.y);
-          ctx.lineTo(endPos.x, endPos.y);
+          ctx.moveTo(wp[a].x, wp[a].y);
+          ctx.lineTo(wp[b].x, wp[b].y);
           ctx.stroke();
         }
       });
     });
-  }, [wheelPositions]);
+  }, [attrs.wheelPositions]);
 
   useEffect(() => {
     drawMahoragaWheels();
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
+    return () => { if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current); };
   }, [drawMahoragaWheels]);
 
-  useEffect(() => {
-    if (character) {
-      const hasFeiticeirosAttributes = character.feiticeiros_attributes && character.feiticeiros_attributes.length > 0;
-      const hasMetodoCriacao = character.feiticeiros_metodo_criacao;
-
-      if (hasFeiticeirosAttributes) {
-        const loadedAttributes = DEFAULT_ATTRIBUTES.map(defaultAttr => {
-          const charAttr = character.feiticeiros_attributes.find(attr =>
-            attr.attribute?.name === defaultAttr.name
-          );
-          return {
-            ...defaultAttr,
-            value: charAttr?.value || defaultAttr.value
-          };
-        });
-
-        setState(prev => ({
-          ...prev,
-          localAttributes: loadedAttributes,
-          showMethodSelection: !hasMetodoCriacao && !hasFeiticeirosAttributes,
-          selectedMethod: hasMetodoCriacao ? METODOS_CRIACAO[hasMetodoCriacao] : null
-        }));
-      } else {
-        setState(prev => ({
-          ...prev,
-          showMethodSelection: !hasMetodoCriacao
-        }));
-      }
-
-      const newCharacterInfo = {
-        nivel: character.level || 1,
-        origem: character.origem || '',
-        treino: character.treino || '',
-        especializacao: character.especializacao || '',
-        tecnica: character.tecnica || '',
-        experiencia: character.experiencia || 0,
-        multiclasse: character.multiclasse || '',
-        grau: character.grau || ''
-      };
-
-      setState(prev => ({
-        ...prev,
-        currentHP: character.current_hit_points || 0,
-        currentSoul: character.current_soul_integrity || 0,
-        currentPE: character.current_energy_points || 0,
-        maxHP: character.max_hit_points || 10,
-        maxPE: character.max_energy_points || 0,
-        characterInfo: newCharacterInfo,
-        derivedValuesBonuses: parseDerivedBonuses(character.derived_values_bonuses)
-      }));
-
-      stableRef.current.characterInfo = newCharacterInfo;
-    }
-  }, [character?.id]);
-
   return {
-    ...state,
-    canvasRef,
-    wheelPositions,
-    additionalValues,
-    derivedValuesWithBonuses,
-    setShowMethodSelection: (value) => setState(prev => ({ ...prev, showMethodSelection: value })),
-    setShowDistribution: (value) => setState(prev => ({ ...prev, showDistribution: value })),
-    setEditDialog: (value) => setState(prev => ({ ...prev, editDialog: value })),
-    handleCharacterInfoClick: stableRef.current.handleCharacterInfoClick,
-    handleHealthClick: stableRef.current.handleHealthClick,
-    handleSoulClick: stableRef.current.handleSoulClick,
-    handleEnergyClick: stableRef.current.handleEnergyClick,
-    handleSaveEdit: stableRef.current.handleSaveEdit,
-    handleQuickAction: stableRef.current.handleQuickAction,
-    handleToggleTreinada: stableRef.current.handleToggleTreinada,
-    handleOutrosChange: stableRef.current.handleOutrosChange,
-    handlePericiaRoll: stableRef.current.handlePericiaRoll,
-    handleMethodSelect: stableRef.current.handleMethodSelect,
-    assignValueToAttribute: stableRef.current.assignValueToAttribute,
-    removeValueFromAttribute: stableRef.current.removeValueFromAttribute,
-    ajustarAtributoCompra: stableRef.current.ajustarAtributoCompra,
-    confirmDistribution: stableRef.current.confirmDistribution,
-    resetDistribution: stableRef.current.resetDistribution,
-    updateAttribute: stableRef.current.updateAttribute,
-    handleAttributeRoll: stableRef.current.handleAttributeRoll,
-    handleInputChange: stableRef.current.handleInputChange,
-    handleBlur: stableRef.current.handleBlur,
-    handleKeyDown: stableRef.current.handleKeyDown,
-    canConfirm,
-    handleOpenDerivedValuesModal: stableRef.current.handleOpenDerivedValuesModal,
-    handleCloseDerivedValuesModal: stableRef.current.handleCloseDerivedValuesModal,
-    handleSaveDerivedValuesBonuses: stableRef.current.handleSaveDerivedValuesBonuses
+    ...state, canvasRef,
+    wheelPositions: attrs.wheelPositions,
+    additionalValues: info.additionalValues,
+    derivedValuesWithBonuses: info.derivedValuesWithBonuses,
+    setShowMethodSelection: (v) => setState(prev => ({ ...prev, showMethodSelection: v })),
+    setShowDistribution: (v) => setState(prev => ({ ...prev, showDistribution: v })),
+    setEditDialog: (v) => setState(prev => ({ ...prev, editDialog: v })),
+    canConfirm: attrs.canConfirm,
+    handleMethodSelect: attrs.handleMethodSelect,
+    assignValueToAttribute: attrs.assignValueToAttribute,
+    removeValueFromAttribute: attrs.removeValueFromAttribute,
+    ajustarAtributoCompra: attrs.ajustarAtributoCompra,
+    confirmDistribution: attrs.confirmDistribution,
+    resetDistribution: attrs.resetDistribution,
+    updateAttribute: attrs.updateAttribute,
+    handleAttributeRoll: attrs.handleAttributeRoll,
+    rollAttributeRolagem: attrs.rollAttributeRolagem,
+    handleHealthClick: health.handleHealthClick,
+    handleSoulClick: health.handleSoulClick,
+    handleEnergyClick: health.handleEnergyClick,
+    handleSaveEdit: health.handleSaveEdit,
+    handleQuickAction: health.handleQuickAction,
+    handleToggleTreinada: skills.handleToggleTreinada,
+    handleOutrosChange: skills.handleOutrosChange,
+    handlePericiaRoll: (pericia, total) => skills.handlePericiaRoll(pericia, total, diceRollModal),
+    handleCharacterInfoClick: info.handleCharacterInfoClick,
+    handleOpenDerivedValuesModal: info.handleOpenDerivedValuesModal,
+    handleCloseDerivedValuesModal: info.handleCloseDerivedValuesModal,
+    handleSaveDerivedValuesBonuses: info.handleSaveDerivedValuesBonuses,
+    handleInputChange, handleBlur, handleKeyDown,
   };
 };

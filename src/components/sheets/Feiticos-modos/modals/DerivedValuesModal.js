@@ -191,7 +191,7 @@ const DerivedValuesModal = ({
           </Grid>
         </Grid>
 
-        <Box sx={{ mt: 3, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
+        <Box sx={{ mt: 3, p: 2, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 1, border: '1px solid rgba(255,255,255,0.08)' }}>
           <Typography variant="subtitle2" gutterBottom>
             Fórmulas Base:
           </Typography>
@@ -210,14 +210,16 @@ const DerivedValuesModal = ({
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ p: 3 }}>
-        <Button onClick={onClose} color="inherit">
+      <DialogActions sx={{ px: 3, py: 2, gap: 1.5 }}>
+        <Button onClick={onClose} variant="outlined" size="medium" sx={{ minWidth: 110 }}>
           Cancelar
         </Button>
         <Button 
           onClick={handleSave}
           variant="contained"
+          size="medium"
           startIcon={<SaveIcon />}
+          sx={{ minWidth: 180, color: 'white', fontWeight: 'bold' }}
         >
           Salvar Configurações
         </Button>

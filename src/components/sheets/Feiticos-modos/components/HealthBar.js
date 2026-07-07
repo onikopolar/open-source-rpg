@@ -32,7 +32,9 @@ const HEALTH_BAR_CONFIGS = {
     progressClass: 'healthProgress',
     titleClass: 'healthTitle', 
     cardClass: 'healthCard',
-    buttonColor: 'error',
+    minusColor: '#f44336',
+    plusColor: '#f44336',
+    plusBg: '#f44336',
     quickActions: {
       minus: { type: 'damage', label: '1' },
       plus: { type: 'heal', label: '1' }
@@ -45,20 +47,24 @@ const HEALTH_BAR_CONFIGS = {
     progressClass: 'soulProgress',
     titleClass: 'soulTitle',
     cardClass: 'soulCard',
-    buttonColor: 'secondary',
+    minusColor: '#9c27b0',
+    plusColor: '#9c27b0',
+    plusBg: '#9c27b0',
     quickActions: {
       minus: { type: 'soul_damage', label: '1' },
       plus: { type: 'soul_heal', label: '1' }
     }
   },
   energy: {
-    title: 'ENERGIA AMALDIÇOADA (PE)',
+    title: 'ENERGIA (PE)',
     icon: LocalHospital,
     color: '#2196f3',
     progressClass: 'energyProgress',
     titleClass: 'energyTitle',
     cardClass: 'energyCard',
-    buttonColor: 'primary',
+    minusColor: '#888',
+    plusColor: '#2196f3',
+    plusBg: '#2196f3',
     quickActions: {
       minus: { type: 'energy_remove', label: '1' },
       plus: { type: 'energy', label: '1' }
@@ -264,11 +270,7 @@ const HealthBar = React.memo(({
   }
 
   const getCardHeight = () => {
-    if (compactMode) {
-      if (verticalSpacing <= 0.25) return '110px';
-      if (verticalSpacing <= 0.5) return '120px';
-      return '125px';
-    }
+    if (compactMode) return 'auto';
     return '130px';
   };
 
@@ -303,7 +305,8 @@ const HealthBar = React.memo(({
       React.createElement(CardContent, { 
         className: classes.cardContent,
         style: {
-          padding: compactMode ? '6px' : '10px'
+          padding: compactMode ? '8px 6px' : '10px',
+          '&:last-child': { paddingBottom: compactMode ? '8px' : '10px' }
         }
       },
         React.createElement(Box, { 
@@ -372,12 +375,9 @@ const HealthBar = React.memo(({
             }
           }),
 
-          data?.description && React.createElement(Typography, {
+          !compactMode && data?.description && React.createElement(Typography, {
             className: classes.descriptionText,
-            style: {
-              fontSize: compactMode ? '0.6rem' : '0.65rem',
-              marginTop: compactMode ? '0px' : '1px'
-            }
+            style: { fontSize: '0.65rem', marginTop: '1px' }
           }, data.description)
         ),
 
@@ -391,11 +391,11 @@ const HealthBar = React.memo(({
           React.createElement(Button, {
             size: "small",
             variant: "outlined",
-            color: config.buttonColor,
             onClick: handleMinusClick,
             className: classes.quickActionButton,
             startIcon: React.createElement(Remove, { fontSize: "small" }),
             disabled: current <= 0,
+            sx: { borderColor: config.minusColor, color: config.minusColor },
             style: {
               minWidth: compactMode ? '36px' : '42px',
               fontSize: compactMode ? '0.65rem' : '0.7rem',
@@ -407,11 +407,11 @@ const HealthBar = React.memo(({
           React.createElement(Button, {
             size: "small",
             variant: "contained",
-            color: config.buttonColor,
             onClick: handlePlusClick,
             className: classes.quickActionButton,
             startIcon: React.createElement(Add, { fontSize: "small" }),
             disabled: current >= max,
+            sx: { backgroundColor: config.plusBg, '&:hover': { backgroundColor: config.plusBg + 'dd' } },
             style: {
               minWidth: compactMode ? '36px' : '42px',
               fontSize: compactMode ? '0.65rem' : '0.7rem',

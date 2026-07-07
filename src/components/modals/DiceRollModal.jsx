@@ -20,20 +20,22 @@ function DiceRollModal({
     handleClose,
     characterId,
     onDiceRoll,
+    initialTimes,
+    initialFaces,
     zIndex = 9999
 }) {
-    const [timesToRoll, setTimesToRoll] = useState(1);
-    const [facesNumber, setFacesNumber] = useState(6);
+    const [timesToRoll, setTimesToRoll] = useState(initialTimes || 1);
+    const [facesNumber, setFacesNumber] = useState(initialFaces || 6);
     const [buttonDisabled, setButtonDisabled] = useState(false);
     const [result, setResult] = useState(null);
 
     useEffect(() => {
+        if (initialTimes !== undefined || initialFaces !== undefined) return;
         const savedTimes = localStorage.getItem('diceRoller_timesToRoll');
         const savedFaces = localStorage.getItem('diceRoller_facesNumber');
-
         if (savedTimes) setTimesToRoll(Number(savedTimes));
         if (savedFaces) setFacesNumber(Number(savedFaces));
-    }, []);
+    }, [initialTimes, initialFaces]);
 
     const savePreferences = (times, faces) => {
         localStorage.setItem('diceRoller_timesToRoll', times);
