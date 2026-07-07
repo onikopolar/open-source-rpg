@@ -1,292 +1,219 @@
-import { LinearProgress, Box, Typography, Card, CardContent, IconButton, Button, styled } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import RemoveIcon from '@mui/icons-material/Remove';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import { useState, useEffect } from 'react';
+import React, { useMemo, useCallback } from 'react';
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  IconButton,
+  Button,
+  LinearProgress
+} from '@mui/material';
+import {
+  Favorite,
+  Edit,
+  Add,
+  Remove
+} from '@mui/icons-material';
 
-// Usando styled components do MUI em vez de makeStyles
-const StyledLinearProgress = styled(LinearProgress)(({ theme, primarycolor, secondarycolor }) => ({
-  height: '35px',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  border: '2px solid #e0e0e0',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  backgroundColor: secondarycolor || '#ecf0f1',
-  '& .MuiLinearProgress-bar': {
-    backgroundColor: primarycolor || '#27ae60',
-    transition: 'all 0.3s ease-in-out'
-  }
-}));
+// ====== Versão 2.0 — Design inspirado no Feiticeiros: simples, compacto e dinâmico ======
 
-const LinearProgressWithLabel = (props) => {
-  const safeValue = isNaN(props.value) ? 0 : Math.max(0, Math.min(100, props.value));
+const getProgressColor = (progress) => {
+  if (progress > 70) return '#27ae60';
+  if (progress > 40) return '#f39c12';
+  if (progress > 20) return '#e74c3c';
+  return '#c0392b';
+};
 
-  return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        width: '100%',
-        gap: 2
-      }}
-      onClick={props.onClick}
-    >
-      <Box sx={{ flex: 1 }}>
-        <StyledLinearProgress
-          variant="determinate"
-          value={safeValue}
-          primarycolor={props.primaryColor}
-          secondarycolor={props.secondaryColor}
-        />
-      </Box>
-      <Box sx={{ 
-        minWidth: 100, 
-        textAlign: 'center',
-        padding: '8px 12px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '6px',
-        border: '1px solid #e0e0e0'
-      }}>
-        <Typography 
-          variant="h6" 
-          sx={{ 
-            userSelect: 'none',
-            fontWeight: 'bold',
-            color: '#2c3e50',
-            margin: 0
-          }}
-        >
-          {props.label}
-        </Typography>
-      </Box>
-    </Box>
-  );
+const useHPBar = (current, max) => {
+  const progress = useMemo(() => {
+    if (!max || max <= 0) return 0;
+    return Math.min(100, Math.max(0, (current / max) * 100));
+  }, [current, max]);
+
+  const color = useMemo(() => getProgressColor(progress), [progress]);
+
+  return { progress, color };
 };
 
 const StatusBar = ({
-    character,
-    onStatusBarClick,
-    onQuickHeal,
-    onQuickDamage
+  character,
+  onStatusBarClick,
+  onQuickHeal,
+  onQuickDamage,
+  isLoading = false,
+  isMobile = false
 }) => {
-    const [isClient, setIsClient] = useState(false);
-    
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
+  const current = character?.current_hit_points ?? 0;
+  const max = character?.max_hit_points ?? 1;
 
-    const current = character?.current_hit_points || 0;
-    const max = character?.max_hit_points || 1;
-    
-    const normalise = (current, max) => {
-        if (!current || !max || max === 0) return 0;
-        return (current * 100) / max;
-    };
+  const { progress, color } = useHPBar(current, max);
 
-    const progressValue = normalise(current, max);
-    
-    const getPrimaryColor = () => {
-        if (progressValue > 70) return '#27ae60';
-        if (progressValue > 40) return '#f39c12';
-        if (progressValue > 20) return '#e74c3c';
-        return '#c0392b';
-    };
+  const handleDamage = useCallback((e) => {
+    e?.stopPropagation();
+    if (onQuickDamage && current > 0) onQuickDamage(1);
+  }, [onQuickDamage, current]);
 
-    const getStatusText = () => {
-        if (progressValue > 70) return 'Saudável';
-        if (progressValue > 40) return 'Ferido';
-        if (progressValue > 20) return 'Gravemente Ferido';
-        return 'Morrendo';
-    };
+  const handleHeal = useCallback((e) => {
+    e?.stopPropagation();
+    if (onQuickHeal && current < max) onQuickHeal(1);
+  }, [onQuickHeal, current, max]);
 
-    const getStatusColor = () => {
-        if (progressValue > 70) return '#27ae60';
-        if (progressValue > 40) return '#f39c12';
-        if (progressValue > 20) return '#e74c3c';
-        return '#c0392b';
-    };
+  const handleEdit = useCallback((e) => {
+    e?.stopPropagation();
+    if (onStatusBarClick) onStatusBarClick();
+  }, [onStatusBarClick]);
 
-    const handleQuickHeal = () => {
-        if (onQuickHeal) {
-            onQuickHeal(1);
+  return (
+    <Card
+      onClick={onStatusBarClick}
+      sx={{
+        width: '100%',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          transform: 'translateY(-1px)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
         }
-    };
-
-    const handleQuickDamage = () => {
-        if (onQuickDamage) {
-            onQuickDamage(1);
-        }
-    };
-
-    const handleFullHeal = () => {
-        if (onQuickHeal) {
-            onQuickHeal(max - current);
-        }
-    };
-
-    if (!isClient) {
-        return (
-            <Card sx={{ width: '100%' }}>
-                <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h5" sx={{ mb: 2, textAlign: 'center' }}>
-                        Pontos de Vida
-                    </Typography>
-                    <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="body1">Carregando...</Typography>
-                    </Box>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    return (
-        <Card 
-            sx={{ 
-                width: '100%',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                }
-            }}
+      }}
+    >
+      <CardContent sx={{ p: isMobile ? '10px 8px' : '14px 16px', '&:last-child': { pb: isMobile ? '10px' : '14px' } }}>
+        {/* ====== CABEÇALHO ====== */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            mb: 1
+          }}
         >
-            <CardContent sx={{ p: 3 }}>
-                <Typography 
-                    variant="h5" 
-                    sx={{ 
-                        mb: 2, 
-                        textAlign: 'center',
-                        fontWeight: 'bold',
-                        color: '#2c3e50',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 1
-                    }}
-                >
-                    <FavoriteIcon sx={{ color: '#e74c3c' }} />
-                    Pontos de Vida
-                </Typography>
-                
-                <Box onClick={onStatusBarClick} sx={{ cursor: 'pointer' }}>
-                    <LinearProgressWithLabel
-                        value={progressValue}
-                        label={`${current} / ${max}`}
-                        primaryColor={getPrimaryColor()}
-                        secondaryColor="#ecf0f1"
-                    />
-                </Box>
-                
-                <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    mt: 3,
-                    gap: 2
-                }}>
-                    <IconButton
-                        color="error"
-                        onClick={handleQuickDamage}
-                        sx={{ 
-                            border: '2px solid #e74c3c',
-                            backgroundColor: '#fdf2f2',
-                            '&:hover': {
-                                backgroundColor: '#fadbd8'
-                            }
-                        }}
-                        disabled={current <= 0}
-                    >
-                        <RemoveIcon />
-                    </IconButton>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Favorite sx={{ color, fontSize: isMobile ? '1.1rem' : '1.3rem' }} />
+            <Typography
+              sx={{
+                fontWeight: 700,
+                fontSize: isMobile ? '0.85rem' : '1rem',
+                color: '#2c3e50',
+                letterSpacing: '0.02em'
+              }}
+            >
+              PONTOS DE VIDA
+            </Typography>
+          </Box>
 
-                    <Box sx={{ 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        minWidth: 120
-                    }}>
-                        <Typography 
-                            variant="body1" 
-                            sx={{ 
-                                fontWeight: 'bold',
-                                color: getStatusColor(),
-                                fontSize: '1.1rem'
-                            }}
-                        >
-                            {getStatusText()}
-                        </Typography>
-                        <Typography 
-                            variant="body2" 
-                            sx={{ 
-                                color: '#7f8c8d',
-                                fontWeight: 'bold'
-                            }}
-                        >
-                            {progressValue.toFixed(0)}%
-                        </Typography>
-                    </Box>
+          <IconButton
+            size="small"
+            onClick={handleEdit}
+            sx={{
+              color: 'text.secondary',
+              p: 0.5,
+              '&:hover': { color }
+            }}
+          >
+            <Edit fontSize="small" />
+          </IconButton>
+        </Box>
 
-                    <IconButton
-                        color="success"
-                        onClick={handleQuickHeal}
-                        sx={{ 
-                            border: '2px solid #27ae60',
-                            backgroundColor: '#f2fdf2',
-                            '&:hover': {
-                                backgroundColor: '#d4efdf'
-                            }
-                        }}
-                        disabled={current >= max}
-                    >
-                        <AddIcon />
-                    </IconButton>
-                </Box>
+        {/* ====== BARRA DE PROGRESSO ====== */}
+        <Box sx={{ my: isMobile ? 0.75 : 1 }}>
+          {/* Labels */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 0.5
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: isMobile ? '0.7rem' : '0.8rem',
+                color: 'text.secondary',
+                fontWeight: 600
+              }}
+            >
+              {current} / {max}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: isMobile ? '0.75rem' : '0.85rem',
+                fontWeight: 700,
+                color
+              }}
+            >
+              {Math.round(progress)}%
+            </Typography>
+          </Box>
 
-                <Box sx={{ textAlign: 'center', mt: 2 }}>
-                    <Button
-                        variant="outlined"
-                        color="success"
-                        startIcon={<FavoriteIcon />}
-                        onClick={handleFullHeal}
-                        size="small"
-                        disabled={current >= max}
-                        sx={{ 
-                            opacity: current >= max ? 0.5 : 1,
-                            fontSize: '0.8rem'
-                        }}
-                    >
-                        Restaurar Vida
-                    </Button>
-                </Box>
+          {/* Barra */}
+          <LinearProgress
+            variant="determinate"
+            value={progress}
+            sx={{
+              height: isMobile ? 8 : 10,
+              borderRadius: 5,
+              backgroundColor: `${color}20`,
+              '& .MuiLinearProgress-bar': {
+                backgroundColor: color,
+                borderRadius: 5,
+                transition: 'transform 0.3s ease-in-out'
+              }
+            }}
+          />
+        </Box>
 
-                <Box sx={{ 
-                    textAlign: 'center',
-                    mt: 2,
-                    pt: 2,
-                    borderTop: '1px solid #e0e0e0'
-                }}>
-                    <Typography 
-                        variant="caption" 
-                        sx={{ 
-                            color: '#95a5a6',
-                            display: 'block'
-                        }}
-                    >
-                        Clique na barra para valores exatos
-                    </Typography>
-                    <Typography 
-                        variant="caption" 
-                        sx={{ 
-                            color: '#95a5a6',
-                            display: 'block'
-                        }}
-                    >
-                        Botões para ajustar 1 ponto
-                    </Typography>
-                </Box>
-            </CardContent>
-        </Card>
-    );
+        {/* ====== BOTÕES DE AÇÃO RÁPIDA ====== */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 1.5,
+            mt: isMobile ? 1 : 1.5,
+            pt: isMobile ? 1 : 1.5,
+            borderTop: '1px solid #f0f0f0'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleDamage}
+            disabled={current <= 0 || isLoading}
+            startIcon={<Remove fontSize="small" />}
+            sx={{
+              minWidth: isMobile ? 42 : 52,
+              fontSize: isMobile ? '0.7rem' : '0.78rem',
+              fontWeight: 700,
+              borderColor: '#e74c3c',
+              color: '#e74c3c',
+              '&:hover': { borderColor: '#c0392b', backgroundColor: '#fdf2f2' },
+              '&:disabled': { opacity: 0.35 }
+            }}
+          >
+            1
+          </Button>
+
+          <Button
+            size="small"
+            variant="contained"
+            onClick={handleHeal}
+            disabled={current >= max || isLoading}
+            startIcon={<Add fontSize="small" />}
+            sx={{
+              minWidth: isMobile ? 42 : 52,
+              fontSize: isMobile ? '0.7rem' : '0.78rem',
+              fontWeight: 700,
+              backgroundColor: color,
+              '&:hover': { backgroundColor: `${color}dd` },
+              '&:disabled': { opacity: 0.35, backgroundColor: color }
+            }}
+          >
+            1
+          </Button>
+        </Box>
+      </CardContent>
+    </Card>
+  );
 };
 
-export default StatusBar;
+export default React.memo(StatusBar);

@@ -236,7 +236,7 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
         }
       }
       
-      await api.put(`/character/${currentCharacterId}`, { rpg_system: newSystem });
+      const response = await api.put(`/character/${currentCharacterId}`, { rpg_system: newSystem });
       
       if (newSystem === "year_zero") {
         try {
@@ -250,7 +250,11 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
 
       setIsChangingSystem(false);
       
-      if (character) {
+      // Usar dados completos da resposta da API (inclui attributes/skills vinculados)
+      if (response?.data?.data) {
+        console.log('[useCharacterSheet] Personagem atualizado com dados completos da API');
+        setCharacter(response.data.data);
+      } else if (character) {
         const updatedCharacter = { ...character, rpg_system: newSystem };
         setCharacter(updatedCharacter);
       }
@@ -267,6 +271,36 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
 
   const getAttributes = useCallback(() => character?.attributes || [], [character?.attributes]);
   const getSkills = useCallback(() => character?.skills || [], [character?.skills]);
+
+  // Setters para valores individuais de atributos/skills
+  const setAttributeValues = useCallback((updater) => {
+    setCharacterValues(prev => ({
+      ...prev,
+      attributes: typeof updater === 'function' ? updater(prev.attributes || {}) : updater
+    }));
+  }, []);
+
+  const setSkillValues = useCallback((updater) => {
+    setCharacterValues(prev => ({
+      ...prev,
+      skills: typeof updater === 'function' ? updater(prev.skills || {}) : updater
+    }));
+  }, []);
+
+  const setYearZeroAttributeValues = useCallback((updater) => {
+    setCharacterValues(prev => ({
+      ...prev,
+      yearZeroAttributes: typeof updater === 'function' ? updater(prev.yearZeroAttributes || {}) : updater
+    }));
+  }, []);
+
+  const setYearZeroSkillValues = useCallback((updater) => {
+    setCharacterValues(prev => ({
+      ...prev,
+      yearZeroSkills: typeof updater === 'function' ? updater(prev.yearZeroSkills || {}) : updater
+    }));
+  }, []);
+
   const arraysAreEqual = useCallback((arr1, arr2) => {
     if (arr1 === arr2) return true;
     if (!arr1 || !arr2) return false;
@@ -297,6 +331,10 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
       skillValues: characterValues.skills || {},
       yearZeroAttributeValues: characterValues.yearZeroAttributes || {},
       yearZeroSkillValues: characterValues.yearZeroSkills || {},
+      setAttributeValues,
+      setSkillValues,
+      setYearZeroAttributeValues,
+      setYearZeroSkillValues,
       rpgSystem,
       setRpgSystem,
       isChangingSystem,

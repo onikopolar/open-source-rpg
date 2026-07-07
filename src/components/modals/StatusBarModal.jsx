@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { withStyles } from '@mui/styles';
 import {
     TextField, Dialog, DialogActions, DialogContent, Grid,
-    DialogTitle, Button, Box, Typography
+    DialogTitle, Button
 } from '@mui/material'
 
 const styles = theme => ({
@@ -67,16 +67,8 @@ function StatusBarModal({
             max: max
         }).then(() => {
             resetState();
+            handleClose();
         });
-    }
-
-    // Calcular porcentagem para preview
-    const calculatePercentage = () => {
-        const current = parseInt(hitPoints.current) || 0;
-        const max = parseInt(hitPoints.max) || 1;
-        
-        if (max === 0) return 0;
-        return Math.round((current / max) * 100);
     }
 
     // Função para lidar com mudanças nos campos
@@ -100,7 +92,7 @@ function StatusBarModal({
             <DialogTitle>
                 Editar Pontos de Vida - {characterName}
             </DialogTitle>
-            <DialogContent>
+            <DialogContent sx={{ pt: '20px !important' }}>
                 <Grid container spacing={3}>
                     <Grid item xs={12}>
                         <TextField
@@ -134,40 +126,6 @@ function StatusBarModal({
                             placeholder="Ex: 100"
                             helperText="Valor deve ser maior que 0"
                         />
-                    </Grid>
-                    
-                    {/* Preview da barra de vida */}
-                    <Grid item xs={12}>
-                        <Box sx={{ 
-                            p: 2, 
-                            border: '1px solid #e0e0e0', 
-                            borderRadius: 1,
-                            backgroundColor: '#fafafa',
-                            mt: 2
-                        }}>
-                            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
-                                Prévia:
-                            </Typography>
-                            <Box sx={{ 
-                                height: '20px', 
-                                backgroundColor: '#e0e0e0', 
-                                borderRadius: '10px',
-                                overflow: 'hidden'
-                            }}>
-                                <Box 
-                                    sx={{ 
-                                        height: '100%',
-                                        backgroundColor: calculatePercentage() > 50 ? '#4caf50' : 
-                                                       calculatePercentage() > 25 ? '#ff9800' : '#f44336',
-                                        width: `${calculatePercentage()}%`,
-                                        transition: 'all 0.3s ease'
-                                    }}
-                                />
-                            </Box>
-                            <Typography variant="body2" sx={{ mt: 1, textAlign: 'center' }}>
-                                {parseInt(hitPoints.current) || 0} / {parseInt(hitPoints.max) || 0} ({calculatePercentage()}%)
-                            </Typography>
-                        </Box>
                     </Grid>
                 </Grid>
             </DialogContent>

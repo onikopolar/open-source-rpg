@@ -7,22 +7,24 @@ import { DiceRollModal, YearZeroDiceModal, StatusBarModal, ChangePictureModal } 
 
 export const createModals = (useModal, handlers) => {
   const attributeDiceModal = useModal(({ close, custom }) => {
+    const diceCount = parseInt(custom.attributeValue) || 1;
     return React.createElement(DiceRollModal, {
       handleClose: close,
       characterId: custom.characterId,
       characterName: custom.characterName,
-      skillName: custom.attributeName,
-      skillValue: custom.attributeValue
+      initialTimes: diceCount,
+      initialFaces: 6
     });
   });
 
   const diceRollModal = useModal(({ close, custom }) => {
+    const diceCount = parseInt(custom.skillValue) || 1;
     return React.createElement(DiceRollModal, {
       handleClose: close,
       characterId: custom.characterId,
       characterName: custom.characterName,
-      skillName: custom.skillName,
-      skillValue: custom.skillValue
+      initialTimes: diceCount,
+      initialFaces: 6
     });
   });
 

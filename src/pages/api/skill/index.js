@@ -35,7 +35,7 @@ export default async function handler(req, res) {
         console.log(`[DEBUG] Vinculando perícia a ${classicCharacters.length} personagens clássicos`);
 
         for (const character of classicCharacters) {
-          await prisma.characterSkills.upsert({
+          await prisma.characterSkill.upsert({
             where: {
               character_id_skill_id: {
                 character_id: character.id,
