@@ -47,10 +47,12 @@ export function useMouseTabletop({
     const dragStartEmitidoRef = useRef(false);
     const movimentoIniciadoRef = useRef(false);
 
-    const isTokenBloqueado = useCallback((tokenId) => {
-        const bloqueado = uiState.tokensBloqueados[tokenId] === true;
-        return bloqueado;
-    }, [uiState.tokensBloqueados]);
+    const isTokenBloqueado = useCallback((tokenId, token) => {
+        if (uiState.tokensBloqueados[tokenId] === true) return true;
+        // Player não pode interagir com token dentro da névoa
+        if (!isMaster && token && fov?.estaCoberto && fov.estaCoberto(token.x, token.y)) return true;
+        return false;
+    }, [uiState.tokensBloqueados, isMaster, fov]);
 
     const getPosicaoTela = useCallback((token) => ({
         x: (token.x * uiState.zoom) + uiState.position.x,
@@ -171,7 +173,7 @@ export function useMouseTabletop({
             // 1. Verificar token primeiro
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'direito');
             if (tokenSobre) {
-                const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
+                const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id, tokenSobre.token);
                 uiDispatch({
                     type: 'SET_MOUSE_DOWN_INFO',
                     payload: {
@@ -229,7 +231,7 @@ export function useMouseTabletop({
             // 1. Verificar token primeiro (independente de névoa)
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'esquerdo');
             if (tokenSobre) {
-                const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
+                const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id, tokenSobre.token);
                 if (tokenBloqueado) {
                     uiDispatch({ type: 'SET_FEEDBACK', payload: { message: 'Token bloqueado', type: 'warning' } });
                     event.preventDefault();
@@ -328,7 +330,7 @@ export function useMouseTabletop({
 
                 const anyBlocked = uiState.tokensSelecionados.some(indice => {
                     const token = tokensState[indice];
-                    return token && isTokenBloqueado(token.id);
+                    return token && isTokenBloqueado(token.id, token);
                 });
 
                 if (anyBlocked) {
@@ -399,7 +401,7 @@ export function useMouseTabletop({
             // 4. Token já selecionado individualmente (possível redimensionamento)
             if (uiState.tokenSelecionado !== null) {
                 const token = tokensState[uiState.tokenSelecionado];
-                if (token && !isTokenBloqueado(token.id)) {
+                if (token && !isTokenBloqueado(token.id, token)) {
                     const posicao = getPosicaoTela(token);
                     const dimensoes = getDimensoesTela(token);
                     const canto = verificarSeMousePodeRedimensionar(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, false);
@@ -464,7 +466,8 @@ export function useMouseTabletop({
                 const tokensNaArea = [];
                 for (let i = 0; i < tokensComInfo.length; i++) {
                     const token = tokensComInfo[i];
-                    if (!token.bloqueado && tokenEstaNaAreaSelecao(token, uiState.areaSelecao)) {
+                    const escondidoNevoa = !isMaster && fov?.estaCoberto && fov.estaCoberto(token.x, token.y);
+                    if (!token.bloqueado && !escondidoNevoa && tokenEstaNaAreaSelecao(token, uiState.areaSelecao)) {
                         tokensNaArea.push(i);
                     }
                 }
@@ -567,7 +570,7 @@ export function useMouseTabletop({
                 if (itemInfo.isGroupResize && indicesGrupo.length > 0) {
                     const anyBlocked = indicesGrupo.some(indice => {
                         const token = tokensState[indice];
-                        return token && isTokenBloqueado(token.id);
+                        return token && isTokenBloqueado(token.id, token);
                     });
                     if (anyBlocked) {
                         uiDispatch({ type: 'SET_FEEDBACK', payload: { message: 'Grupo contém token bloqueado', type: 'warning' } });

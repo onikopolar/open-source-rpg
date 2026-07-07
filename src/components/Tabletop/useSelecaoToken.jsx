@@ -4,14 +4,17 @@ import { TOLERANCIA_CLIQUE } from "./ConstantesMesa";
 
 // Tamanhos fixos em pixels na tela - não escalam com zoom
 export const CONFIG_BOLINHAS = {
-    TAMANHO_BOLINHA_TELA: 20,
+    TAMANHO_BOLINHA_TELA: 32,
     DISTANCIA_EXTERNA_TELA: 4,
-    PADDING_DETECCAO_TELA: 4
+    PADDING_DETECCAO_TELA: 0
 };
 
 // Calcula posições das 4 bolinhas nos cantos do token
 export function calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, alturaTela, zoom) {
-    const { TAMANHO_BOLINHA_TELA, DISTANCIA_EXTERNA_TELA, PADDING_DETECCAO_TELA } = CONFIG_BOLINHAS;
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const TAMANHO_BOLINHA_TELA = isMobile ? 32 : 20;
+    const DISTANCIA_EXTERNA_TELA = CONFIG_BOLINHAS.DISTANCIA_EXTERNA_TELA;
+    const PADDING_DETECCAO_TELA = CONFIG_BOLINHAS.PADDING_DETECCAO_TELA;
     
     const raioBolinha = TAMANHO_BOLINHA_TELA / 2;
     const distanciaExternaTela = DISTANCIA_EXTERNA_TELA;

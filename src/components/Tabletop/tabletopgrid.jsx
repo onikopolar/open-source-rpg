@@ -263,9 +263,10 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     );
 
     const gradesVisiveis = useMemo(() => {
-        return GRID_CONFIGS.filter((config) => estadoUI.zoom >= config.zoomThreshold).map(
+        const z = estadoUI.zoom;
+        let grades = GRID_CONFIGS.filter((config) => z >= config.zoomThreshold).map(
             (config, index, array) => {
-                const strokeWidth = Math.max(0.5, 1 / estadoUI.zoom);
+                const strokeWidth = Math.max(0.5, 1 / z);
                 const baseSize = BASE_GRID_SIZE * config.sizeMultiplier;
                 let alpha = config.alpha;
 
@@ -274,17 +275,30 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                     const rangeTransicao = (config.zoomThreshold - configAnterior.zoomThreshold) * 0.2;
                     const inicioFade = config.zoomThreshold - rangeTransicao;
                     if (
-                        estadoUI.zoom > inicioFade &&
-                        estadoUI.zoom < config.zoomThreshold + rangeTransicao
+                        z > inicioFade &&
+                        z < config.zoomThreshold + rangeTransicao
                     ) {
-                        const progresso = (estadoUI.zoom - inicioFade) / (rangeTransicao * 2);
+                        const progresso = (z - inicioFade) / (rangeTransicao * 2);
                         alpha = config.alpha * Math.min(1, Math.max(0, progresso));
                     }
                 }
 
-                return { size: baseSize, alpha, strokeWidth };
+                return { size: baseSize, alpha, strokeWidth, threshold: config.zoomThreshold };
             }
         );
+
+        // Mantém no máximo 3 camadas: as 2 mais relevantes + a base (1x)
+        if (grades.length > 3) {
+            // Sempre mantém a base 1x (índice 2 nos GRID_CONFIGS originais)
+            const base = grades.find(g => g.size === BASE_GRID_SIZE);
+            const others = grades.filter(g => g.size !== BASE_GRID_SIZE);
+            // Pega as 2 camadas com threshold mais próximo do zoom atual
+            others.sort((a, b) => Math.abs(a.threshold - z) - Math.abs(b.threshold - z));
+            grades = [...others.slice(0, 2)];
+            if (base) grades.push(base);
+        }
+
+        return grades;
     }, [estadoUI.zoom]);
 
     const tokensInfo = useMemo(() => {
@@ -567,7 +581,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                             largura: itemInfo.tamanhoTela.larguraTela,
                             altura: itemInfo.tamanhoTela.alturaTela,
                         };
-                        desenharSelecao(contexto, boundingBox, estadoUI.zoom, 1, true);
+                        desenharSelecao(contexto, boundingBox, estadoUI.zoom, 1, true, itemInfo.escala);
                     }
                 }
             }
@@ -602,7 +616,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                         largura: itemInfo.tamanhoTela.larguraTela,
                         altura: itemInfo.tamanhoTela.alturaTela,
                     };
-                    desenharSelecao(contexto, boundingBox, estadoUI.zoom, 1, true);
+                    desenharSelecao(contexto, boundingBox, estadoUI.zoom, 1, true, itemInfo.escala);
                 }
             }
 

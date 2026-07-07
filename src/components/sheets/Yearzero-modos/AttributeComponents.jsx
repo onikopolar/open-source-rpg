@@ -1,119 +1,251 @@
-import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  memo,
+  useMemo
+} from 'react';
 import { Box, TextField, IconButton, Typography } from '@mui/material';
 import { Casino } from '@mui/icons-material';
 import { attributeComponentsStyles } from './design/AttributeDesignStyles.jsx';
 
-// Gerenciador global de sessão de cliques
-let globalClickSession = {
-  active: false,
-  fieldId: null,
-  startValue: 0,
-  accumulated: 0,
-  lastClickTime: 0,
-  clickIntervals: [],
-  timeoutId: null
+// ============================================================================
+// HOOKS AUXILIARES
+// ============================================================================
+
+/**
+ * Gera um ID estável por instância do componente.
+ * Usa useId (React 18+) quando disponível, caso contrário gera um ID aleatório.
+ */
+const useComponentId = () => {
+  const fallbackRef = useRef(null);
+  if (typeof React.useId === 'function') {
+    return React.useId();
+  }
+  if (!fallbackRef.current) {
+    fallbackRef.current =
+      'id_' + Math.random().toString(36).slice(2, 11);
+  }
+  return fallbackRef.current;
 };
 
-const resetGlobalSession = () => {
-  if (globalClickSession.timeoutId) {
-    clearTimeout(globalClickSession.timeoutId);
-  }
-  globalClickSession = {
+
+const useAccumulatingField = (initialValue, onCommit, onRoll) => {
+  const [localValue, setLocalValue] = useState(initialValue);
+  const fieldId = useComponentId();
+
+  // Sessão de cliques mantida em refs (não causa re-render)
+  const sessionRef = useRef({
     active: false,
-    fieldId: null,
     startValue: 0,
     accumulated: 0,
     lastClickTime: 0,
-    clickIntervals: [],
-    timeoutId: null
-  };
-};
+    clickIntervals: [] // últimos intervalos em ms
+  });
+  const timeoutRef = useRef(null);
+  // Callbacks mais recentes
+  const onCommitRef = useRef(onCommit);
+  const onRollRef = useRef(onRoll);
+  onCommitRef.current = onCommit;
+  onRollRef.current = onRoll;
 
-const startNewSession = (fieldId, currentValue, direction) => {
-  const now = Date.now();
-  if (globalClickSession.timeoutId) clearTimeout(globalClickSession.timeoutId);
-  globalClickSession = {
-    active: true,
-    fieldId: fieldId,
-    startValue: currentValue,
-    accumulated: direction,
-    lastClickTime: now,
-    clickIntervals: [],
-    timeoutId: null
-  };
-};
+  // Sincroniza valor interno com prop externa quando ela muda
+  useEffect(() => {
+    setLocalValue(initialValue);
+  }, [initialValue]);
 
-const continueSession = (fieldId, direction) => {
-  if (globalClickSession.fieldId !== fieldId) return false;
-  const now = Date.now();
-  const interval = now - globalClickSession.lastClickTime;
-  globalClickSession.clickIntervals.push(interval);
-  if (globalClickSession.clickIntervals.length > 4) globalClickSession.clickIntervals.shift();
-  globalClickSession.accumulated += direction;
-  globalClickSession.lastClickTime = now;
-  return true;
-};
+  // Limpa timeout e reseta sessão ao desmontar
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
-const calculateAdaptiveThreshold = () => {
-  if (globalClickSession.clickIntervals.length === 0) return 400;
-  const sum = globalClickSession.clickIntervals.reduce((a, b) => a + b, 0);
-  const avg = sum / globalClickSession.clickIntervals.length;
-  return Math.max(300, Math.min(800, avg * 2.5));
-};
-
-const processArrowClick = (fieldId, currentValue, direction, onSaveCallback) => {
-  const now = Date.now();
-  const isNewSession = !globalClickSession.active ||
-    (now - globalClickSession.lastClickTime > 500) ||
-    globalClickSession.fieldId !== fieldId;
-
-  if (isNewSession) {
-    startNewSession(fieldId, currentValue, direction);
-  } else if (!continueSession(fieldId, direction)) {
-    startNewSession(fieldId, currentValue, direction);
-  }
-
-  const finalValue = Math.min(6, Math.max(0, globalClickSession.startValue + globalClickSession.accumulated));
-
-  if (globalClickSession.timeoutId) clearTimeout(globalClickSession.timeoutId);
-  const threshold = calculateAdaptiveThreshold();
-  globalClickSession.timeoutId = setTimeout(() => {
-    if (globalClickSession.active && globalClickSession.accumulated !== 0) {
-      onSaveCallback(finalValue);
-      resetGlobalSession();
+  const resetSession = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
-  }, threshold);
+    sessionRef.current = {
+      active: false,
+      startValue: 0,
+      accumulated: 0,
+      lastClickTime: 0,
+      clickIntervals: []
+    };
+  }, []);
 
-  return finalValue;
+  const commitValue = useCallback((value) => {
+    const clamped = Math.min(6, Math.max(0, value));
+    setLocalValue(clamped);
+    if (onCommitRef.current) {
+      onCommitRef.current(clamped);
+    }
+    return clamped;
+  }, []);
+
+  const startSession = useCallback((direction) => {
+    const now = Date.now();
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    sessionRef.current = {
+      active: true,
+      startValue: localValue,
+      accumulated: direction,
+      lastClickTime: now,
+      clickIntervals: []
+    };
+    timeoutRef.current = null;
+  }, [localValue]);
+
+  const continueSession = useCallback((direction) => {
+    const s = sessionRef.current;
+    const now = Date.now();
+    const interval = now - s.lastClickTime;
+    s.clickIntervals.push(interval);
+    if (s.clickIntervals.length > 4) s.clickIntervals.shift();
+    s.accumulated += direction;
+    s.lastClickTime = now;
+  }, []);
+
+  const calculateThreshold = useCallback(() => {
+    const intervals = sessionRef.current.clickIntervals;
+    if (intervals.length === 0) return 400;
+    const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    return Math.max(300, Math.min(800, avg * 2.5));
+  }, []);
+
+  const scheduleCommit = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    const threshold = calculateThreshold();
+    const session = sessionRef.current;
+    timeoutRef.current = setTimeout(() => {
+      if (session.active && session.accumulated !== 0) {
+        const finalValue = session.startValue + session.accumulated;
+        commitValue(finalValue);
+        resetSession();
+      }
+    }, threshold);
+  }, [calculateThreshold, commitValue, resetSession]);
+
+  // Processa clique de seta (incremento/decremento unitário)
+  const processArrowClick = useCallback((direction) => {
+    const s = sessionRef.current;
+    const now = Date.now();
+    const isNewSession =
+      !s.active ||
+      now - s.lastClickTime > 500 ||
+      s.fieldId !== fieldId; // fieldId check implícito por termos um hook por campo
+
+    if (isNewSession) {
+      startSession(direction);
+    } else {
+      continueSession(direction);
+    }
+
+    const newValue = sessionRef.current.startValue + sessionRef.current.accumulated;
+    const displayValue = Math.min(6, Math.max(0, newValue));
+    setLocalValue(displayValue);
+
+    scheduleCommit();
+    return displayValue;
+  }, [fieldId, startSession, continueSession, scheduleCommit]);
+
+  // Tratamento de digitação direta – persiste imediatamente
+  const handleInputChange = useCallback((e) => {
+    const raw = e.target.value;
+    const parsed = parseInt(raw, 10);
+    if (!isNaN(parsed)) {
+      resetSession();
+      commitValue(parsed);
+    } else if (raw === '' || raw === '-') {
+      // Permite campo vazio momentaneamente, mas persiste 0 ao sair
+      setLocalValue(0); // opcional: pode manter string vazia e commitar 0 no blur
+    }
+  }, [resetSession, commitValue]);
+
+  // Teclas: setas e Enter
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      processArrowClick(1);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      processArrowClick(-1);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      // Rolagem sem alterar valor (mas commita pendências se houver)
+      if (sessionRef.current.active && sessionRef.current.accumulated !== 0) {
+        const finalValue = sessionRef.current.startValue + sessionRef.current.accumulated;
+        commitValue(finalValue);
+        resetSession();
+      }
+      if (onRollRef.current) {
+        onRollRef.current(localValue);
+      }
+    }
+  }, [processArrowClick, commitValue, resetSession, localValue]);
+
+  // Clique no dado: commita sessão pendente (para usar o valor mais recente) e rola
+  const handleDiceClick = useCallback(() => {
+    if (sessionRef.current.active && sessionRef.current.accumulated !== 0) {
+      const finalValue = sessionRef.current.startValue + sessionRef.current.accumulated;
+      const committed = commitValue(finalValue);
+      resetSession();
+      if (onRollRef.current) onRollRef.current(committed);
+    } else {
+      if (onRollRef.current) onRollRef.current(localValue);
+    }
+  }, [commitValue, resetSession, localValue]);
+
+  // Ao perder o foco, commita qualquer sessão pendente imediatamente
+  const handleBlur = useCallback(() => {
+    if (sessionRef.current.active && sessionRef.current.accumulated !== 0) {
+      const finalValue = sessionRef.current.startValue + sessionRef.current.accumulated;
+      commitValue(finalValue);
+      resetSession();
+    }
+  }, [commitValue, resetSession]);
+
+  return {
+    localValue,
+    handleInputChange,
+    handleKeyDown,
+    handleDiceClick,
+    handleBlur,
+    fieldId
+  };
 };
 
 // ============================================================================
 // FUNÇÕES AUXILIARES UNIFICADAS
 // ============================================================================
-const getValue = (items, name, defaultValue = 0, valueKey = 'year_zero_value') => {
-  const validated = items && items.length ? items : [];
-  const item = validated.find(i => i.name === name);
-  const val = item?.[valueKey] ?? defaultValue;
+export const getAttributeValue = (attributes, attributeName, defaultAttributes = []) => {
+  const items = attributes && attributes.length ? attributes : defaultAttributes;
+  const item = items.find(i => i.name === attributeName);
+  const val = item?.year_zero_value ?? 0;
   return Math.min(6, Math.max(0, val));
 };
 
-const updateValue = (type, name, value, onUpdate) => {
-  const numValue = Math.min(6, Math.max(0, parseInt(value) || 0));
-  if (onUpdate) onUpdate(type, name, numValue);
+export const getSkillValue = (skills, skillName, defaultSkills = []) => {
+  const items = skills && skills.length ? skills : defaultSkills;
+  const item = items.find(i => i.name === skillName);
+  const val = item?.year_zero_value ?? 0;
+  return Math.min(6, Math.max(0, val));
+};
+
+export const updateAttribute = (attributeName, value, onUpdate) => {
+  const numValue = Math.min(6, Math.max(0, parseInt(value, 10) || 0));
+  if (onUpdate) onUpdate('attribute', attributeName, numValue);
   return numValue;
 };
 
-// Mantém compatibilidade com exportações existentes
-export const getAttributeValue = (attributes, attributeName, defaultAttributes = []) =>
-  getValue(attributes, attributeName, 0);
-export const getSkillValue = (skills, skillName, defaultSkills = []) =>
-  getValue(skills, skillName, 0);
-export const updateAttribute = (attributeName, value, onUpdate) =>
-  updateValue('attribute', attributeName, value, onUpdate);
-export const updateSkill = (skillName, value, onUpdate) =>
-  updateValue('skill', skillName, value, onUpdate);
+export const updateSkill = (skillName, value, onUpdate) => {
+  const numValue = Math.min(6, Math.max(0, parseInt(value, 10) || 0));
+  if (onUpdate) onUpdate('skill', skillName, numValue);
+  return numValue;
+};
 
-// Formatação de nomes de skills
 export const formatSkillDisplayName = (skillName) => {
   const nameMap = {
     'COMBATE CORPO A CORPO': 'CORPO A\nCORPO',
@@ -124,31 +256,43 @@ export const formatSkillDisplayName = (skillName) => {
   return nameMap[skillName] || skillName;
 };
 
-// Mapeamento atributo -> skills
 export const attributeSkillMap = {
   Força: {
     positionClass: 'positionTop',
-    skills: { 0: 'COMBATE CORPO A CORPO', 1: 'MAQUINÁRIO PESADO', 2: 'RESISTÊNCIA' }
+    skills: {
+      0: 'COMBATE CORPO A CORPO',
+      1: 'MAQUINÁRIO PESADO',
+      2: 'RESISTÊNCIA'
+    }
   },
   Agilidade: {
     positionClass: 'positionLeft',
-    skills: { 0: 'COMBATE À DISTÂNCIA', 1: 'MOBILIDADE', 2: 'PILOTAGEM' }
+    skills: {
+      0: 'COMBATE À DISTÂNCIA',
+      1: 'MOBILIDADE',
+      2: 'PILOTAGEM'
+    }
   },
   Inteligência: {
     positionClass: 'positionRight',
-    skills: { 0: 'OBSERVAÇÃO', 1: 'SOBREVIVÊNCIA', 2: 'TECNOLOGIA' }
+    skills: {
+      0: 'OBSERVAÇÃO',
+      1: 'SOBREVIVÊNCIA',
+      2: 'TECNOLOGIA'
+    }
   },
   Empatia: {
     positionClass: 'positionBottom',
-    skills: { 0: 'MANIPULAÇÃO', 1: 'COMANDO', 2: 'AJUDA MÉDICA' }
+    skills: {
+      0: 'MANIPULAÇÃO',
+      1: 'COMANDO',
+      2: 'AJUDA MÉDICA'
+    }
   }
 };
 
-// Gerador de IDs estável
-let nextId = 0;
-const generateId = (prefix) => `${prefix}_${++nextId}`;
+// COMPONENTE DE ATRIBUTO
 
-// Componente de atributo
 const AttributeOctagonComponent = ({
   classes,
   attributeName,
@@ -157,79 +301,32 @@ const AttributeOctagonComponent = ({
   onUpdate,
   onAttributeRoll
 }) => {
-  const [localValue, setLocalValue] = useState(attributeValue);
+  const handleCommit = useCallback(
+    (value) => {
+      if (onUpdate) onUpdate('attribute', attributeName, value);
+    },
+    [attributeName, onUpdate]
+  );
+
+  const handleRoll = useCallback(
+    () => {
+      if (onAttributeRoll) onAttributeRoll(attributeName, attributeValue);
+    },
+    [attributeName, attributeValue, onAttributeRoll]
+  );
+
+  const {
+    localValue,
+    handleInputChange,
+    handleKeyDown,
+    handleDiceClick,
+    handleBlur
+  } = useAccumulatingField(attributeValue, handleCommit, handleRoll);
+
   const inputRef = useRef(null);
-  const componentId = useRef(generateId(`attr_${attributeName}`));
-
-  useEffect(() => {
-    setLocalValue(attributeValue);
-  }, [attributeValue]);
-
-  const handleInputChange = useCallback((e) => {
-    const newValue = parseInt(e.target.value);
-    if (!isNaN(newValue)) {
-      const direction = newValue > localValue ? 1 : -1;
-      const absoluteDirection = Math.abs(newValue - localValue);
-      const finalValue = processArrowClick(
-        componentId.current,
-        localValue,
-        direction * absoluteDirection,
-        (finalValueResult) => {
-          setLocalValue(finalValueResult);
-          if (onUpdate) onUpdate('attribute', attributeName, finalValueResult);
-        }
-      );
-      setLocalValue(finalValue);
-    }
-  }, [attributeName, localValue, onUpdate]);
-
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      const newValue = processArrowClick(
-        componentId.current,
-        localValue,
-        1,
-        (finalValue) => {
-          setLocalValue(finalValue);
-          if (onUpdate) onUpdate('attribute', attributeName, finalValue);
-        }
-      );
-      setLocalValue(newValue);
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      const newValue = processArrowClick(
-        componentId.current,
-        localValue,
-        -1,
-        (finalValue) => {
-          setLocalValue(finalValue);
-          if (onUpdate) onUpdate('attribute', attributeName, finalValue);
-        }
-      );
-      setLocalValue(newValue);
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      if (onAttributeRoll) onAttributeRoll(attributeName, localValue);
-    }
-  }, [attributeName, localValue, onUpdate, onAttributeRoll]);
-
-  const handleDiceClick = useCallback(() => {
-    if (globalClickSession.active && globalClickSession.fieldId === componentId.current) {
-      const finalValue = Math.min(6, Math.max(0, globalClickSession.startValue + globalClickSession.accumulated));
-      setLocalValue(finalValue);
-      if (onUpdate) onUpdate('attribute', attributeName, finalValue);
-      resetGlobalSession();
-    }
-    if (onAttributeRoll) onAttributeRoll(attributeName, localValue);
-  }, [attributeName, localValue, onUpdate, onAttributeRoll]);
 
   const handleFocus = useCallback((e) => {
     e.target.select();
-  }, []);
-
-  useEffect(() => {
-    if (inputRef.current) inputRef.current.focus();
   }, []);
 
   return (
@@ -245,16 +342,27 @@ const AttributeOctagonComponent = ({
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 onFocus={handleFocus}
-                inputProps={{ min: 0, max: 6, style: { cursor: 'text', caretColor: 'auto' } }}
+                onBlur={handleBlur}
+                inputProps={{
+                  min: 0,
+                  max: 6,
+                  style: { cursor: 'text', caretColor: 'auto' }
+                }}
                 className={classes.attributeInput}
                 size="small"
                 inputRef={inputRef}
               />
-              <IconButton className={classes.attributeDiceButton} onClick={handleDiceClick} size="small">
+              <IconButton
+                className={classes.attributeDiceButton}
+                onClick={handleDiceClick}
+                size="small"
+              >
                 <Casino />
               </IconButton>
             </Box>
-            <Typography className={classes.attributeNameBox}>{attributeName}</Typography>
+            <Typography className={classes.attributeNameBox}>
+              {attributeName}
+            </Typography>
           </Box>
         </div>
       </Box>
@@ -267,9 +375,13 @@ const attributeOctagonPropsAreEqual = (prev, next) =>
   prev.onUpdate === next.onUpdate &&
   prev.onAttributeRoll === next.onAttributeRoll;
 
-export const AttributeOctagon = memo(AttributeOctagonComponent, attributeOctagonPropsAreEqual);
+export const AttributeOctagon = memo(
+  AttributeOctagonComponent,
+  attributeOctagonPropsAreEqual
+);
 
-// Componente de skill
+// COMPONENTE DE SKILL
+
 const SkillComponentInternal = ({
   classes,
   skillName,
@@ -278,79 +390,32 @@ const SkillComponentInternal = ({
   onUpdate,
   onSkillRoll
 }) => {
-  const [localValue, setLocalValue] = useState(skillValue);
+  const handleCommit = useCallback(
+    (value) => {
+      if (onUpdate) onUpdate('skill', skillName, value);
+    },
+    [skillName, onUpdate]
+  );
+
+  const handleRoll = useCallback(
+    () => {
+      if (onSkillRoll) onSkillRoll(skillName, skillValue);
+    },
+    [skillName, skillValue, onSkillRoll]
+  );
+
+  const {
+    localValue,
+    handleInputChange,
+    handleKeyDown,
+    handleDiceClick,
+    handleBlur
+  } = useAccumulatingField(skillValue, handleCommit, handleRoll);
+
   const inputRef = useRef(null);
-  const componentId = useRef(generateId(`skill_${skillName}`));
-
-  useEffect(() => {
-    setLocalValue(skillValue);
-  }, [skillValue]);
-
-  const handleInputChange = useCallback((e) => {
-    const newValue = parseInt(e.target.value);
-    if (!isNaN(newValue)) {
-      const direction = newValue > localValue ? 1 : -1;
-      const absoluteDirection = Math.abs(newValue - localValue);
-      const finalValue = processArrowClick(
-        componentId.current,
-        localValue,
-        direction * absoluteDirection,
-        (finalValueResult) => {
-          setLocalValue(finalValueResult);
-          if (onUpdate) onUpdate('skill', skillName, finalValueResult);
-        }
-      );
-      setLocalValue(finalValue);
-    }
-  }, [skillName, localValue, onUpdate]);
-
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      const newValue = processArrowClick(
-        componentId.current,
-        localValue,
-        1,
-        (finalValue) => {
-          setLocalValue(finalValue);
-          if (onUpdate) onUpdate('skill', skillName, finalValue);
-        }
-      );
-      setLocalValue(newValue);
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      const newValue = processArrowClick(
-        componentId.current,
-        localValue,
-        -1,
-        (finalValue) => {
-          setLocalValue(finalValue);
-          if (onUpdate) onUpdate('skill', skillName, finalValue);
-        }
-      );
-      setLocalValue(newValue);
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      if (onSkillRoll) onSkillRoll(skillName, localValue);
-    }
-  }, [skillName, localValue, onUpdate, onSkillRoll]);
-
-  const handleDiceClick = useCallback(() => {
-    if (globalClickSession.active && globalClickSession.fieldId === componentId.current) {
-      const finalValue = Math.min(6, Math.max(0, globalClickSession.startValue + globalClickSession.accumulated));
-      setLocalValue(finalValue);
-      if (onUpdate) onUpdate('skill', skillName, finalValue);
-      resetGlobalSession();
-    }
-    if (onSkillRoll) onSkillRoll(skillName, localValue);
-  }, [skillName, localValue, onUpdate, onSkillRoll]);
 
   const handleFocus = useCallback((e) => {
     e.target.select();
-  }, []);
-
-  useEffect(() => {
-    if (inputRef.current) inputRef.current.focus();
   }, []);
 
   return (
@@ -366,19 +431,30 @@ const SkillComponentInternal = ({
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 onFocus={handleFocus}
-                inputProps={{ min: 0, max: 6, style: { cursor: 'text', caretColor: 'auto' } }}
+                onBlur={handleBlur}
+                inputProps={{
+                  min: 0,
+                  max: 6,
+                  style: { cursor: 'text', caretColor: 'auto' }
+                }}
                 className={classes.skillInput}
                 size="small"
                 inputRef={inputRef}
               />
-              <IconButton className={classes.skillDiceButton} onClick={handleDiceClick} size="small">
+              <IconButton
+                className={classes.skillDiceButton}
+                onClick={handleDiceClick}
+                size="small"
+              >
                 <Casino fontSize="small" />
               </IconButton>
             </Box>
           </Box>
         </div>
       </Box>
-      <Typography className={classes.skillNameBox}>{formatSkillDisplayName(skillName)}</Typography>
+      <Typography className={classes.skillNameBox}>
+        {formatSkillDisplayName(skillName)}
+      </Typography>
     </Box>
   );
 };
@@ -388,34 +464,30 @@ const skillComponentPropsAreEqual = (prev, next) =>
   prev.onUpdate === next.onUpdate &&
   prev.onSkillRoll === next.onSkillRoll;
 
-export const SkillComponent = memo(SkillComponentInternal, skillComponentPropsAreEqual);
+export const SkillComponent = memo(
+  SkillComponentInternal,
+  skillComponentPropsAreEqual
+);
 
-// Componente agregador de atributo e suas skills
+// COMPONENTE AGREGADOR (ATRIBUTO + SKILLS)
+
 const AttributeWithSkillsComponent = ({
   classes,
   attributeName,
   config,
-  attributes,
-  skills,
+  attributeValue,
+  skillValues,    // array com 3 valores numéricos
   onUpdate,
   onAttributeRoll,
-  onSkillRoll,
-  defaultAttributes,
-  defaultSkills
+  onSkillRoll
 }) => {
-  const currentAttributeValue = useMemo(
-    () => getAttributeValue(attributes, attributeName, defaultAttributes),
-    [attributes, attributeName, defaultAttributes]
+  // Memoiza os nomes das skills a partir do config
+  const skillNames = useMemo(
+    () => Object.values(config.skills),
+    [config.skills]
   );
 
-  const attributeSkills = useMemo(
-    () => Object.values(config.skills).map(skillName => ({
-      name: skillName,
-      value: getSkillValue(skills, skillName, defaultSkills)
-    })),
-    [config.skills, skills, defaultSkills]
-  );
-
+  // Mapeamento de posições CSS para cada atributo
   const skillPositions = useMemo(() => {
     const positionMap = {
       Força: [classes.skillTopLeft, classes.skillTopCenter, classes.skillTopRight],
@@ -426,31 +498,42 @@ const AttributeWithSkillsComponent = ({
     return positionMap[attributeName] || [];
   }, [attributeName, classes]);
 
-  const handleAttributeUpdate = useCallback((type, name, value) => {
-    if (onUpdate) onUpdate(type, name, value);
-  }, [onUpdate]);
+  const handleAttributeUpdate = useCallback(
+    (type, name, value) => {
+      if (onUpdate) onUpdate(type, name, value);
+    },
+    [onUpdate]
+  );
 
-  const handleAttributeRoll = useCallback((name, value) => {
-    if (onAttributeRoll) onAttributeRoll(name, value);
-  }, [onAttributeRoll]);
+  const handleAttributeRoll = useCallback(
+    (name, value) => {
+      if (onAttributeRoll) onAttributeRoll(name, value);
+    },
+    [onAttributeRoll]
+  );
 
-  const handleSkillRoll = useCallback((name, value) => {
-    if (onSkillRoll) onSkillRoll(name, value);
-  }, [onSkillRoll]);
+  const handleSkillRoll = useCallback(
+    (name, value) => {
+      if (onSkillRoll) onSkillRoll(name, value);
+    },
+    [onSkillRoll]
+  );
 
+  // Geração dos componentes de skill memoizados
   const memoizedSkills = useMemo(
-    () => attributeSkills.map((skill, idx) => (
-      <SkillComponent
-        key={skill.name}
-        classes={classes}
-        skillName={skill.name}
-        skillValue={skill.value}
-        positionClass={skillPositions[idx]}
-        onUpdate={handleAttributeUpdate}
-        onSkillRoll={handleSkillRoll}
-      />
-    )),
-    [attributeSkills, classes, skillPositions, handleAttributeUpdate, handleSkillRoll]
+    () =>
+      skillNames.map((skillName, idx) => (
+        <SkillComponent
+          key={skillName}
+          classes={classes}
+          skillName={skillName}
+          skillValue={skillValues[idx] ?? 0}
+          positionClass={skillPositions[idx]}
+          onUpdate={handleAttributeUpdate}
+          onSkillRoll={handleSkillRoll}
+        />
+      )),
+    [skillNames, skillValues, skillPositions, classes, handleAttributeUpdate, handleSkillRoll]
   );
 
   return (
@@ -458,7 +541,7 @@ const AttributeWithSkillsComponent = ({
       <AttributeOctagon
         classes={classes}
         attributeName={attributeName}
-        attributeValue={currentAttributeValue}
+        attributeValue={attributeValue}
         positionClass={classes[config.positionClass]}
         onUpdate={handleAttributeUpdate}
         onAttributeRoll={handleAttributeRoll}
@@ -468,30 +551,20 @@ const AttributeWithSkillsComponent = ({
   );
 };
 
-const attributeWithSkillsPropsAreEqual = (prev, next) => {
-  const getAttr = (attrs, name, def) => getAttributeValue(attrs, name, def);
-  const getSk = (skillsList, name, def) => getSkillValue(skillsList, name, def);
+const attributeWithSkillsPropsAreEqual = (prev, next) =>
+  prev.attributeValue === next.attributeValue &&
+  prev.skillValues?.length === next.skillValues?.length &&
+  prev.skillValues?.every((v, i) => v === next.skillValues[i]) &&
+  prev.onUpdate === next.onUpdate &&
+  prev.onAttributeRoll === next.onAttributeRoll &&
+  prev.onSkillRoll === next.onSkillRoll;
 
-  const attrChanged = getAttr(prev.attributes, prev.attributeName, prev.defaultAttributes) !==
-                      getAttr(next.attributes, next.attributeName, next.defaultAttributes);
+export const AttributeWithSkills = memo(
+  AttributeWithSkillsComponent,
+  attributeWithSkillsPropsAreEqual
+);
 
-  let skillChanged = false;
-  for (const skillName of Object.values(prev.config.skills)) {
-    if (getSk(prev.skills, skillName, prev.defaultSkills) !==
-        getSk(next.skills, skillName, next.defaultSkills)) {
-      skillChanged = true;
-      break;
-    }
-  }
-
-  const callbacksChanged = prev.onUpdate !== next.onUpdate ||
-                           prev.onAttributeRoll !== next.onAttributeRoll ||
-                           prev.onSkillRoll !== next.onSkillRoll;
-
-  return !(attrChanged || skillChanged || callbacksChanged);
-};
-
-export const AttributeWithSkills = memo(AttributeWithSkillsComponent, attributeWithSkillsPropsAreEqual);
+// EXPORTAÇÕES DEFAULT (para facilitar importação conjunta)
 
 export default {
   AttributeWithSkills,

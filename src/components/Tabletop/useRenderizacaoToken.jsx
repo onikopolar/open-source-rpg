@@ -130,7 +130,7 @@ export function useRenderizacaoToken(
                     largura: token.tamanhoTela.larguraTela,
                     altura: token.tamanhoTela.alturaTela
                 };
-                desenharSelecao(context, boundingBox, uiState.zoom, 1, true);
+                desenharSelecao(context, boundingBox, uiState.zoom, 1, true, token.escala);
             }
         }
     }, [uiState, getCanvasContext, drawSingleToken, desenharBordaDeArrasto, desenharSelecao]);

@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "node src/server.js",
-    "build": "prisma generate && prisma db push && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
+    "build:dev": "prisma generate && prisma db push && next build",
     "start": "node src/server.js",
     "lint": "next lint",
     "railway-setup": "prisma db push && prisma generate",
+    "db-migrate": "prisma migrate dev",
     "db-seed-yearzero": "node src/prisma/seed-yearzero.js",
     "db-seed-feiticos": "node src/prisma/seed-feiticos.js",
     "db-studio": "prisma studio",

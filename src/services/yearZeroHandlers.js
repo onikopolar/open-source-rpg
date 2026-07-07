@@ -244,14 +244,26 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
         if (!squares) return Array(defaultLength).fill(false);
         if (typeof squares === 'string') {
           try {
-            squares = squares.replace(/^"+|"+$/g, '');
-            return JSON.parse(squares);
+            // Remove aspas extras e caracteres escapados
+            let cleaned = squares.replace(/^"+|"+$/g, '').replace(/\\"/g, '"');
+            const parsed = JSON.parse(cleaned);
+            if (!Array.isArray(parsed)) return Array(defaultLength).fill(false);
+            return parsed;
           } catch (error) {
-            console.warn('[YearZero Handlers] Não consegui parsear squares, usando array vazio');
+            console.warn('[YearZero Handlers] Não consegui parsear squares, usando array vazio:', squares);
             return Array(defaultLength).fill(false);
           }
         }
-        return squares;
+        if (Array.isArray(squares)) return squares;
+        return Array(defaultLength).fill(false);
+      };
+
+      // Garante que arrays tenham o tamanho exato exigido pelo backend
+      const ensureLength = (arr, len) => {
+        if (!Array.isArray(arr)) return Array(len).fill(false);
+        if (arr.length === len) return arr;
+        if (arr.length < len) return [...arr, ...Array(len - arr.length).fill(false)];
+        return arr.slice(0, len);
       };
       
       currentExperienceSquares = parseSquares(currentExperienceSquares, 10);
@@ -259,8 +271,8 @@ export const handleYearZeroUpdate = async (character, rpgSystem, setCharacter, s
       
       const payload = {
         character_id: character.id,
-        experience_squares: type === 'experience_squares' ? value : currentExperienceSquares,
-        history_squares: type === 'history_squares' ? value : currentHistorySquares
+        experience_squares: ensureLength(type === 'experience_squares' ? value : currentExperienceSquares, 10),
+        history_squares: ensureLength(type === 'history_squares' ? value : currentHistorySquares, 3)
       };
       
       console.log('[YearZero Handlers] Payload para experience-history:', payload);

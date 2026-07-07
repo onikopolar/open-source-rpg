@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import dynamic from 'next/dynamic';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import {
     Dialog,
     DialogTitle,
@@ -35,6 +37,8 @@ const TabletopGrid = dynamic(() => import('../../components/Tabletop/tabletopgri
 
 export default function registroNoTabletop() {
     const router = useRouter();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const { sheetId, fromDashboard } = router.query;
 
     const [modalSenhaAberto, setModalSenhaAberto] = useState(false);
@@ -120,18 +124,18 @@ export default function registroNoTabletop() {
     if (isMaster === false) {
         return (
             <div style={{
-                padding: '40px',
+                padding: isMobile ? '40px 0 0 0' : '40px',
                 height: '100vh',
                 display: 'flex',
                 flexDirection: 'column'
             }}>
                 {loadingData ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px', padding: isMobile ? '0 16px' : 0 }}>
                         <CircularProgress size={24} />
                         <h1>Carregando dados do jogador...</h1>
                     </div>
                 ) : (
-                    <h1>Modo Player - {playerName}</h1>
+                    <h1 style={{ padding: isMobile ? '0 16px' : 0 }}>Modo Player - {playerName}</h1>
                 )}
                 <div style={{ flex: 1, minHeight: 0 }}>
                     <TabletopGrid 
@@ -148,12 +152,12 @@ export default function registroNoTabletop() {
     if (isMaster === true) {
         return (
             <div style={{
-                padding: '40px',
+                padding: isMobile ? '40px 0 0 0' : '40px',
                 height: '100vh',
                 display: 'flex',
                 flexDirection: 'column'
             }}>
-                <h1>Modo Mestre</h1>
+                <h1 style={{ padding: isMobile ? '0 16px' : 0 }}>Modo Mestre</h1>
                 <div style={{ flex: 1, minHeight: 0 }}>
                     <TabletopGrid isMaster={true} sheetId={null} playerName={null} />
                 </div>

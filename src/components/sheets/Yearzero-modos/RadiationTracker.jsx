@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
+import PropTypes from 'prop-types';
 import { Box, Typography } from '@mui/material';
 import { Warning as WarningIcon } from '@mui/icons-material';
-
-console.log('[RadiationTracker] Versão 2.0.3 - PATCH: Corrige espaçamento entre linhas dos quadrados');
 
 const PALETA_PRINCIPAL = {
   atributo: '#ff6b35',
@@ -14,9 +13,10 @@ const PALETA_PRINCIPAL = {
   fundo_input: 'rgba(25, 30, 40, 0.9)'
 };
 
-const RadiationTracker = ({ 
+const RadiationTracker = memo(({ 
   radiationSquares = [], 
-  onRadiationUpdate 
+  onRadiationUpdate,
+  isMobile = false // <-- Adicionado para manter o padrão dos 3 trackers
 }) => {
   const [localSquares, setLocalSquares] = useState(() => 
     radiationSquares.length === 10 ? radiationSquares : Array(10).fill(false)
@@ -210,16 +210,18 @@ const RadiationTracker = ({
             </Typography>
           </Box>
           
+          {/* CORREÇÃO: Adicionado padding lateral de 4px */}
           <Box 
             sx={{ 
               display: 'grid',
               gridTemplateColumns: 'repeat(5, 1fr)',
-              gridTemplateRows: 'repeat(2, auto)', // Altura automática
-              rowGap: '2px', // ESPAÇAMENTO REDUZIDO ENTRE LINHAS
+              gridTemplateRows: 'repeat(2, auto)',
+              rowGap: '2px',
               columnGap: '4px',
               justifyContent: 'center',
               alignItems: 'center',
               width: '100%',
+              padding: '0 4px', 
             }}
           >
             {renderSquares()}
@@ -255,6 +257,12 @@ const RadiationTracker = ({
       </Box>
     </Box>
   );
+});
+
+RadiationTracker.propTypes = {
+  radiationSquares: PropTypes.arrayOf(PropTypes.bool),
+  onRadiationUpdate: PropTypes.func,
+  isMobile: PropTypes.bool, // <-- Adicionado aos PropTypes
 };
 
 export default RadiationTracker;

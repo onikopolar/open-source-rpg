@@ -45,7 +45,7 @@ export function desenharFallbackToken(ctx, x, y, zoomAtual, nomeToken) {
     ctx.fillText(nomeToken || "Token", x + (50 * zoomAtual) / 2, y + (50 * zoomAtual) / 2);
 }
 
-export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, semFundo = false) {
+export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, semFundo = false, escala = null) {
     if (!boundingBox) return;
     ctx.save();
     const padding = 4;
@@ -74,8 +74,10 @@ export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, sem
     ctx.textAlign = 'center';
     if (quantidadeItens > 1) {
         ctx.fillText(`${quantidadeItens} itens selecionados`, x + width / 2, y - 10);
+    } else if (escala !== null && escala !== undefined) {
+        ctx.fillText(`${escala.toFixed(2)}×`, x + width / 2, y - 10);
     } else {
-        ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + 5, y - 5);
+        ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + width / 2, y - 10);
     }
     desenharBolinhasRedimensionamento(ctx, boundingBox.x, boundingBox.y, boundingBox.largura, boundingBox.altura, zoom);
     ctx.restore();

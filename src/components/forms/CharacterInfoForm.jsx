@@ -191,7 +191,7 @@ const CharacterInfoForm = ({
 
                   <Button
                     variant="contained"
-                    color="secondary"
+                    color="primary"
                     onClick={() => {
                       // Pegar o ID do personagem via prop
                       window.location.href = `/Tabletop?sheetId=${character.id}`;

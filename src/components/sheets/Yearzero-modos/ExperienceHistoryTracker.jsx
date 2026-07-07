@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
+import PropTypes from 'prop-types';
 import { Box, Typography } from '@mui/material';
-
-console.log('[ExperienceHistoryTracker] Versão 5.0.0 - MAJOR: Redesign minimalista para identidade visual angular e densa do sistema');
 
 const PALETA_PRINCIPAL = {
   atributo: '#ff6b35',
@@ -13,11 +12,12 @@ const PALETA_PRINCIPAL = {
   fundo_input: 'rgba(25, 30, 40, 0.9)'
 };
 
-const ExperienceHistoryTracker = ({ 
+const ExperienceHistoryTracker = memo(({ 
   experienceSquares = [], 
   historySquares = [], 
   onExperienceUpdate,
-  onHistoryUpdate
+  onHistoryUpdate,
+  isMobile = false // <-- Recebe a prop para controle de layout
 }) => {
   const [localExperienceSquares, setLocalExperienceSquares] = useState(() => 
     experienceSquares.length === 10 ? experienceSquares : Array(10).fill(false)
@@ -242,6 +242,7 @@ const ExperienceHistoryTracker = ({
             </Typography>
           </Box>
           
+          {/* CORREÇÃO: Adicionado padding lateral para os números não colarem na borda */}
           <Box 
             sx={{ 
               display: 'grid',
@@ -251,6 +252,7 @@ const ExperienceHistoryTracker = ({
               justifyContent: 'center',
               alignItems: 'center',
               width: '100%',
+              padding: '0 4px' 
             }}
           >
             {renderExperienceSquares()}
@@ -316,13 +318,14 @@ const ExperienceHistoryTracker = ({
             </Typography>
           </Box>
           
+          {/* CORREÇÃO: Adicionado padding lateral aqui também para alinhamento */}
           <Box 
             sx={{ 
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               width: '100%',
-              px: 2
+              padding: '0 4px'
             }}
           >
             {renderHistorySquares()}
@@ -331,6 +334,14 @@ const ExperienceHistoryTracker = ({
       </Box>
     </Box>
   );
+});
+
+ExperienceHistoryTracker.propTypes = {
+  experienceSquares: PropTypes.arrayOf(PropTypes.bool),
+  historySquares: PropTypes.arrayOf(PropTypes.bool),
+  onExperienceUpdate: PropTypes.func,
+  onHistoryUpdate: PropTypes.func,
+  isMobile: PropTypes.bool, // <-- Adicionado aos propTypes
 };
 
 export default ExperienceHistoryTracker;

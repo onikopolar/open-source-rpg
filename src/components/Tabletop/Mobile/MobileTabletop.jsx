@@ -55,10 +55,12 @@ export function useMobileTabletop({
     const movimentoIniciadoRef = useRef(false);
     const currentTouchId = useRef(null);
 
-    const isTokenBloqueado = useCallback((tokenId) => {
-        const bloqueado = uiState.tokensBloqueados[tokenId] === true;
-        return bloqueado;
-    }, [uiState.tokensBloqueados]);
+    const isTokenBloqueado = useCallback((tokenId, token) => {
+        if (uiState.tokensBloqueados[tokenId] === true) return true;
+        // Player não pode interagir com token dentro da névoa
+        if (!isMaster && token && fov?.estaCoberto && fov.estaCoberto(token.x, token.y)) return true;
+        return false;
+    }, [uiState.tokensBloqueados, isMaster, fov]);
 
     const getPosicaoTela = useCallback((token) => ({
         x: (token.x * uiState.zoom) + uiState.position.x,
@@ -245,7 +247,7 @@ export function useMobileTabletop({
         if (tokenSobre) {
             if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
             longPressTimerRef.current = setTimeout(() => {
-                const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
+                const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id, tokenSobre.token);
                 if (!tokenBloqueado) {
                     uiDispatch({
                         type: 'OPEN_CONTEXT_MENU',
@@ -372,7 +374,7 @@ export function useMobileTabletop({
 
                 const tokenSobre = touchStartRef.current.token;
                 if (tokenSobre && !touchStartRef.current.isResize) {
-                    const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
+                    const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id, tokenSobre.token);
                     if (!tokenBloqueado) {
                         if (trazerTokenParaFrente) trazerTokenParaFrente(tokenSobre.token.id);
                         uiDispatch({ type: 'SELECT_TOKEN', payload: tokenSobre.indice });
@@ -392,7 +394,7 @@ export function useMobileTabletop({
                         isRightClickDragRef.current = true;
                     }
                 } else if (tokenSobre && touchStartRef.current.isResize) {
-                    const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
+                    const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id, tokenSobre.token);
                     if (!tokenBloqueado) {
                         iniciarRedimensionamento(tokenSobre.token, tokenSobre.indice, touchStartRef.current.canto, {
                             x: mouseX - tokenSobre.telaX,
@@ -544,12 +546,16 @@ export function useMobileTabletop({
         } else if (!touchStartRef.current?.hasMoved && touchStartRef.current?.token) {
             const tokenSobre = touchStartRef.current.token;
             if (tokenSobre) {
-                const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id);
+                const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id, tokenSobre.token);
                 if (!tokenBloqueado) {
                     uiDispatch({ type: 'SELECT_TOKEN', payload: tokenSobre.indice });
                     if (emitirSelecao) emitirSelecao(tokenSobre.token.id);
                 }
             }
+        } else if (!touchStartRef.current?.hasMoved && !touchStartRef.current?.token) {
+            // Toque em espaço vazio → desselecionar
+            uiDispatch({ type: 'SELECT_TOKEN', payload: null });
+            uiDispatch({ type: 'SELECT_CAMADA', payload: null });
         }
 
         touchStartRef.current = null;
