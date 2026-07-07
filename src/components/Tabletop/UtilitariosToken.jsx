@@ -9,25 +9,29 @@ export const calcularNovaEscalaToken = (
     tamanhoInicial,
     escalaMaxima = Infinity
 ) => {
-    let novaLargura = tamanhoInicial.largura;
-    let novaAltura = tamanhoInicial.altura;
+    const escalaAtual = tamanhoInicial.escala || 1;
+    const larguraAtual = tamanhoInicial.largura * escalaAtual;
+    const alturaAtual = tamanhoInicial.altura * escalaAtual;
+
+    let novaLargura = larguraAtual;
+    let novaAltura = alturaAtual;
 
     if (modo === 'se') {
         novaLargura = Math.max(10, mouseWorldX - tokenX);
         novaAltura = Math.max(10, mouseWorldY - tokenY);
     } else if (modo === 'sw') {
-        novaLargura = Math.max(10, tokenX + larguraBase - mouseWorldX);
+        novaLargura = Math.max(10, (tokenX + larguraAtual) - mouseWorldX);
         novaAltura = Math.max(10, mouseWorldY - tokenY);
     } else if (modo === 'ne') {
         novaLargura = Math.max(10, mouseWorldX - tokenX);
-        novaAltura = Math.max(10, tokenY + alturaBase - mouseWorldY);
+        novaAltura = Math.max(10, (tokenY + alturaAtual) - mouseWorldY);
     } else if (modo === 'nw') {
-        novaLargura = Math.max(10, tokenX + larguraBase - mouseWorldX);
-        novaAltura = Math.max(10, tokenY + alturaBase - mouseWorldY);
+        novaLargura = Math.max(10, (tokenX + larguraAtual) - mouseWorldX);
+        novaAltura = Math.max(10, (tokenY + alturaAtual) - mouseWorldY);
     }
 
-    const escalaX = novaLargura / larguraBase;
-    const escalaY = novaAltura / alturaBase;
+    const escalaX = novaLargura / (tamanhoInicial.largura || larguraBase);
+    const escalaY = novaAltura / (tamanhoInicial.altura || alturaBase);
     const menorEscala = Math.min(escalaX, escalaY);
 
     return clamp(menorEscala, 0.1, escalaMaxima);

@@ -121,7 +121,7 @@ const CharacterInfoForm = ({
                 onChange={handleChange}
                 onBlur={handleBlur}
                 error={touched.name && Boolean(errors.name)}
-                helperText={touched.name && errors.name || "Nome do personagem no jogo"}
+                helperText={touched.name && errors.name || ""}
                 required
               />
             </Grid>

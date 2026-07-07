@@ -6,7 +6,7 @@ import { TOLERANCIA_CLIQUE } from "./ConstantesMesa";
 export const CONFIG_BOLINHAS = {
     TAMANHO_BOLINHA_TELA: 32,
     DISTANCIA_EXTERNA_TELA: 4,
-    PADDING_DETECCAO_TELA: 0
+    PADDING_DETECCAO_TELA: 12
 };
 
 // Calcula posições das 4 bolinhas nos cantos do token

@@ -432,14 +432,15 @@ export function useNuvemFOV({
     }, []);
 
     const encontrarCamadaNaPosicao = useCallback((mundoX, mundoY) => {
+        const TOLERANCIA = 12 / (uiStateRef.current.zoom || 1); // tolerancia em coordenadas mundo
         for (let i = camadasNevoa.length - 1; i >= 0; i--) {
             const camada = camadasNevoa[i];
             const larguraAtual = camada.larguraOriginal * camada.escala;
             const alturaAtual = camada.alturaOriginal * camada.escala;
-            const dentro = mundoX >= camada.x &&
-                mundoX <= camada.x + larguraAtual &&
-                mundoY >= camada.y &&
-                mundoY <= camada.y + alturaAtual;
+            const dentro = mundoX >= camada.x - TOLERANCIA &&
+                mundoX <= camada.x + larguraAtual + TOLERANCIA &&
+                mundoY >= camada.y - TOLERANCIA &&
+                mundoY <= camada.y + alturaAtual + TOLERANCIA;
             if (dentro) return camada;
         }
         return null;

@@ -191,9 +191,10 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
 
                 const novaEscala = calcularNovaEscalaToken(
             mundo.mundoX, mundo.mundoY,
-            itemAtual.x, itemAtual.y,
-            itemAtual.larguraOriginal || 50,
-            itemAtual.alturaOriginal || 50,
+            estadoInicial.itemInicial.x,
+            estadoInicial.itemInicial.y,
+            estadoInicial.itemInicial.larguraOriginal || 50,
+            estadoInicial.itemInicial.alturaOriginal || 50,
             modoRedimensionamento?.toLowerCase(),
             {
                 largura: estadoInicial.itemInicial.larguraOriginal,
@@ -207,8 +208,34 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
             return tokensAtuais;
         }
 
+        // Ajustar posicao com base no canto ancorado (usando posicao INICIAL)
+        const larguraBase = estadoInicial.itemInicial.larguraOriginal || 50;
+        const alturaBase = estadoInicial.itemInicial.alturaOriginal || 50;
+        const escalaInicial = estadoInicial.itemInicial.escala;
+        const larguraAntiga = larguraBase * escalaInicial;
+        const alturaAntiga = alturaBase * escalaInicial;
+        const larguraNova = larguraBase * novaEscala;
+        const alturaNova = alturaBase * novaEscala;
+        const modo = modoRedimensionamento?.toLowerCase();
+        const inicialX = estadoInicial.itemInicial.x;
+        const inicialY = estadoInicial.itemInicial.y;
+
+        let novoX = inicialX;
+        let novoY = inicialY;
+
+        if (modo === 'nw') {
+            novoX = inicialX + larguraAntiga - larguraNova;
+            novoY = inicialY + alturaAntiga - alturaNova;
+        } else if (modo === 'ne') {
+            novoY = inicialY + alturaAntiga - alturaNova;
+        } else if (modo === 'sw') {
+            novoX = inicialX + larguraAntiga - larguraNova;
+        }
+
         novosTokens[indice] = {
             ...novosTokens[indice],
+            x: novoX,
+            y: novoY,
             escala: novaEscala
         };
 

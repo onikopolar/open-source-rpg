@@ -281,6 +281,14 @@ export function useMouseTabletop({
                 const itemComInfo = camadasComInfo.find(c => c.id === camadaEncontrada.id);
                 if (!itemComInfo) return;
 
+                // Verificar se a camada esta bloqueada
+                if (uiState.camadasBloqueadas?.[camadaEncontrada.id]) {
+                    uiDispatch({ type: 'SELECT_CAMADA', payload: itemComInfo.indice });
+                    uiDispatch({ type: 'SET_FEEDBACK', payload: { message: 'Camada bloqueada', type: 'warning' } });
+                    event.preventDefault();
+                    return;
+                }
+
                 const indiceCamada = itemComInfo.indice;
                 const itemClicado = { ...camadaEncontrada, indice: indiceCamada, tipo: 'nevoa', nome: 'Névoa' };
 
