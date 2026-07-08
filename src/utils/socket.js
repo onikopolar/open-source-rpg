@@ -3,8 +3,9 @@ import io from 'socket.io-client';
 const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
 
 const socket = io({
-  // Força WebSocket em produção (evita fallback para polling lento)
-  transports: isProd ? ['websocket'] : ['websocket', 'polling'],
+  // WebSocket primeiro, polling como fallback
+  // Essencial: mobile/Funnel frequentemente falha WebSocket puro
+  transports: ['websocket', 'polling'],
   // Reconexão com backoff
   reconnection: true,
   reconnectionAttempts: 10,

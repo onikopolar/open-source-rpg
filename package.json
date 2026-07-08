@@ -3,7 +3,8 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "node src/server.js",
+    "dev": "node scripts/dev.js",
+    "dev:funnel": "tailscale funnel status && node src/server.js",
     "build": "prisma generate && prisma migrate deploy && next build",
     "build:dev": "prisma generate && prisma db push && next build",
     "start": "node src/server.js",
@@ -47,6 +48,7 @@
     "yup": "^0.32.11"
   },
   "devDependencies": {
+    "concurrently": "^8.2.0",
     "eslint": "7.32.0",
     "eslint-config-next": "14.2.0"
   },
