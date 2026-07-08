@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'PUT') {
     try {
-      const { x, y, escala, invertido, oculto, bloqueado, zIndex } = req.body;
+      const { x, y, escala, invertido, oculto, bloqueado, zIndex, rotacao } = req.body;
 
       const token = await prisma.tabletopToken.update({
         where: { id },
@@ -37,6 +37,7 @@ export default async function handler(req, res) {
           oculto: oculto !== undefined ? oculto : undefined,
           bloqueado: bloqueado !== undefined ? bloqueado : undefined,
           zIndex: zIndex !== undefined ? zIndex : undefined,
+          rotacao: rotacao !== undefined ? rotacao : undefined,
           updatedAt: new Date()
         }
       });

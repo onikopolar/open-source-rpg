@@ -2,7 +2,6 @@
 import { prisma } from '../../../lib/prisma';
 
 export default async function handler(req, res) {
-  console.log('[API Tabletop/nevoa] Método:', req.method);
 
   // GET - Buscar todas as camadas de névoa
   if (req.method === 'GET') {
@@ -11,11 +10,11 @@ export default async function handler(req, res) {
         orderBy: { createdAt: 'asc' }
       });
       
-      console.log(`[API Tabletop/nevoa] ${camadas.length} camadas encontradas`);
-      
+      console.log(`[nevoa] GET → ${camadas.length} camadas`);
+      res.setHeader('Cache-Control', 'no-cache');
       return res.status(200).json(camadas);
     } catch (error) {
-      console.error('[API Tabletop/nevoa] Erro no GET:', error);
+      console.error('[nevoa] GET erro:', error.message);
       return res.status(500).json({ error: 'Erro ao buscar camadas' });
     }
   }
@@ -24,8 +23,6 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const { nome, x, y, escala, larguraOriginal, alturaOriginal, imageData } = req.body;
-      
-      console.log('[API Tabletop/nevoa] Criando camada:', { nome, x, y });
       
       const camada = await prisma.tabletopNevoa.create({
         data: {
@@ -38,8 +35,6 @@ export default async function handler(req, res) {
           imageData: imageData || null
         }
       });
-      
-      console.log('[API Tabletop/nevoa] Camada criada com ID:', camada.id);
       
       return res.status(201).json(camada);
     } catch (error) {

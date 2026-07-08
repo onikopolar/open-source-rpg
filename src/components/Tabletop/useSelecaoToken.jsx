@@ -10,7 +10,7 @@ export const CONFIG_BOLINHAS = {
 };
 
 // Calcula posições das 4 bolinhas nos cantos do token
-export function calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, alturaTela, zoom) {
+export function calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, alturaTela, zoom, rotacao = 0) {
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     // Escala com raiz do zoom: bolas pequenas em zoom out, grandes em zoom in
     // clamp entre 0.5 e 2.0 pra não ficar nem invisível nem gigante
@@ -30,6 +30,21 @@ export function calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, al
         { nome: 'NE', x: tokenTelaX + larguraTela + distanciaExternaTela, y: tokenTelaY - distanciaExternaTela },
         { nome: 'NW', x: tokenTelaX - distanciaExternaTela, y: tokenTelaY - distanciaExternaTela }
     ];
+
+    // Gira as posições das bolinhas junto com a rotação do token
+    if (rotacao !== 0 && rotacao !== undefined) {
+        const cx = tokenTelaX + larguraTela / 2;
+        const cy = tokenTelaY + alturaTela / 2;
+        const angulo = (rotacao * Math.PI) / 180;
+        const cos = Math.cos(angulo);
+        const sin = Math.sin(angulo);
+        for (const p of posicoes) {
+            const dx = p.x - cx;
+            const dy = p.y - cy;
+            p.x = cx + dx * cos - dy * sin;
+            p.y = cy + dx * sin + dy * cos;
+        }
+    }
 
     return {
         posicoes,
@@ -90,29 +105,6 @@ export function useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeM
         return null;
     }, [tokensComInfo, tokensState, calcularSeMouseEstaDentro]);
 
-    // Verifica se cursor está sobre uma das bolinhas de redimensionamento
-    const verificarSeMousePodeRedimensionar = useCallback((mouseX, mouseY, tokenTelaX, tokenTelaY, larguraTela, alturaTela, tokenBloqueado) => {
-        if (tokenBloqueado) {
-            return null;
-        }
-
-        const { posicoes, raioDetecao } = calcularPosicoesBolinhas(
-            tokenTelaX, tokenTelaY, larguraTela, alturaTela, uiState.zoom
-        );
-
-        for (const bolinha of posicoes) {
-            const dx = mouseX - bolinha.x;
-            const dy = mouseY - bolinha.y;
-            const distancia = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distancia <= raioDetecao) {
-                return bolinha.nome;
-            }
-        }
-
-        return null;
-    }, [uiState.zoom]);
-
     // Verifica se token está dentro da área de seleção por arrasto
     const tokenEstaNaAreaSelecao = useCallback((token, area) => {
         if (!area.ativo) return false;
@@ -132,7 +124,6 @@ export function useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeM
 
     return { 
         verificarSeMouseSobreToken, 
-        verificarSeMousePodeRedimensionar, 
         tokenEstaNaAreaSelecao,
         calcularBoundingBoxGrupo
     };

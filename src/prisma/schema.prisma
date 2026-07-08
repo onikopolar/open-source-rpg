@@ -296,10 +296,11 @@ model TabletopToken {
   invertido      Boolean   @default(false)
   oculto         Boolean   @default(false)
   bloqueado      Boolean   @default(false)
-  zIndex         Int       @default(0) // Ordem de renderização (maior = mais acima)
+  zIndex         Int       @default(0)
   imageUrl       String?   @db.Text // URL da imagem (externa)
   imageBase64    String?   @db.Text // Base64 da imagem (upload)
   mimeType       String?   // Tipo MIME da imagem
+  rotacao        Int       @default(0) // Ângulo de rotação (0-360)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   character      Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)

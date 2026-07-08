@@ -35,72 +35,30 @@ const nextHandler = nextApp.getRequestHandler();
 const log = (...args) => { if (dev) console.log(...args); };
 const logError = (...args) => { console.error(...args); };
 
-console.log('[Server] ========== INICIANDO SERVIDOR ==========');
-console.log('[Server] NODE_ENV:', process.env.NODE_ENV);
-console.log('[Server] PORT:', port);
-console.log('[Server] dev mode:', dev);
-console.log('[Server] __dirname:', __dirname);
-console.log('[Server] process.cwd():', process.cwd());
+console.log(`[Server] Iniciando na porta ${port} (${dev ? 'dev' : 'prod'})`);
 
 // Configuração de arquivos estáticos
-const uploadsPathDev = path.join(__dirname, 'public/uploads');
-const uploadsPathProd = path.join(process.cwd(), 'public/uploads');
-console.log('[Server] Caminho uploads (__dirname):', uploadsPathDev);
-console.log('[Server] Caminho uploads (process.cwd()):', uploadsPathProd);
-console.log('[Server] uploads existe (__dirname)?', fs.existsSync(uploadsPathDev));
-console.log('[Server] uploads existe (process.cwd())?', fs.existsSync(uploadsPathProd));
-
-// Usar process.cwd() para garantir caminho correto em produção
-const uploadsPath = uploadsPathProd;
-console.log('[Server] Usando caminho uploads:', uploadsPath);
-
-if (fs.existsSync(uploadsPath)) {
-  try {
-    const files = fs.readdirSync(uploadsPath);
-    console.log('[Server] Arquivos encontrados em uploads:', files.length, files.slice(0, 10));
-  } catch (err) {
-    console.error('[Server] Erro ao listar arquivos:', err.message);
-  }
-} else {
-  console.log('[Server] Pasta uploads NÃO existe. Criando...');
-  try {
-    fs.mkdirSync(uploadsPath, { recursive: true });
-    console.log('[Server] Pasta uploads criada:', uploadsPath);
-  } catch (err) {
-    console.error('[Server] Erro ao criar pasta uploads:', err.message);
-  }
-}
-
+const uploadsPath = path.join(process.cwd(), 'public/uploads');
+if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
 app.use('/uploads', express.static(uploadsPath));
-console.log('[Server] Middleware estático configurado para /uploads ->', uploadsPath);
 
 io.on('connection', (socket) => {
-  log('[Socket] Cliente conectado:', socket.id);
-
-  socket.on('room:join', (roomName) => {
-    socket.join(roomName);
-    log('[Socket] Cliente', socket.id, 'entrou na sala:', roomName);
-  });
+  socket.on('room:join', (roomName) => socket.join(roomName));
 
   socket.on('update_hit_points', (data) => {
-    log('[Socket] update_hit_points:', data);
     io.to(`portrait_character_${data.character_id}`).emit('update_hit_points', data);
   });
 
   socket.on('dice_roll', (data) => {
-    log('[Socket] dice_roll:', data);
     io.to(`dice_character_${data.character_id}`).emit('dice_roll', data);
   });
 
   socket.on('characterUpdated', (data) => {
-    log('[Socket] characterUpdated:', data.id);
     io.emit('characterUpdated', data);
   });
 
   socket.on('tabletop:join', (data) => {
-    const roomName = `tabletop_${data.tabletopId}`;
-    socket.join(roomName);
-    log('[Socket] Cliente', socket.id, 'entrou no tabletop:', roomName);
+    socket.join(`tabletop_${data.tabletopId}`);
   });
 
   socket.on('tabletop:tokenMoved', (data) => {
@@ -117,12 +75,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('tabletop:tokenCreated', (data) => {
-    log('[Socket] tokenCreated:', data.id, data.nome);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenCreated', data);
   });
 
   socket.on('tabletop:tokenDeleted', (data) => {
-    log('[Socket] tokenDeleted:', data.id);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenDeleted', data);
   });
 
@@ -155,48 +111,30 @@ io.on('connection', (socket) => {
   });
 
     socket.on('tabletop:nevoaCreated', (data) => {
-      log('[Socket] nevoaCreated:', data.id, data.nome || 'Sem nome');
-      const room = `tabletop_${data.tabletopId}`;
-      io.to(room).emit('tabletop:nevoaCreated', data);
+      io.to(`tabletop_${data.tabletopId}`).emit('tabletop:nevoaCreated', data);
     });
 
     socket.on('tabletop:nevoaUpdated', (data) => {
-      const room = `tabletop_${data.tabletopId}`;
-      io.to(room).emit('tabletop:nevoaUpdated', data);
+      io.to(`tabletop_${data.tabletopId}`).emit('tabletop:nevoaUpdated', data);
     });
 
     socket.on('tabletop:nevoaDeleted', (data) => {
-      const room = `tabletop_${data.tabletopId}`;
-      io.to(room).emit('tabletop:nevoaDeleted', data);
+      io.to(`tabletop_${data.tabletopId}`).emit('tabletop:nevoaDeleted', data);
     });
 
     socket.on('tabletop:nevoaMoved', (data) => {
-      const room = `tabletop_${data.tabletopId}`;
-      io.to(room).emit('tabletop:nevoaMoved', data);
+      io.to(`tabletop_${data.tabletopId}`).emit('tabletop:nevoaMoved', data);
     });
 
-  socket.on('disconnect', () => {
-    log('[Socket] Cliente desconectado:', socket.id);
-  });
+  socket.on('disconnect', () => {});
 });
 
 nextApp.prepare().then(() => {
-  console.log('[Server] Next.js preparado, registrando rota catch-all');
-  
-  app.all('*', (req, res) => {
-    console.log('[Server] Request:', req.method, req.url);
-    return nextHandler(req, res);
-  });
+  app.all('*', (req, res) => nextHandler(req, res));
 
   server.listen(port, (err) => {
-    if (err) {
-      console.error('[Server] Erro ao iniciar servidor:', err);
-      throw err;
-    }
-
-    console.log(`[Server] Servidor rodando em http://localhost:${port}`);
-    console.log(`[Server] Modo: ${dev ? 'desenvolvimento' : 'producao'}`);
-    console.log('[Server] ========== SERVIDOR INICIADO ==========');
+    if (err) { console.error('[Server] Erro:', err); throw err; }
+    console.log(`[Server] Rodando em http://localhost:${port}`);
   });
 }).catch((err) => {
   console.error('[Server] Falha na preparacao do Next.js:', err);

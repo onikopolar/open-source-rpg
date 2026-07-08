@@ -20,17 +20,19 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      const { 
+      const {
         tokenId, nome, x, y, escala, larguraOriginal, alturaOriginal,
-        invertido, oculto, bloqueado, imageUrl, imageBase64, mimeType,
+        invertido, oculto, bloqueado, rotacao, imageUrl, imageBase64, mimeType,
         parentId
       } = req.body;
-      
+
       const maxZIndexToken = await prisma.tabletopToken.findFirst({
         orderBy: { zIndex: 'desc' }
       });
       const novoZIndex = (maxZIndexToken?.zIndex || 0) + 1;
-      
+
+      const rotacaoFinal = rotacao !== undefined ? Number(rotacao) : 0;
+
       const token = await prisma.tabletopToken.create({
         data: {
           tokenId,
@@ -43,6 +45,7 @@ export default async function handler(req, res) {
           invertido: invertido || false,
           oculto: oculto || false,
           bloqueado: bloqueado || false,
+          ...(rotacao !== undefined && { rotacao: Number(rotacao) }),
           zIndex: novoZIndex,
           imageUrl: imageUrl || null,
           imageBase64: imageBase64 || null,
@@ -50,7 +53,7 @@ export default async function handler(req, res) {
           parentId: parentId || null
         }
       });
-      
+
       return res.status(201).json(token);
     } catch (error) {
       console.error('[API Tabletop/tokens] POST - Erro:', error.message);

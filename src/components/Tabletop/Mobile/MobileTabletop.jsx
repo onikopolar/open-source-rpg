@@ -1,5 +1,6 @@
 // src/components/Tabletop/Mobile/MobileTabletop.jsx
 import { useCallback, useRef } from "react";
+import { calcularPosicoesBolinhas } from '../useSelecaoToken';
 
 const MOVE_THRESHOLD = 5;
 const THROTTLE_MS = 16;
@@ -24,7 +25,6 @@ export function useMobileTabletop({
     camadasComInfo,
     converterMouseParaMundo,
     verificarSeMouseSobreToken,
-    verificarSeMousePodeRedimensionar,
     tokenEstaNaAreaSelecao,
     restringirPosicao,
     processarArrastoToken,
@@ -61,6 +61,17 @@ export function useMobileTabletop({
         if (!isMaster && token && fov?.estaCoberto && fov.estaCoberto(token.x, token.y)) return true;
         return false;
     }, [uiState.tokensBloqueados, isMaster, fov]);
+
+    // Detecção de bolinhas de redimensionamento — acessa tokensComInfo direto pra pegar rotação
+    const verificarResizeHandle = useCallback((mouseX, mouseY, tokenTelaX, tokenTelaY, larguraTela, alturaTela, rotacao = 0) => {
+        const { posicoes, raioDetecao } = calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, alturaTela, uiState.zoom, rotacao);
+        for (const bolinha of posicoes) {
+            const dx = mouseX - bolinha.x;
+            const dy = mouseY - bolinha.y;
+            if (Math.sqrt(dx * dx + dy * dy) <= raioDetecao) return bolinha.nome;
+        }
+        return null;
+    }, [uiState.zoom]);
 
     const getPosicaoTela = useCallback((token) => ({
         x: (token.x * uiState.zoom) + uiState.position.x,
@@ -286,14 +297,15 @@ export function useMobileTabletop({
 
             const posicao = { x: tokenParaDeteccao.telaX || tokenParaDeteccao.posicaoTela.x, y: tokenParaDeteccao.telaY || tokenParaDeteccao.posicaoTela.y };
             const dimensoes = { largura: tokenParaDeteccao.larguraTela || tokenParaDeteccao.tamanhoTela?.larguraTela, altura: tokenParaDeteccao.alturaTela || tokenParaDeteccao.tamanhoTela?.alturaTela };
-            const canto = verificarSeMousePodeRedimensionar(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, false);
+            const tokenRotacao = tokenParaDeteccao.rotacao || 0;
+            const canto = verificarResizeHandle(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, tokenRotacao);
             if (canto) {
                 touchStartRef.current.isResize = true;
                 touchStartRef.current.canto = canto;
                 touchStartRef.current.token = tokenSobre;
             }
         }
-    }, [uiState, verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, isTokenBloqueado, uiDispatch, tokensComInfo]);
+    }, [uiState, verificarSeMouseSobreToken, verificarResizeHandle, isTokenBloqueado, uiDispatch, tokensComInfo]);
 
     const handleTouchMove = useCallback((event) => {
         if (!event.touches || event.touches.length === 0) return;
@@ -493,11 +505,12 @@ export function useMobileTabletop({
                     if (itemInfo) {
                         const indicesGrupo = itemInfo.isGroupResize ? uiState.tokensSelecionados : [];
                         const arrayAtual = isNevoa ? fov.camadasNevoa : tokensState;
+                        const tokenRotacao = !isNevoa ? (tokensComInfo[itemInfo.indice]?.rotacao || 0) : 0;
                         const novosTokens = processarRedimensionamento(
                             mouseX, mouseY, itemInfo, uiState.modoRedimensionamento,
                             uiState.tamanhoInicialRedimensionamento, uiState.boundingBoxGrupo,
                             arrayAtual, uiState.zoom, uiState.position,
-                            itemInfo.isGroupResize || false, indicesGrupo
+                            itemInfo.isGroupResize || false, indicesGrupo, tokenRotacao
                         );
                         if (!resizeInProgressRef.current) resizeInProgressRef.current = true;
                         if (isNevoa && fov.setCamadasNevoa) {

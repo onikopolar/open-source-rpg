@@ -3,14 +3,11 @@ import { prisma } from '../../../../lib/prisma';
 
 export default async function handler(req, res) {
   const { id } = req.query;
-  console.log('[API Tabletop/nevoa/[id]] Método:', req.method, 'ID:', id);
 
   // PUT - Atualizar uma camada
   if (req.method === 'PUT') {
     try {
       const { x, y, escala, imageData } = req.body;
-      
-      console.log('[API Tabletop/nevoa/[id]] Atualizando camada:', { id, x, y });
       
       const camada = await prisma.tabletopNevoa.update({
         where: { id },

@@ -45,7 +45,7 @@ export function desenharFallbackToken(ctx, x, y, zoomAtual, nomeToken) {
     ctx.fillText(nomeToken || "Token", x + (50 * zoomAtual) / 2, y + (50 * zoomAtual) / 2);
 }
 
-export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, semFundo = false, escala = null) {
+export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, semFundo = false, escala = null, rotacao = 0) {
     if (!boundingBox) return;
     ctx.save();
     const padding = 4;
@@ -53,6 +53,14 @@ export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, sem
     const y = boundingBox.y - padding;
     const width = boundingBox.largura + (padding * 2);
     const height = boundingBox.altura + (padding * 2);
+    const cx = boundingBox.x + boundingBox.largura / 2;
+    const cy = boundingBox.y + boundingBox.altura / 2;
+
+    if (rotacao && rotacao !== 0) {
+        ctx.translate(cx, cy);
+        ctx.rotate((rotacao * Math.PI) / 180);
+        ctx.translate(-cx, -cy);
+    }
     if (!semFundo) {
         ctx.fillStyle = 'rgba(0, 123, 255, 0.15)';
         ctx.fillRect(x, y, width, height);
@@ -79,13 +87,14 @@ export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, sem
     } else {
         ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + width / 2, y - 10);
     }
-    desenharBolinhasRedimensionamento(ctx, boundingBox.x, boundingBox.y, boundingBox.largura, boundingBox.altura, zoom);
     ctx.restore();
+    // Bolinhas desenhadas fora do ctx.rotate() — usam rotação via calcularPosicoesBolinhas
+    desenharBolinhasRedimensionamento(ctx, boundingBox.x, boundingBox.y, boundingBox.largura, boundingBox.altura, zoom, rotacao);
 }
 
-export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zoom) {
+export function desenharBolinhasRedimensionamento(ctx, x, y, largura, altura, zoom, rotacao = 0) {
     ctx.save();
-    const { posicoes, raioBolinha } = calcularPosicoesBolinhas(x, y, largura, altura, zoom);
+    const { posicoes, raioBolinha } = calcularPosicoesBolinhas(x, y, largura, altura, zoom, rotacao);
     posicoes.forEach((pos) => {
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
         ctx.shadowBlur = 3;

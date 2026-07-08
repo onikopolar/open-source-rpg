@@ -103,7 +103,6 @@ export function useDragDropToken({
             });
 
             isRegisteredRef.current = true;
-            console.log('[useDragDropToken] DragDropSystem registrado para TabletopGrid');
         };
 
         register();
@@ -112,7 +111,6 @@ export function useDragDropToken({
             if (isRegisteredRef.current) {
                 DragDropSystem.unregister('TabletopGrid');
                 isRegisteredRef.current = false;
-                console.log('[useDragDropToken] DragDropSystem desregistrado para TabletopGrid');
             }
         };
         // Dependências mínimas: apenas as que, se mudarem, realmente exigem re-registro

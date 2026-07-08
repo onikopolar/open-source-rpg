@@ -82,12 +82,19 @@ export function useRenderizacaoToken(
         const altura = token.tamanhoTela.alturaTela;
 
         try {
-            if (token.invertido) {
+            const precisaTransformar = token.invertido || (token.rotacao && token.rotacao !== 0);
+
+            if (precisaTransformar) {
                 context.save();
                 context.translate(x + largura / 2, y + altura / 2);
-                context.scale(-1, 1);
-                context.translate(-(x + largura / 2), -(y + altura / 2));
-                context.drawImage(img, x, y, largura, altura);
+
+                if (token.invertido) context.scale(-1, 1);
+                if (token.rotacao && token.rotacao !== 0) {
+                    context.rotate((token.rotacao * Math.PI) / 180);
+                }
+
+                context.translate(-largura / 2, -altura / 2);
+                context.drawImage(img, 0, 0, largura, altura);
                 context.restore();
             } else {
                 context.drawImage(img, x, y, largura, altura);
@@ -127,26 +134,7 @@ export function useRenderizacaoToken(
                 );
             }
         }
-
-        const tokenEstaSelecionado =
-            uiState.tokenSelecionado === indice ||
-            uiState.tokensSelecionados.includes(indice);
-
-        if (tokenEstaSelecionado && !token.bloqueado && !uiState.tokenSendoArrastado) {
-            const isPartOfGroup = uiState.tokensSelecionados.length > 1 &&
-                uiState.tokensSelecionados.includes(indice);
-
-            if (!isPartOfGroup) {
-                const boundingBox = {
-                    x: token.posicaoTela.x,
-                    y: token.posicaoTela.y,
-                    largura: token.tamanhoTela.larguraTela,
-                    altura: token.tamanhoTela.alturaTela
-                };
-                desenharSelecao(context, boundingBox, uiState.zoom, 1, true, token.escala);
-            }
-        }
-    }, [uiState, getCanvasContext, drawSingleToken, desenharBordaDeArrasto, desenharSelecao]);
+    }, [uiState, getCanvasContext, drawSingleToken, desenharBordaDeArrasto]);
 
     // Função para desenhar apenas os tokens (com seus efeitos de seleção/arrasto), sem névoa
     const renderizarTokens = useCallback((contexto, todosItens, tokensInfo, isMaster) => {

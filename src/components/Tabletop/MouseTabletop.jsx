@@ -1,5 +1,6 @@
 // src/components/Tabletop/MouseTabletop.jsx
 import React, { useCallback, useRef } from "react";
+import { calcularPosicoesBolinhas } from './useSelecaoToken';
 
 const MOVE_THRESHOLD = 5;
 const THROTTLE_MS = 20; // 20ms ≈ 50fps — fluido, 20% menos que os 16ms originais
@@ -23,7 +24,6 @@ export function useMouseTabletop({
     camadasComInfo,
     converterMouseParaMundo,
     verificarSeMouseSobreToken,
-    verificarSeMousePodeRedimensionar,
     tokenEstaNaAreaSelecao,
     restringirPosicao,
     processarArrastoToken,
@@ -53,6 +53,17 @@ export function useMouseTabletop({
         if (!isMaster && token && fov?.estaCoberto && fov.estaCoberto(token.x, token.y)) return true;
         return false;
     }, [uiState.tokensBloqueados, isMaster, fov]);
+
+    // Detecção de bolinhas de redimensionamento — acessa tokensComInfo direto pra pegar rotação
+    const verificarResizeHandle = useCallback((mouseX, mouseY, tokenTelaX, tokenTelaY, larguraTela, alturaTela, rotacao = 0) => {
+        const { posicoes, raioDetecao } = calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, alturaTela, uiState.zoom, rotacao);
+        for (const bolinha of posicoes) {
+            const dx = mouseX - bolinha.x;
+            const dy = mouseY - bolinha.y;
+            if (Math.sqrt(dx * dx + dy * dy) <= raioDetecao) return bolinha.nome;
+        }
+        return null;
+    }, [uiState.zoom]);
 
     const getPosicaoTela = useCallback((token) => ({
         x: (token.x * uiState.zoom) + uiState.position.x,
@@ -260,7 +271,8 @@ export function useMouseTabletop({
 
                 const posicao = { x: tokenSobre.telaX, y: tokenSobre.telaY };
                 const dimensoes = { largura: tokenSobre.larguraTela, altura: tokenSobre.alturaTela };
-                const canto = verificarSeMousePodeRedimensionar(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, false);
+                const tokenRotacao = tokensComInfo[tokenSobre.indice]?.rotacao || 0;
+                const canto = verificarResizeHandle(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, tokenRotacao);
 
                 if (canto) {
                     iniciarRedimensionamento(tokenSobre.token, indiceAtual, canto, { x: mouseX - posicao.x, y: mouseY - posicao.y });
@@ -313,11 +325,11 @@ export function useMouseTabletop({
                 const indiceCamada = itemComInfo.indice;
                 const itemClicado = { ...camadaEncontrada, indice: indiceCamada, tipo: 'nevoa', nome: 'Névoa' };
 
-                const canto = verificarSeMousePodeRedimensionar(
+                const canto = verificarResizeHandle(
                     mouseX, mouseY,
                     itemComInfo.posicaoTela.x, itemComInfo.posicaoTela.y,
                     itemComInfo.tamanhoTela.larguraTela, itemComInfo.tamanhoTela.alturaTela,
-                    false
+                    0 // camadas de névoa não têm rotação
                 );
 
                 if (canto) {
@@ -434,7 +446,8 @@ export function useMouseTabletop({
                 if (token && !isTokenBloqueado(token.id, token)) {
                     const posicao = getPosicaoTela(token);
                     const dimensoes = getDimensoesTela(token);
-                    const canto = verificarSeMousePodeRedimensionar(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, false);
+                    const tokenRotacao = tokensComInfo[uiState.tokenSelecionado]?.rotacao || 0;
+                    const canto = verificarResizeHandle(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, tokenRotacao);
                     if (canto) {
                         iniciarRedimensionamento(token, uiState.tokenSelecionado, canto, { x: mouseX - posicao.x, y: mouseY - posicao.y });
                         event.preventDefault();
@@ -451,7 +464,7 @@ export function useMouseTabletop({
             event.preventDefault();
         }
     }, [uiState, tokensState, tokensComInfo, camadasComInfo, containerRef, converterMouseParaMundo, verificarSeMouseSobreToken,
-        verificarSeMousePodeRedimensionar, fov, uiDispatch, isTokenBloqueado, getPosicaoTela, getDimensoesTela, iniciarRedimensionamento,
+        verificarResizeHandle, fov, uiDispatch, isTokenBloqueado, getPosicaoTela, getDimensoesTela, iniciarRedimensionamento,
         iniciarArrastoToken, emitirSelecao, dragInProgressRef, resizeInProgressRef, trazerTokenParaFrente, teveMovimentoRef,
         dragStartRef, isRightClickDragRef, isDraggingRef, isMaster]);
 
@@ -631,11 +644,12 @@ export function useMouseTabletop({
                 }
 
                                 const arrayAtual = isNevoa ? fov.camadasNevoa : tokensState;
+                const tokenRotacao = !isNevoa ? (tokensComInfo[itemInfo.indice]?.rotacao || 0) : 0;
                 const novosTokens = processarRedimensionamento(
                     mouseX, mouseY, itemInfo, uiState.modoRedimensionamento,
                     uiState.tamanhoInicialRedimensionamento, uiState.boundingBoxGrupo,
                     arrayAtual, uiState.zoom, uiState.position,
-                    itemInfo.isGroupResize || false, indicesGrupo
+                    itemInfo.isGroupResize || false, indicesGrupo, tokenRotacao
                 );
 
                 if (!resizeInProgressRef.current) {

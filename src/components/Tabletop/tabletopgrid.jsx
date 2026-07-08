@@ -44,6 +44,7 @@ import { useNuvemFOV } from './NuvemFOV';
 import { useMouseTabletop } from './MouseTabletop';
 import { useMobileTabletop } from './Mobile/MobileTabletop';
 import { useTabletopTokens } from '../../hooks/useTabletopTokens';
+import { useRotacaoToken } from './useRotacaoToken';
 import socket from '../../utils/socket';
 
 const isMobileDevice = () => {
@@ -141,20 +142,20 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         },
     });
 
-        useEffect(() => {
-            if (tokens.length > 0 && tokensLocal.length === 0) {
-                setTokensLocal(tokens);
+    useEffect(() => {
+        if (tokens.length > 0 && tokensLocal.length === 0) {
+            setTokensLocal(tokens);
 
-                tokens.forEach((token) => {
-                    if (token.bloqueado) {
-                        despacharUI({
-                            type: 'SET_TOKEN_BLOCK',
-                            payload: { tokenId: token.id, bloqueado: true },
-                        });
-                    }
-                });
-            }
-        }, [tokens]);
+            tokens.forEach((token) => {
+                if (token.bloqueado) {
+                    despacharUI({
+                        type: 'SET_TOKEN_BLOCK',
+                        payload: { tokenId: token.id, bloqueado: true },
+                    });
+                }
+            });
+        }
+    }, [tokens]);
 
     const menuAbertoTimestampRef = useRef(0);
     const estaArrastandoRef = useRef(false);
@@ -174,9 +175,9 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     const contextRef = useRef(null);
     const renderCallbackRef = useRef(null);
 
-        // Hook para histórico de undo/redo de tokens
+    // Hook para histórico de undo/redo de tokens
     const {
-                tokensHistorico,
+        tokensHistorico,
         canUndo: canUndoTokens,
         canRedo: canRedoTokens,
         handleUndo: handleUndoTokens,
@@ -221,7 +222,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         emitirDragEnd
     });
 
-        const limitarPosicaoMapa = useCallback(
+    const limitarPosicaoMapa = useCallback(
         (novaX, novaY, zoom = estadoUI.zoom) => {
             if (!containerRef.current) return { x: novaX, y: novaY };
             const rect = containerRef.current.getBoundingClientRect();
@@ -312,46 +313,46 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     const tokensInfo = useMemo(() => {
         return tokensLocal
             .map((token, indice) => {
-            const larguraOriginal = token.larguraOriginal || 50;
-            const alturaOriginal = token.alturaOriginal || 50;
-            const escala = token.escala || 1;
+                const larguraOriginal = token.larguraOriginal || 50;
+                const alturaOriginal = token.alturaOriginal || 50;
+                const escala = token.escala || 1;
 
-            const posicaoTela = {
-                x: token.x * estadoUI.zoom + estadoUI.position.x,
-                y: token.y * estadoUI.zoom + estadoUI.position.y,
-            };
+                const posicaoTela = {
+                    x: token.x * estadoUI.zoom + estadoUI.position.x,
+                    y: token.y * estadoUI.zoom + estadoUI.position.y,
+                };
 
-            const larguraMundo = larguraOriginal * escala;
-            const alturaMundo = alturaOriginal * escala;
-            const larguraTela = larguraMundo * estadoUI.zoom;
-            const alturaTela = alturaMundo * estadoUI.zoom;
+                const larguraMundo = larguraOriginal * escala;
+                const alturaMundo = alturaOriginal * escala;
+                const larguraTela = larguraMundo * estadoUI.zoom;
+                const alturaTela = alturaMundo * estadoUI.zoom;
 
-            const estaSelecionado =
-                estadoUI.tokenSelecionado === indice ||
-                estadoUI.tokensSelecionados.includes(indice);
-            const estaBloqueado = estadoUI.tokensBloqueados[token.id] === true;
-            const estaOculto = estadoUI.visibilidadeTokens[token.id] === true;
+                const estaSelecionado =
+                    estadoUI.tokenSelecionado === indice ||
+                    estadoUI.tokensSelecionados.includes(indice);
+                const estaBloqueado = estadoUI.tokensBloqueados[token.id] === true;
+                const estaOculto = estadoUI.visibilidadeTokens[token.id] === true;
 
-            return {
-                ...token,
-                indice,
-                posicaoTela,
-                larguraOriginal,
-                alturaOriginal,
-                tamanhoTela: {
+                return {
+                    ...token,
+                    indice,
+                    posicaoTela,
                     larguraOriginal,
                     alturaOriginal,
-                    larguraMundo,
-                    alturaMundo,
-                    larguraTela,
-                    alturaTela,
-                },
-                oculto: estaOculto,
-                bloqueado: estaBloqueado,
-                estaSelecionado,
-                tipo: 'token',
-            };
-        });
+                    tamanhoTela: {
+                        larguraOriginal,
+                        alturaOriginal,
+                        larguraMundo,
+                        alturaMundo,
+                        larguraTela,
+                        alturaTela,
+                    },
+                    oculto: estaOculto,
+                    bloqueado: estaBloqueado,
+                    estaSelecionado,
+                    tipo: 'token',
+                };
+            });
     }, [
         tokensLocal,
         estadoUI.zoom,
@@ -361,6 +362,21 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         estadoUI.tokenSelecionado,
         estadoUI.tokensSelecionados,
     ]);
+
+    const { RotateButton } = useRotacaoToken({
+        tokenSelecionado: estadoUI.tokenSelecionado,
+        zoom: estadoUI.zoom,
+        tokensInfo,
+        arrastando: !!estadoUI.tokenSendoArrastado,
+        onGirar: (id, ang) => {
+            setTokensLocal(prev => prev.map(t => t.id === id ? { ...t, rotacao: ang } : t));
+            atualizarToken(id, { rotacao: ang }).catch(() => { });
+            if (socket?.connected) {
+                emitirTokenMovedComHistorico(id, { rotacao: ang });
+            }
+        },
+        containerRef,   
+    });
 
     const nevoa = useNuvemFOV({
         isMaster,
@@ -411,7 +427,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
     const {
         verificarSeMouseSobreToken,
-        verificarSeMousePodeRedimensionar,
         tokenEstaNaAreaSelecao,
     } = useSelecaoToken(tokensLocal, tokensInfo, estadoUI, estaDentroDoElemento);
 
@@ -465,7 +480,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         contexto.restore();
     }, [estadoUI.zoom, estadoUI.position, gradesVisiveis, pegarContextoCanvas]);
 
-        const agendarRender = useCallback(() => {
+    const agendarRender = useCallback(() => {
         const agora = Date.now();
 
         if (agora - ultimoRenderTimeRef.current < RENDER_INTERVAL) {
@@ -498,7 +513,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         desenharSelecao
     );
 
-        useDragDropToken({
+    useDragDropToken({
         isMaster,
         containerRef,
         setModalTokenAberto,
@@ -592,7 +607,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                             largura: itemInfo.tamanhoTela.larguraTela,
                             altura: itemInfo.tamanhoTela.alturaTela,
                         };
-                        desenharSelecao(contexto, boundingBox, estadoUI.zoom, 1, true, itemInfo.escala);
+                        desenharSelecao(contexto, boundingBox, estadoUI.zoom, 1, true, itemInfo.escala, itemInfo.rotacao);
                     }
                 }
             }
@@ -675,7 +690,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         [arrastosRemotos, tokensLocal, todosItens, isMaster]
     );
 
-        const renderizarTudo = useCallback(() => {
+    const renderizarTudo = useCallback(() => {
         const canvas = canvasRef.current;
         const container = containerRef.current;
         if (!canvas || !container) return;
@@ -756,7 +771,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         }
     }, [estadoUI.menuContexto.aberto]);
 
-        const { handleWheel, handleDragOver } = useEventosMouse(
+    const { handleWheel, handleDragOver } = useEventosMouse(
         estadoUI,
         despacharUI,
         containerRef,
@@ -764,9 +779,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         limitarPosicaoMapa
     );
 
-    
-
-        const handleTrazerParaFrente = useCallback(
+    const handleTrazerParaFrente = useCallback(
         (tokenId) => {
             const token = tokensLocal.find((t) => t.id === tokenId);
             if (!token) return;
@@ -774,15 +787,12 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
             const maxZIndex = Math.max(...tokensLocal.map((t) => t.zIndex || 0), 0);
             const novoZIndex = maxZIndex + 1;
 
-            // Atualiza APENAS o zIndex, SEM reordenar o array (índices ficam estáveis)
-            // A ordem visual vem do .sort() no renderizarTokens
             setTokensLocal((prev) =>
                 prev.map((t) =>
                     t.id === tokenId ? { ...t, zIndex: novoZIndex } : t
                 )
             );
 
-            // Persiste no servidor em paralelo
             atualizarTokenComHistorico(tokenId, { zIndex: novoZIndex })
                 .then(() => {
                     if (socket?.connected) {
@@ -813,7 +823,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         camadasComInfo: camadasInfo,
         converterMouseParaMundo: telaParaMundo,
         verificarSeMouseSobreToken,
-        verificarSeMousePodeRedimensionar,
         tokenEstaNaAreaSelecao,
         restringirPosicao: limitarPosicaoMapa,
         processarArrastoToken,
@@ -830,10 +839,10 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         trazerTokenParaFrente: handleTrazerParaFrente,
         finalizarRedimensionamento,
         redimensionandoRef: redimensionandoRefHook,
-                isMaster,
+        isMaster,
         iniciarCapturaArrasto,
         finalizarCapturaArrasto,
-                salvarToken: (tokenId, dados) => {
+        salvarToken: (tokenId, dados) => {
             atualizarTokenComHistorico(tokenId, dados);
             if (socket?.connected) {
                 emitirTokenMovedComHistorico(tokenId, dados);
@@ -857,12 +866,11 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         camadasInfo,
         telaParaMundo,
         verificarSeMouseSobreToken,
-        verificarSeMousePodeRedimensionar,
         tokenEstaNaAreaSelecao,
         limitarPosicaoMapa,
         processarArrastoToken,
         processarRedimensionamento,
-                setTokensLocal,
+        setTokensLocal,
         atualizarTokenComHistorico,
         socket,
         tabletopId,
@@ -884,7 +892,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     const mobileEvents = useMobileTabletop(commonProps);
     const { handleMouseDown, handleMouseMove, handleMouseUp } = isMobile ? mobileEvents : mouseEvents;
 
-        const handleUndo = useCallback(() => {
+    const handleUndo = useCallback(() => {
         if (isMaster) {
             const resultado = handleUndoTokens();
             if (resultado) {
@@ -943,7 +951,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         };
     }, [pegarContextoCanvas]);
 
-        useEffect(() => {
+    useEffect(() => {
         agendarRender();
     }, [
         todosItens,
@@ -972,7 +980,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         }
     }, [estadoUI.ui.mostrarFeedback, despacharUI]);
 
-        useEffect(() => {
+    useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
 
@@ -995,7 +1003,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         return () => {
             container.removeEventListener('wheel', handleWheel);
             container.removeEventListener('contextmenu', (e) => e.preventDefault());
-            
+
             if (isMobile) {
                 container.removeEventListener('touchstart', handleMouseDown);
                 container.removeEventListener('touchmove', handleMouseMove);
@@ -1081,6 +1089,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                 ) : null}
 
                 <CanvasDesenho canvasRef={canvasRef} />
+                {RotateButton}
             </GridContainer>
 
             <MenuContextoToken
@@ -1107,7 +1116,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                         : estadoUI.tokensBloqueados[estadoUI.menuContexto.tokenId] === true
                 }
                 isMaster={isMaster}
-                                onFechar={() => despacharUI({ type: 'CLOSE_CONTEXT_MENU' })}
+                onFechar={() => despacharUI({ type: 'CLOSE_CONTEXT_MENU' })}
                 deletarToken={deletarToken}
                 atualizarToken={atualizarTokenComHistorico}
                 socket={socket}
@@ -1134,6 +1143,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                     desfazer={nevoa.desfazer}
                 />
             )}
+            {/* REMOVIDO: segundo {RotateButton} que ficava fora do GridContainer */}
         </>
     );
 }

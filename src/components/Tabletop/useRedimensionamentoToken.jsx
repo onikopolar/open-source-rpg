@@ -20,7 +20,8 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
         zoom,
         position,
         isGroupResize = false,
-        indicesGrupo = []
+        indicesGrupo = [],
+        rotacao = 0
     ) => {
         if (isGroupResize && indicesGrupo.length > 0) {
             if (!resizeStartStateRef.current) {
@@ -208,8 +209,25 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
             return tokensAtuais;
         }
 
+        // Desrotaciona mouse para o espaço local do token
+        let mouseRefX = mundo.mundoX;
+        let mouseRefY = mundo.mundoY;
+        if (rotacao !== 0) {
+            const larguraInicial = (estadoInicial.itemInicial.larguraOriginal || 50) * estadoInicial.itemInicial.escala;
+            const alturaInicial = (estadoInicial.itemInicial.alturaOriginal || 50) * estadoInicial.itemInicial.escala;
+            const cx = estadoInicial.itemInicial.x + larguraInicial / 2;
+            const cy = estadoInicial.itemInicial.y + alturaInicial / 2;
+            const angulo = -(rotacao * Math.PI) / 180;
+            const cos = Math.cos(angulo);
+            const sin = Math.sin(angulo);
+            const dx = mundo.mundoX - cx;
+            const dy = mundo.mundoY - cy;
+            mouseRefX = cx + dx * cos - dy * sin;
+            mouseRefY = cy + dx * sin + dy * cos;
+        }
+
                 const novaEscala = calcularNovaEscalaToken(
-            mundo.mundoX, mundo.mundoY,
+            mouseRefX, mouseRefY,
             estadoInicial.itemInicial.x,
             estadoInicial.itemInicial.y,
             estadoInicial.itemInicial.larguraOriginal || 50,
