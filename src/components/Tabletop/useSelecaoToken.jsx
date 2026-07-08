@@ -12,13 +12,17 @@ export const CONFIG_BOLINHAS = {
 // Calcula posições das 4 bolinhas nos cantos do token
 export function calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, alturaTela, zoom) {
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    const TAMANHO_BOLINHA_TELA = isMobile ? 32 : 20;
+    // Escala com raiz do zoom: bolas pequenas em zoom out, grandes em zoom in
+    // clamp entre 0.5 e 2.0 pra não ficar nem invisível nem gigante
+    const escalaZoom = Math.min(2.0, Math.max(0.5, Math.sqrt(zoom)));
+    const TAMANHO_BOLINHA_TELA = (isMobile ? 24 : 18) * escalaZoom;
     const DISTANCIA_EXTERNA_TELA = CONFIG_BOLINHAS.DISTANCIA_EXTERNA_TELA;
-    const PADDING_DETECCAO_TELA = CONFIG_BOLINHAS.PADDING_DETECCAO_TELA;
     
     const raioBolinha = TAMANHO_BOLINHA_TELA / 2;
     const distanciaExternaTela = DISTANCIA_EXTERNA_TELA;
-    const raioDetecao = raioBolinha + PADDING_DETECCAO_TELA;
+    // Detecção: mobile com padding extra (dedo treme), desktop preciso
+    // Visual SEMPRE = raioBolinha, mas detecção pode ser um pouco maior no mobile
+    const raioDetecao = isMobile ? raioBolinha + 8 : raioBolinha + 4;
 
     const posicoes = [
         { nome: 'SE', x: tokenTelaX + larguraTela + distanciaExternaTela, y: tokenTelaY + alturaTela + distanciaExternaTela },
@@ -60,55 +64,29 @@ export function calcularBoundingBoxGrupo(itensSelecionados) {
 export function useSelecaoToken(tokensState, tokensComInfo, uiState, calcularSeMouseEstaDentro) {
     // Retorna token sob o cursor
     const verificarSeMouseSobreToken = useCallback((mouseX, mouseY, modo = 'esquerdo') => {
-        if (modo === 'esquerdo') {
-            for (let i = tokensComInfo.length - 1; i >= 0; i--) {
-                const token = tokensComInfo[i];
-                if (token.bloqueado) continue;
+        // Ordena por zIndex decrescente (topo primeiro) para detecção correta
+        const ordenado = [...tokensComInfo].sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0));
 
-                const dentro = calcularSeMouseEstaDentro(
-                    mouseX, mouseY,
-                    token.posicaoTela.x, token.posicaoTela.y,
-                    token.tamanhoTela.larguraTela, token.tamanhoTela.alturaTela
-                );
+        for (const token of ordenado) {
+            if (modo === 'esquerdo' && token.bloqueado) continue;
 
-                if (dentro) {
-                    return {
-                        token: tokensState[i],
-                        indice: i,
-                        ...token.tamanhoTela,
-                        telaX: token.posicaoTela.x,
-                        telaY: token.posicaoTela.y,
-                        bloqueado: token.bloqueado
-                    };
-                }
+            const dentro = calcularSeMouseEstaDentro(
+                mouseX, mouseY,
+                token.posicaoTela.x, token.posicaoTela.y,
+                token.tamanhoTela.larguraTela, token.tamanhoTela.alturaTela
+            );
+
+            if (dentro) {
+                return {
+                    token: tokensState[token.indice],
+                    indice: token.indice,
+                    ...token.tamanhoTela,
+                    telaX: token.posicaoTela.x,
+                    telaY: token.posicaoTela.y,
+                    bloqueado: token.bloqueado
+                };
             }
-            return null;
         }
-
-        if (modo === 'direito') {
-            for (let i = tokensComInfo.length - 1; i >= 0; i--) {
-                const token = tokensComInfo[i];
-
-                const dentro = calcularSeMouseEstaDentro(
-                    mouseX, mouseY,
-                    token.posicaoTela.x, token.posicaoTela.y,
-                    token.tamanhoTela.larguraTela, token.tamanhoTela.alturaTela
-                );
-
-                if (dentro) {
-                    return {
-                        token: tokensState[i],
-                        indice: i,
-                        ...token.tamanhoTela,
-                        telaX: token.posicaoTela.x,
-                        telaY: token.posicaoTela.y,
-                        bloqueado: token.bloqueado
-                    };
-                }
-            }
-            return null;
-        }
-
         return null;
     }, [tokensComInfo, tokensState, calcularSeMouseEstaDentro]);
 

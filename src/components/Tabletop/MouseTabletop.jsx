@@ -2,7 +2,7 @@
 import React, { useCallback, useRef } from "react";
 
 const MOVE_THRESHOLD = 5;
-const THROTTLE_MS = 16;
+const THROTTLE_MS = 20; // 20ms ≈ 50fps — fluido, 20% menos que os 16ms originais
 
 export function useMouseTabletop({
     containerRef,
@@ -204,14 +204,26 @@ export function useMouseTabletop({
                 return;
             }
 
-            // 2. Verificar camada (apenas mestre)
+            // 2. Verificar camada (apenas mestre) — permite pan na névoa também
             const { x: mundoX, y: mundoY } = converterMouseParaMundo(mouseX, mouseY);
             const camada = fov.encontrarCamadaNaPosicao(mundoX, mundoY);
             if (camada && isMaster) {
+                // Guarda referência da camada para possível menu de contexto no mouseup
+                // (se não houver movimento significativo)
                 uiDispatch({
-                    type: 'OPEN_CONTEXT_MENU',
-                    payload: { aberto: true, x: event.clientX, y: event.clientY, tipo: 'nevoa', camadaId: camada.id, camada }
+                    type: 'SET_MOUSE_DOWN_INFO',
+                    payload: {
+                        camada,
+                        mouseX, mouseY,
+                        timestamp: Date.now(),
+                        isRightClick: true,
+                        isFogClick: true
+                    }
                 });
+                // Inicia pan da viewport (mesmo dentro da névoa)
+                uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
+                dragStartRef.current = { x: event.clientX - uiState.position.x, y: event.clientY - uiState.position.y };
+                isRightClickDragRef.current = true;
                 return;
             }
 
@@ -231,6 +243,11 @@ export function useMouseTabletop({
             // 1. Verificar token primeiro (independente de névoa)
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'esquerdo');
             if (tokenSobre) {
+                // Se o token clicado faz parte de uma seleção múltipla, pula para o handler de grupo
+                const fazParteDeGrupo = uiState.tokensSelecionados.length > 1 &&
+                    uiState.tokensSelecionados.includes(tokenSobre.indice);
+                
+                if (!fazParteDeGrupo) {
                 const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id, tokenSobre.token);
                 if (tokenBloqueado) {
                     uiDispatch({ type: 'SET_FEEDBACK', payload: { message: 'Token bloqueado', type: 'warning' } });
@@ -240,10 +257,6 @@ export function useMouseTabletop({
 
                 const tokenId = tokenSobre.token.id;
                 const indiceAtual = tokenSobre.indice;
-
-                if (trazerTokenParaFrente) {
-                    trazerTokenParaFrente(tokenId);
-                }
 
                 const posicao = { x: tokenSobre.telaX, y: tokenSobre.telaY };
                 const dimensoes = { largura: tokenSobre.larguraTela, altura: tokenSobre.alturaTela };
@@ -266,15 +279,23 @@ export function useMouseTabletop({
                     mouseX - tokenSobre.telaX,
                     mouseY - tokenSobre.telaY
                 );
+
+                // IMPORTANTE: trazerTokenParaFrente DEPOIS de SELECT_TOKEN e iniciarArrastoToken
+                if (trazerTokenParaFrente) {
+                    trazerTokenParaFrente(tokenId);
+                }
                 
                 if (isMaster && iniciarCapturaArrasto) {
                     iniciarCapturaArrasto();
                 }
                 event.preventDefault();
                 return;
+                } // fim if (!fazParteDeGrupo)
+                // Se fazParteDeGrupo, cai direto no handler de grupo (step 3)
             }
 
-            // 2. Verificar camada (apenas mestre)
+            // 2. Verificar camada (apenas mestre) — pula se já encontramos token no grupo
+            if (!tokenSobre) {
             const { x: mundoX, y: mundoY } = converterMouseParaMundo(mouseX, mouseY);
             const camadaEncontrada = fov.encontrarCamadaNaPosicao(mundoX, mundoY);
             if (camadaEncontrada && isMaster) {
@@ -329,6 +350,7 @@ export function useMouseTabletop({
                 event.preventDefault();
                 return;
             }
+            } // fim if (!tokenSobre) — pula camada quando token já encontrado no grupo
 
             // 3. Lógica para múltiplos tokens selecionados (arrasto/redimensionamento de grupo)
             if (uiState.tokensSelecionados.length > 1) {
@@ -529,14 +551,28 @@ export function useMouseTabletop({
                 }
 
                 if (!isNevoa) {
-                    const tokenMovido = novosTokens[itemInfo.indice];
-                    if (tokenMovido && (tokenMovido.x !== itemInfo.token?.x || tokenMovido.y !== itemInfo.token?.y)) {
-                        const agora = Date.now();
-                        const timeSinceLastEmit = agora - ultimoEmitRef.current;
-                        const emitir = timeSinceLastEmit >= THROTTLE_MS;
-                        if (emitir) {
-                            ultimoEmitRef.current = agora;
-                            if (emitirTokenMoved) {
+                    const agora = Date.now();
+                    const timeSinceLastEmit = agora - ultimoEmitRef.current;
+                    const emitir = timeSinceLastEmit >= THROTTLE_MS;
+
+                    if (emitir && emitirTokenMoved) {
+                        ultimoEmitRef.current = agora;
+
+                        if (itemInfo.isGroupDrag && uiState.tokensSelecionados.length > 1) {
+                            // Batch: 1 evento com todas as posições do grupo
+                            const posicoes = [];
+                            uiState.tokensSelecionados.forEach((idx) => {
+                                const token = novosTokens[idx];
+                                if (token) {
+                                    posicoes.push({ id: token.id, x: token.x, y: token.y });
+                                }
+                            });
+                            if (posicoes.length > 0 && socket?.connected) {
+                                socket.emit('tabletop:tokensMoved', { tabletopId, tokens: posicoes, userId: socket.id });
+                            }
+                        } else {
+                            const tokenMovido = novosTokens[itemInfo.indice];
+                            if (tokenMovido && (tokenMovido.x !== itemInfo.token?.x || tokenMovido.y !== itemInfo.token?.y)) {
                                 emitirTokenMoved(tokenMovido.id, { x: tokenMovido.x, y: tokenMovido.y });
                             }
                         }
@@ -645,6 +681,7 @@ export function useMouseTabletop({
             }
 
             if (uiState.ui.isDragging) {
+                teveMovimentoRef.current = true;
                 const constrained = restringirPosicao(event.clientX - dragStartRef.current.x, event.clientY - dragStartRef.current.y);
                 uiDispatch({ type: 'SET_POSITION', payload: constrained });
                 event.preventDefault();
@@ -664,6 +701,7 @@ export function useMouseTabletop({
         }
 
         if (event.button === 2) {
+            // Clique direito em token → menu de contexto
             if (uiState.mouseDownInfo && uiState.ui.isClickingToken) {
                 const tokenSobre = uiState.mouseDownInfo.token;
                 uiDispatch({ type: 'SELECT_TOKEN', payload: tokenSobre.indice });
@@ -679,6 +717,25 @@ export function useMouseTabletop({
                     }
                 });
             }
+
+            // Clique direito na névoa sem arrastar → menu de contexto da névoa
+            if (uiState.mouseDownInfo?.isFogClick && !teveMovimentoRef.current) {
+                const camada = uiState.mouseDownInfo.camada;
+                uiDispatch({
+                    type: 'OPEN_CONTEXT_MENU',
+                    payload: {
+                        aberto: true,
+                        x: event.clientX,
+                        y: event.clientY,
+                        tipo: 'nevoa',
+                        camadaId: camada.id,
+                        camada
+                    }
+                });
+                // Cancela o estado de pan que foi iniciado no mousedown
+                uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: false } });
+            }
+
             isRightClickDragRef.current = false;
         }
 

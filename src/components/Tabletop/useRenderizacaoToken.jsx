@@ -11,7 +11,7 @@ export function useRenderizacaoToken(
     desenharSelecao
 ) {
     const drawSingleToken = useCallback((token, context) => {
-        const imagemUrl = token.imageUrl || token.imageBase64;
+        const imagemUrl = token.imageBase64 || token.imageUrl;
 
         if (!imagemUrl) {
             desenharFallbackToken(
@@ -26,14 +26,27 @@ export function useRenderizacaoToken(
 
         let img = imageCache.current.get(token.id);
 
+        // Se a imagem já falhou antes, não tenta recarregar — usa fallback
+        if (img && img._failed) {
+            desenharFallbackToken(
+                context,
+                token.posicaoTela.x,
+                token.posicaoTela.y,
+                uiState.zoom,
+                token.nome
+            );
+            return false;
+        }
+
         if (!img) {
             img = new Image();
             img.onload = () => {
                 scheduleRender();
             };
             img.onerror = () => {
-                imageCache.current.delete(token.id);
-                scheduleRender();
+                // Marca como falha para não entrar em loop de re-render
+                img._failed = true;
+                // NÃO agenda re-render — o fallback já está sendo exibido
             };
             img.src = imagemUrl;
             imageCache.current.set(token.id, img);
@@ -139,8 +152,17 @@ export function useRenderizacaoToken(
     const renderizarTokens = useCallback((contexto, todosItens, tokensInfo, isMaster) => {
         if (!contexto) return;
 
-        for (let i = 0; i < todosItens.length; i++) {
-            const item = todosItens[i];
+        // Cópia ordenada por zIndex apenas para renderização — não afeta o array original
+        // (índices em todosItens original são usados por desenharArrastoProprio/desenharSelecoes)
+        const ordenado = [...todosItens].sort((a, b) => {
+            if (a.tipo !== 'token' && b.tipo !== 'token') return 0;
+            if (a.tipo !== 'token') return 1;
+            if (b.tipo !== 'token') return -1;
+            return (a.zIndex || 0) - (b.zIndex || 0);
+        });
+
+        for (let i = 0; i < ordenado.length; i++) {
+            const item = ordenado[i];
             if (item.tipo === 'token') {
                 if (!isMaster && item.oculto) continue;
                 drawTokenWithCache(item, item.indice, contexto);

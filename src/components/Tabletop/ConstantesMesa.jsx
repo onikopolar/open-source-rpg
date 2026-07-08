@@ -11,6 +11,7 @@ export const RENDER_INTERVAL = 16;
 export const GRID_CONFIGS = [
     { zoomThreshold: 0, sizeMultiplier: 8, alpha: 0.08 },
     { zoomThreshold: 0.125, sizeMultiplier: 4, alpha: 0.06 },
+    { zoomThreshold: 0.4, sizeMultiplier: 2, alpha: 0.08 },
     { zoomThreshold: 0.25, sizeMultiplier: 1, alpha: 0.10 },
     { zoomThreshold: 2.0, sizeMultiplier: 0.5, alpha: 0.07 },
     { zoomThreshold: 3.0, sizeMultiplier: 0.25, alpha: 0.05 }

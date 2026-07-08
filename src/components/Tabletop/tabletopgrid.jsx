@@ -143,12 +143,9 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
         useEffect(() => {
             if (tokens.length > 0 && tokensLocal.length === 0) {
-                const tokensOrdenados = [...tokens].sort(
-                    (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
-                );
-                setTokensLocal(tokensOrdenados);
+                setTokensLocal(tokens);
 
-                tokensOrdenados.forEach((token) => {
+                tokens.forEach((token) => {
                     if (token.bloqueado) {
                         despacharUI({
                             type: 'SET_TOKEN_BLOCK',
@@ -264,45 +261,57 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
     const gradesVisiveis = useMemo(() => {
         const z = estadoUI.zoom;
-        let grades = GRID_CONFIGS.filter((config) => z >= config.zoomThreshold).map(
-            (config, index, array) => {
-                const strokeWidth = Math.max(0.5, 1 / z);
-                const baseSize = BASE_GRID_SIZE * config.sizeMultiplier;
-                let alpha = config.alpha;
+        const TARGET_SCREEN_SIZE = 150; // Tamanho alvo da célula na tela (px)
 
-                if (index > 0) {
-                    const configAnterior = array[index - 1];
-                    const rangeTransicao = (config.zoomThreshold - configAnterior.zoomThreshold) * 0.2;
-                    const inicioFade = config.zoomThreshold - rangeTransicao;
-                    if (
-                        z > inicioFade &&
-                        z < config.zoomThreshold + rangeTransicao
-                    ) {
-                        const progresso = (z - inicioFade) / (rangeTransicao * 2);
-                        alpha = config.alpha * Math.min(1, Math.max(0, progresso));
-                    }
-                }
+        // Calcula o tamanho real na tela de cada grid no zoom atual
+        const allGrids = GRID_CONFIGS.map((config) => {
+            const size = BASE_GRID_SIZE * config.sizeMultiplier;
+            const screenSize = size * z;
+            return { size, screenSize, ...config };
+        });
 
-                return { size: baseSize, alpha, strokeWidth, threshold: config.zoomThreshold };
+        // Ordena do maior para o menor (sizeMultiplier decrescente)
+        allGrids.sort((a, b) => b.sizeMultiplier - a.sizeMultiplier);
+
+        // Encontra o grid PRIMÁRIO: aquele cujo tamanho na tela está mais próximo do alvo
+        let primaryIdx = 0;
+        let bestDiff = Infinity;
+        for (let i = 0; i < allGrids.length; i++) {
+            const diff = Math.abs(allGrids[i].screenSize - TARGET_SCREEN_SIZE);
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                primaryIdx = i;
             }
-        );
-
-        // Mantém no máximo 3 camadas: as 2 mais relevantes + a base (1x)
-        if (grades.length > 3) {
-            // Sempre mantém a base 1x (índice 2 nos GRID_CONFIGS originais)
-            const base = grades.find(g => g.size === BASE_GRID_SIZE);
-            const others = grades.filter(g => g.size !== BASE_GRID_SIZE);
-            // Pega as 2 camadas com threshold mais próximo do zoom atual
-            others.sort((a, b) => Math.abs(a.threshold - z) - Math.abs(b.threshold - z));
-            grades = [...others.slice(0, 2)];
-            if (base) grades.push(base);
         }
 
-        return grades;
+        const strokeWidth = Math.max(0.5, 1 / z);
+        const result = [];
+
+        // Grid primário (célula dominante)
+        result.push({
+            size: allGrids[primaryIdx].size,
+            alpha: allGrids[primaryIdx].alpha,
+            strokeWidth,
+            threshold: allGrids[primaryIdx].zoomThreshold,
+        });
+
+        // Sub-grid: o próximo nível menor (subdivisão 2x2 dentro de cada célula dominante)
+        if (primaryIdx + 1 < allGrids.length) {
+            const sub = allGrids[primaryIdx + 1];
+            result.push({
+                size: sub.size,
+                alpha: sub.alpha,
+                strokeWidth,
+                threshold: sub.zoomThreshold,
+            });
+        }
+
+        return result;
     }, [estadoUI.zoom]);
 
     const tokensInfo = useMemo(() => {
-        return tokensLocal.map((token, indice) => {
+        return tokensLocal
+            .map((token, indice) => {
             const larguraOriginal = token.larguraOriginal || 50;
             const alturaOriginal = token.alturaOriginal || 50;
             const escala = token.escala || 1;
@@ -414,6 +423,10 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
             willReadFrequently: true,
             alpha: true,
         });
+        if (contextRef.current) {
+            contextRef.current.imageSmoothingEnabled = true;
+            contextRef.current.imageSmoothingQuality = 'high';
+        }
         return contextRef.current;
     }, []);
 
@@ -422,7 +435,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         if (!contexto) return;
 
         contexto.save();
-        contexto.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
         contexto.translate(estadoUI.position.x, estadoUI.position.y);
         contexto.scale(estadoUI.zoom, estadoUI.zoom);
@@ -431,14 +443,18 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
             contexto.strokeStyle = `rgba(255, 255, 255, ${grade.alpha})`;
             contexto.lineWidth = grade.strokeWidth;
 
-            for (let x = 0; x <= WORLD_WIDTH; x += grade.size) {
+            const stepsX = Math.round(WORLD_WIDTH / grade.size);
+            for (let i = 0; i <= stepsX; i++) {
+                const x = i * grade.size;
                 contexto.beginPath();
                 contexto.moveTo(x, 0);
                 contexto.lineTo(x, WORLD_HEIGHT);
                 contexto.stroke();
             }
 
-            for (let y = 0; y <= WORLD_HEIGHT; y += grade.size) {
+            const stepsY = Math.round(WORLD_HEIGHT / grade.size);
+            for (let i = 0; i <= stepsY; i++) {
+                const y = i * grade.size;
                 contexto.beginPath();
                 contexto.moveTo(0, y);
                 contexto.lineTo(WORLD_WIDTH, y);
@@ -452,8 +468,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         const agendarRender = useCallback(() => {
         const agora = Date.now();
 
-        console.log('[TabletopGrid] agendarRender chamado, callback existe?', !!renderCallbackRef.current);
-
         if (agora - ultimoRenderTimeRef.current < RENDER_INTERVAL) {
             if (!renderAgendadoRef.current) {
                 renderAgendadoRef.current = true;
@@ -461,10 +475,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                     renderAgendadoRef.current = false;
                     ultimoRenderTimeRef.current = Date.now();
                     if (renderCallbackRef.current) {
-                        console.log('[TabletopGrid] Executando renderCallback');
                         renderCallbackRef.current();
-                    } else {
-                        console.warn('[TabletopGrid] renderCallbackRef.current é null!');
                     }
                 });
             }
@@ -473,10 +484,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
         ultimoRenderTimeRef.current = agora;
         if (renderCallbackRef.current) {
-            console.log('[TabletopGrid] Executando renderCallback imediatamente');
             renderCallbackRef.current();
-        } else {
-            console.warn('[TabletopGrid] renderCallbackRef.current é null!');
         }
     }, []);
 
@@ -498,6 +506,9 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         telaParaMundo,
         emitirTokenCreated: emitirTokenCreatedComHistorico,
         socket,
+        onTokenCreated: (tokenCriado) => {
+            setTokensLocal((prev) => [...prev, tokenCriado]);
+        },
     });
 
     useEffect(() => {
@@ -665,27 +676,30 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     );
 
         const renderizarTudo = useCallback(() => {
-        console.log('[TabletopGrid] renderizarTudo chamado. Camadas névoa:', nevoa.camadasNevoa.length);
         const canvas = canvasRef.current;
         const container = containerRef.current;
         if (!canvas || !container) return;
 
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const rect = container.getBoundingClientRect();
-        if (canvas.width !== rect.width || canvas.height !== rect.height) {
-            canvas.width = rect.width;
-            canvas.height = rect.height;
-            console.log('[TabletopGrid] Canvas redimensionado:', { width: rect.width, height: rect.height });
+        const widthCSS = rect.width;
+        const heightCSS = rect.height;
+
+        if (canvas.width !== widthCSS * dpr || canvas.height !== heightCSS * dpr) {
+            canvas.width = widthCSS * dpr;
+            canvas.height = heightCSS * dpr;
+            canvas.style.width = widthCSS + 'px';
+            canvas.style.height = heightCSS + 'px';
         }
 
         const contexto = pegarContextoCanvas();
         if (!contexto) return;
 
         contexto.clearRect(0, 0, canvas.width, canvas.height);
-        contexto.setTransform(1, 0, 0, 1, 0, 0);
+        contexto.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         desenharGrade();
 
-        console.log('[TabletopGrid] Desenhando tokens, total:', tokensInfo.length);
         renderizarTokens(contexto, todosItens, tokensInfo, isMaster);
 
         desenharArrastoProprio(contexto);
@@ -760,6 +774,15 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
             const maxZIndex = Math.max(...tokensLocal.map((t) => t.zIndex || 0), 0);
             const novoZIndex = maxZIndex + 1;
 
+            // Atualiza APENAS o zIndex, SEM reordenar o array (índices ficam estáveis)
+            // A ordem visual vem do .sort() no renderizarTokens
+            setTokensLocal((prev) =>
+                prev.map((t) =>
+                    t.id === tokenId ? { ...t, zIndex: novoZIndex } : t
+                )
+            );
+
+            // Persiste no servidor em paralelo
             atualizarTokenComHistorico(tokenId, { zIndex: novoZIndex })
                 .then(() => {
                     if (socket?.connected) {
@@ -770,7 +793,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                     console.error('[TabletopGrid] Erro ao atualizar token:', err);
                 });
         },
-        [tokensLocal, atualizarTokenComHistorico, socket, emitirTokenZIndexChangedComHistorico]
+        [tokensLocal, setTokensLocal, atualizarTokenComHistorico, socket, emitirTokenZIndexChangedComHistorico]
     );
 
     const commonProps = useMemo(() => ({
@@ -921,7 +944,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     }, [pegarContextoCanvas]);
 
         useEffect(() => {
-        console.log('[TabletopGrid] Dependências mudaram, agendando render. Camadas névoa:', nevoa.camadasNevoa.length);
         agendarRender();
     }, [
         todosItens,
@@ -998,7 +1020,11 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         };
 
         document.addEventListener('mousedown', handleClickFora);
-        return () => document.removeEventListener('mousedown', handleClickFora);
+        document.addEventListener('touchstart', handleClickFora);
+        return () => {
+            document.removeEventListener('mousedown', handleClickFora);
+            document.removeEventListener('touchstart', handleClickFora);
+        };
     }, [estadoUI.menuContexto.aberto, despacharUI]);
 
     useEffect(() => {

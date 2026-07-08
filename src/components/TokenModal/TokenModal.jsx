@@ -157,6 +157,7 @@ function TokenModal(props) {
 
     const [activeTab, setActiveTab] = useState(0);
     const [imagemSelecionada, setImagemSelecionada] = useState(null);
+    const [imagemBase64, setImagemBase64] = useState(null);
     const [nomeToken, setNomeToken] = useState("");
     const [bibliotecaTokens, setBibliotecaTokens] = useState([]);
 
@@ -312,7 +313,7 @@ function TokenModal(props) {
                 oculto: false,
                 bloqueado: false,
                 imageUrl: imagemSelecionada,
-                imageBase64: null,
+                imageBase64: imagemBase64 || null,
                 mimeType: null
             };
 
@@ -324,6 +325,7 @@ function TokenModal(props) {
                     tipo: "token",
                     nome: nomeToken.trim(),
                     imagemUrl: imagemSelecionada,
+                    imagemBase64: imagemBase64 || null,
                     larguraOriginal: tokenSalvo.larguraOriginal,
                     alturaOriginal: tokenSalvo.alturaOriginal,
                     pastaPai: null,
@@ -332,6 +334,7 @@ function TokenModal(props) {
 
                 setBibliotecaTokens(prev => [...prev, tokenParaBiblioteca]);
                 setImagemSelecionada(null);
+                setImagemBase64(null);
                 setNomeToken("");
                 setActiveTab(0);
             }
@@ -655,6 +658,7 @@ function TokenModal(props) {
             setActiveTab={setActiveTab}
             imagemSelecionada={imagemSelecionada}
             setImagemSelecionada={setImagemSelecionada}
+            setImagemBase64={setImagemBase64}
             nomeToken={nomeToken}
             setNomeToken={setNomeToken}
             bibliotecaTokens={bibliotecaTokens}

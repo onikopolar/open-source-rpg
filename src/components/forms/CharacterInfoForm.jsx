@@ -40,6 +40,9 @@ const CharacterInfoForm = ({
 
       await onSubmit(dataToSend);
 
+      // Resetar o formulário com os valores salvos para limpar o estado dirty
+      resetForm({ values: dataToSend });
+
       setSaveStatus('success');
       setLastSaved(new Date());
 

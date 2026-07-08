@@ -241,6 +241,16 @@ export const useCharacterSheet = (rawCharacter, refreshData) => {
       if (newSystem === "year_zero") {
         try {
           await api.post("/yearzero/setup", { character_id: currentCharacterId });
+          
+          // Re-fetch dos dados completos do personagem após o setup do Year Zero
+          // O PUT foi feito antes do setup, então a resposta não inclui yearzero_attributes/skills
+          const refreshedResponse = await api.get(`/character/${currentCharacterId}`);
+          if (refreshedResponse?.data) {
+            console.log('[useCharacterSheet] Personagem atualizado com dados Year Zero do setup');
+            setCharacter(refreshedResponse.data);
+            setIsChangingSystem(false);
+            return;
+          }
         } catch (error) {
           if (error.response?.status !== 404) {
             console.error('[useCharacterSheet] Erro no setup Year Zero:', error);

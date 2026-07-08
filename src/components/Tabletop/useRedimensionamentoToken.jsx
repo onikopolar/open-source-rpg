@@ -1,6 +1,7 @@
 // components/Tabletop/useRedimensionamentoToken.jsx
 import { useCallback, useRef } from "react";
 import { calcularNovaEscalaToken } from "./UtilitariosToken";
+import { clamp } from "./ConstantesMesa";
 
 export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emitirDragEnd } = {}) {
     const resizeStartStateRef = useRef(null);
@@ -103,7 +104,25 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
                 4
             );
 
-            if (isNaN(escalaCalculada) || escalaCalculada <= 0) {
+            // Normaliza: compensa o amortecimento do bounding box grande
+            const REF = 100;
+            const fator = Math.max(estadoInicial.boundingBox.width, estadoInicial.boundingBox.height) / REF;
+            let escalaFinal = 1 + (escalaCalculada - 1) * fator;
+
+            // Limite por token: cada token tem sua escala individual (0.1 ~ 4.0)
+            // O grupo para quando o PRIMEIRO token atinge o limite
+            let limiteMin = 0.1;
+            let limiteMax = 4.0;
+            indicesGrupo.forEach(indice => {
+                const t = estadoInicial.tokens[indice];
+                if (t && t.escala > 0) {
+                    limiteMin = Math.max(limiteMin, 0.1 / t.escala);
+                    limiteMax = Math.min(limiteMax, 4.0 / t.escala);
+                }
+            });
+            escalaFinal = clamp(escalaFinal, limiteMin, limiteMax);
+
+            if (isNaN(escalaFinal) || escalaFinal <= 0) {
                 return tokensAtuais;
             }
 
@@ -115,9 +134,9 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
                     const relX = tokenInicial.x - estadoInicial.centro.x;
                     const relY = tokenInicial.y - estadoInicial.centro.y;
 
-                    const novoX = estadoInicial.centro.x + (relX * escalaCalculada);
-                    const novoY = estadoInicial.centro.y + (relY * escalaCalculada);
-                    const novaEscala = tokenInicial.escala * escalaCalculada;
+                    const novoX = estadoInicial.centro.x + (relX * escalaFinal);
+                    const novoY = estadoInicial.centro.y + (relY * escalaFinal);
+                    const novaEscala = clamp(tokenInicial.escala * escalaFinal, 0.1, 4.0);
 
                     novosTokens[indice] = {
                         ...novosTokens[indice],

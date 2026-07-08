@@ -10,6 +10,7 @@ export function useDragDropToken({
     telaParaMundo,
     emitirTokenCreated,
     socket,
+    onTokenCreated,
 }) {
     const isRegisteredRef = useRef(false);
 
@@ -39,7 +40,27 @@ export function useDragDropToken({
                 console.log('[useDragDropToken] Posição do mouse:', { mouseX, mouseY }, '-> mundo:', mundo);
 
                 const imageUrlParaSalvar = dados.imageUrl || dados.imagemUrl || null;
-                const imageBase64ParaSalvar = dados.imageBase64 || dados.imagemBase64 || null;
+                let imageBase64ParaSalvar = dados.imageBase64 || dados.imagemBase64 || null;
+
+                // Se não tem base64 mas tem URL, busca a imagem e converte para base64
+                if (!imageBase64ParaSalvar && imageUrlParaSalvar) {
+                    try {
+                        console.log('[useDragDropToken] Buscando imagem para converter em base64:', imageUrlParaSalvar);
+                        const response = await fetch(imageUrlParaSalvar);
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            imageBase64ParaSalvar = await new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onload = () => resolve(reader.result);
+                                reader.onerror = () => resolve(null);
+                                reader.readAsDataURL(blob);
+                            });
+                            console.log('[useDragDropToken] Base64 convertido, length:', imageBase64ParaSalvar?.length);
+                        }
+                    } catch (e) {
+                        console.warn('[useDragDropToken] Erro ao buscar imagem para base64:', e.message);
+                    }
+                }
 
                 const novoToken = {
                     tokenId: `${dados.id}-${Date.now()}`,
@@ -66,9 +87,16 @@ export function useDragDropToken({
 
                 const tokenCriado = await criarToken(novoToken);
 
-                if (tokenCriado && socket?.connected) {
-                    console.log('[useDragDropToken] Token criado com sucesso, emitindo evento socket:', tokenCriado.id);
-                    emitirTokenCreated(tokenCriado);
+                if (tokenCriado) {
+                    // Atualiza IMEDIATAMENTE o estado local
+                    if (onTokenCreated) {
+                        onTokenCreated(tokenCriado);
+                    }
+
+                    if (socket?.connected) {
+                        console.log('[useDragDropToken] Token criado com sucesso, emitindo evento socket:', tokenCriado.id);
+                        emitirTokenCreated(tokenCriado);
+                    }
                 } else {
                     console.error('[useDragDropToken] Falha ao criar token ou socket desconectado');
                 }

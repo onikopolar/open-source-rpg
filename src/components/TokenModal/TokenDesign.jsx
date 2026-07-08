@@ -19,6 +19,7 @@ function TokenDesign({
     setActiveTab,
     imagemSelecionada,
     setImagemSelecionada,
+    setImagemBase64,
     nomeToken,
     setNomeToken,
     bibliotecaTokens,
@@ -125,19 +126,31 @@ function TokenDesign({
 
     const fazerUploadArquivo = async (arquivo) => {
         setUploadLoading(true);
+
+        // Lê o arquivo como base64 ANTES do upload (fallback offline)
+        const base64Promise = new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(arquivo);
+        });
+
         const formData = new FormData();
         formData.append('file', arquivo);
 
         try {
-            const response = await fetch('/api/upload/token', {
-                method: 'POST',
-                body: formData
-            });
+            const [base64Data, response] = await Promise.all([
+                base64Promise,
+                fetch('/api/upload/token', { method: 'POST', body: formData })
+            ]);
 
             const data = await response.json();
             
             if (response.ok) {
                 setImagemSelecionada(data.url);
+                if (base64Data && setImagemBase64) {
+                    setImagemBase64(base64Data);
+                }
             }
         } catch (error) {
             // Silently ignore

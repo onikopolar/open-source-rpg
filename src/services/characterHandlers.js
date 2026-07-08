@@ -1,16 +1,25 @@
 import { api } from '../utils';
 
 // Handler para informações do personagem
-export const handleCharacterInfoSubmit = async (character, values, setLoading, clearError, handleApiError) => {
+export const handleCharacterInfoSubmit = async (character, values, setLoading, clearError, handleApiError, setCharacter) => {
   if (!character?.id) return Promise.reject('Personagem não encontrado');
   
   setLoading('characterInfo', true);
   clearError('characterInfo');
   
   try {
-    await api.put(`/character/${character.id}`, values);
+    const response = await api.put(`/character/${character.id}`, values);
+    
+    // Atualizar estado local com os dados retornados pela API
+    if (setCharacter && response?.data?.data) {
+      setCharacter(response.data.data);
+    } else if (setCharacter) {
+      // Fallback: atualizar apenas os campos enviados
+      setCharacter(prev => ({ ...prev, ...values }));
+    }
+    
     setLoading('characterInfo', false);
-    return Promise.resolve();
+    return Promise.resolve(response?.data?.data || values);
   } catch (error) {
     const errorMessage = handleApiError(error, 'characterInfo');
     setLoading('characterInfo', false);

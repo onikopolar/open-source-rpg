@@ -278,8 +278,14 @@ export function useMobileTabletop({
         };
 
         if (tokenSobre) {
-            const posicao = { x: tokenSobre.telaX, y: tokenSobre.telaY };
-            const dimensoes = { largura: tokenSobre.larguraTela, altura: tokenSobre.alturaTela };
+            // Se já tem token selecionado, usa ELE pra detecção (visual = detecção)
+            // Assim as bolinhas renderizadas e a área de toque estão sempre alinhadas
+            const tokenParaDeteccao = uiState.tokenSelecionado !== null && tokensComInfo[uiState.tokenSelecionado]
+                ? tokensComInfo[uiState.tokenSelecionado]
+                : tokenSobre;
+
+            const posicao = { x: tokenParaDeteccao.telaX || tokenParaDeteccao.posicaoTela.x, y: tokenParaDeteccao.telaY || tokenParaDeteccao.posicaoTela.y };
+            const dimensoes = { largura: tokenParaDeteccao.larguraTela || tokenParaDeteccao.tamanhoTela?.larguraTela, altura: tokenParaDeteccao.alturaTela || tokenParaDeteccao.tamanhoTela?.alturaTela };
             const canto = verificarSeMousePodeRedimensionar(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, false);
             if (canto) {
                 touchStartRef.current.isResize = true;
@@ -287,7 +293,7 @@ export function useMobileTabletop({
                 touchStartRef.current.token = tokenSobre;
             }
         }
-    }, [uiState, verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, isTokenBloqueado, uiDispatch]);
+    }, [uiState, verificarSeMouseSobreToken, verificarSeMousePodeRedimensionar, isTokenBloqueado, uiDispatch, tokensComInfo]);
 
     const handleTouchMove = useCallback((event) => {
         if (!event.touches || event.touches.length === 0) return;
@@ -414,6 +420,14 @@ export function useMobileTabletop({
                     const itemInfo = isNevoa ? uiState.camadaSendoArrastada : uiState.tokenSendoArrastado;
                     if (itemInfo) {
                         teveMovimentoRef.current = true;
+
+                        if (!movimentoIniciadoRef.current && !isNevoa) {
+                            movimentoIniciadoRef.current = true;
+                            if (emitirDragStart && itemInfo.token?.id) {
+                                emitirDragStart(itemInfo.token.id);
+                            }
+                        }
+
                         const arrayAtual = isNevoa ? fov.camadasNevoa : tokensState;
                         const novosTokens = processarArrastoToken(
                             mouseX, mouseY, itemInfo, uiState.offsetArrasto, arrayAtual,
@@ -426,12 +440,30 @@ export function useMobileTabletop({
                             setStateDirect(novosTokens);
                         }
                         if (!isNevoa) {
-                            const tokenMovido = novosTokens[itemInfo.indice];
-                            if (tokenMovido && (tokenMovido.x !== itemInfo.token?.x || tokenMovido.y !== itemInfo.token?.y)) {
-                                const agora = Date.now();
-                                if (agora - ultimoEmitRef.current >= THROTTLE_MS) {
-                                    ultimoEmitRef.current = agora;
-                                    if (emitirTokenMoved) emitirTokenMoved(tokenMovido.id, { x: tokenMovido.x, y: tokenMovido.y });
+                            const agora = Date.now();
+                            const timeSinceLastEmit = agora - ultimoEmitRef.current;
+                            const emitir = timeSinceLastEmit >= THROTTLE_MS;
+
+                            if (emitir) {
+                                ultimoEmitRef.current = agora;
+
+                                if (itemInfo.isGroupDrag && uiState.tokensSelecionados.length > 1) {
+                                    // Batch: 1 evento com todas as posições do grupo
+                                    const posicoes = [];
+                                    uiState.tokensSelecionados.forEach((idx) => {
+                                        const token = novosTokens[idx];
+                                        if (token) {
+                                            posicoes.push({ id: token.id, x: token.x, y: token.y });
+                                        }
+                                    });
+                                    if (posicoes.length > 0 && socket?.connected) {
+                                        socket.emit('tabletop:tokensMoved', { tabletopId, tokens: posicoes, userId: socket.id });
+                                    }
+                                } else if (emitirTokenMoved) {
+                                    const tokenMovido = novosTokens[itemInfo.indice];
+                                    if (tokenMovido && (tokenMovido.x !== itemInfo.token?.x || tokenMovido.y !== itemInfo.token?.y)) {
+                                        emitirTokenMoved(tokenMovido.id, { x: tokenMovido.x, y: tokenMovido.y });
+                                    }
                                 }
                             }
                         } else {

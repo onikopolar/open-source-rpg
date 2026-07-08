@@ -1,18 +1,39 @@
 require('dotenv').config();
 
+const dev = process.env.NODE_ENV !== 'production';
+const isProd = !dev;
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const app = express();
 const server = require('http').createServer(app);
-const io = require('socket.io')(server);
+const io = require('socket.io')(server, {
+  // Força WebSocket em produção (evita polling lento)
+  transports: isProd ? ['websocket'] : ['websocket', 'polling'],
+  // Timeouts otimizados
+  pingTimeout: isProd ? 20000 : 60000,
+  pingInterval: isProd ? 10000 : 25000,
+  // Limite de payload (base64 de token deve ir por HTTP, não socket)
+  maxHttpBufferSize: 1e6, // 1MB
+  // Evita reconexões em cascata
+  connectTimeout: isProd ? 10000 : 45000,
+  // Compressão per-message (reduz tráfego)
+  perMessageDeflate: isProd ? {
+    threshold: 1024, // só comprime > 1KB
+  } : false,
+  // Limita listeners por socket
+  maxListeners: 30,
+});
 const next = require('next');
 
-const dev = process.env.NODE_ENV !== 'production';
 const port = process.env.PORT || 3000;
 
 const nextApp = next({ dev, turbo: false });
 const nextHandler = nextApp.getRequestHandler();
+
+const log = (...args) => { if (dev) console.log(...args); };
+const logError = (...args) => { console.error(...args); };
 
 console.log('[Server] ========== INICIANDO SERVIDOR ==========');
 console.log('[Server] NODE_ENV:', process.env.NODE_ENV);
@@ -54,116 +75,108 @@ app.use('/uploads', express.static(uploadsPath));
 console.log('[Server] Middleware estático configurado para /uploads ->', uploadsPath);
 
 io.on('connection', (socket) => {
-  console.log('[Socket] Cliente conectado:', socket.id);
+  log('[Socket] Cliente conectado:', socket.id);
 
   socket.on('room:join', (roomName) => {
     socket.join(roomName);
-    console.log('[Socket] Cliente', socket.id, 'entrou na sala:', roomName);
+    log('[Socket] Cliente', socket.id, 'entrou na sala:', roomName);
   });
 
   socket.on('update_hit_points', (data) => {
-    console.log('[Socket] update_hit_points:', data);
+    log('[Socket] update_hit_points:', data);
     io.to(`portrait_character_${data.character_id}`).emit('update_hit_points', data);
   });
 
   socket.on('dice_roll', (data) => {
-    console.log('[Socket] dice_roll:', data);
+    log('[Socket] dice_roll:', data);
     io.to(`dice_character_${data.character_id}`).emit('dice_roll', data);
   });
 
   socket.on('characterUpdated', (data) => {
-    console.log('[Socket] characterUpdated:', data.id);
+    log('[Socket] characterUpdated:', data.id);
     io.emit('characterUpdated', data);
   });
 
   socket.on('tabletop:join', (data) => {
     const roomName = `tabletop_${data.tabletopId}`;
     socket.join(roomName);
-    console.log('[Socket] Cliente', socket.id, 'entrou no tabletop:', roomName);
+    log('[Socket] Cliente', socket.id, 'entrou no tabletop:', roomName);
   });
 
   socket.on('tabletop:tokenMoved', (data) => {
-    console.log('[Socket] tokenMoved:', data.id);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenUpdated', data);
   });
 
+  socket.on('tabletop:tokensMoved', (data) => {
+    // Batch: atualiza vários tokens de uma vez (arrasto em grupo)
+    io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokensMoved', data);
+  });
+
   socket.on('tabletop:tokenUpdated', (data) => {
-    console.log('[Socket] tokenUpdated:', data.id);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenUpdated', data);
   });
 
   socket.on('tabletop:tokenCreated', (data) => {
-    console.log('[Socket] tokenCreated:', data.id, data.nome);
+    log('[Socket] tokenCreated:', data.id, data.nome);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenCreated', data);
   });
 
   socket.on('tabletop:tokenDeleted', (data) => {
-    console.log('[Socket] tokenDeleted:', data.id);
+    log('[Socket] tokenDeleted:', data.id);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenDeleted', data);
   });
 
   socket.on('tabletop:tokenInverted', (data) => {
-    console.log('[Socket] tokenInverted:', data.id);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenUpdated', data);
   });
 
   socket.on('tabletop:tokenVisibilityChanged', (data) => {
-    console.log('[Socket] tokenVisibilityChanged:', data.id, 'oculto:', data.oculto);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenUpdated', data);
   });
 
   socket.on('tabletop:tokenLockChanged', (data) => {
-    console.log('[Socket] tokenLockChanged:', data.id, 'bloqueado:', data.bloqueado);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenUpdated', data);
   });
 
   socket.on('tabletop:tokenSelected', (data) => {
-    console.log('[Socket] tokenSelected:', data.tokenId, 'por', data.nome);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenSelected', data);
   });
 
   socket.on('tabletop:tokenDeselected', (data) => {
-    console.log('[Socket] tokenDeselected:', data.tokenId);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenDeselected', data);
   });
 
   socket.on('tabletop:tokenDragStart', (data) => {
-    console.log('[Socket] tokenDragStart:', data.tokenId);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenDragStart', data);
   });
 
   socket.on('tabletop:tokenDragEnd', (data) => {
-    console.log('[Socket] tokenDragEnd:', data.tokenId);
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenDragEnd', data);
   });
 
     socket.on('tabletop:nevoaCreated', (data) => {
-      console.log('[Socket] nevoaCreated:', data.id, data.nome || 'Sem nome', 'tabletopId:', data.tabletopId);
+      log('[Socket] nevoaCreated:', data.id, data.nome || 'Sem nome');
       const room = `tabletop_${data.tabletopId}`;
-      console.log('[Socket] Enviando para sala:', room);
       io.to(room).emit('tabletop:nevoaCreated', data);
     });
 
     socket.on('tabletop:nevoaUpdated', (data) => {
-      console.log('[Socket] nevoaUpdated:', data.id, 'tabletopId:', data.tabletopId);
       const room = `tabletop_${data.tabletopId}`;
       io.to(room).emit('tabletop:nevoaUpdated', data);
     });
 
     socket.on('tabletop:nevoaDeleted', (data) => {
-      console.log('[Socket] nevoaDeleted:', data.id, 'tabletopId:', data.tabletopId);
       const room = `tabletop_${data.tabletopId}`;
       io.to(room).emit('tabletop:nevoaDeleted', data);
     });
 
     socket.on('tabletop:nevoaMoved', (data) => {
-      console.log('[Socket] nevoaMoved:', data.id, 'tabletopId:', data.tabletopId);
       const room = `tabletop_${data.tabletopId}`;
       io.to(room).emit('tabletop:nevoaMoved', data);
     });
 
   socket.on('disconnect', () => {
-    console.log('[Socket] Cliente desconectado:', socket.id);
+    log('[Socket] Cliente desconectado:', socket.id);
   });
 });
 

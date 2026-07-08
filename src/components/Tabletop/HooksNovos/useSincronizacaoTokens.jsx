@@ -142,7 +142,7 @@ export function useSincronizacaoTokens({
           if (index === -1) return prev;
           const novos = [...prev];
           novos[index] = { ...novos[index], ...data };
-          return novos.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+          return novos; // Sem sort — índices estáveis, ordem visual vem do renderizarTokens
         });
       }
 
@@ -178,7 +178,7 @@ export function useSincronizacaoTokens({
       if (onTokenUpdate) {
         onTokenUpdate(data, (prev) => {
           const novos = [...prev, data];
-          return novos.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+          return novos; // Sem sort — índices estáveis
         });
       }
     };
@@ -214,7 +214,26 @@ export function useSincronizacaoTokens({
       });
     };
 
+    const handleTokensMoved = (data) => {
+      if (data.userId === userId) return;
+
+      // Batch: atualiza vários tokens de uma vez (arrasto em grupo)
+      if (onTokenUpdate && data.tokens) {
+        onTokenUpdate(data, (prev) => {
+          const novos = [...prev];
+          data.tokens.forEach(({ id, x, y }) => {
+            const index = novos.findIndex((t) => t.id === id);
+            if (index !== -1) {
+              novos[index] = { ...novos[index], x, y };
+            }
+          });
+          return novos;
+        });
+      }
+    };
+
     socket.on('tabletop:tokenUpdated', handleTokenUpdated);
+    socket.on('tabletop:tokensMoved', handleTokensMoved);
     socket.on('tabletop:tokenCreated', handleTokenCreated);
     socket.on('tabletop:tokenDeleted', handleTokenDeleted);
     socket.on('tabletop:tokenDragStart', handleTokenDragStart);
@@ -222,6 +241,7 @@ export function useSincronizacaoTokens({
 
     return () => {
       socket.off('tabletop:tokenUpdated', handleTokenUpdated);
+      socket.off('tabletop:tokensMoved', handleTokensMoved);
       socket.off('tabletop:tokenCreated', handleTokenCreated);
       socket.off('tabletop:tokenDeleted', handleTokenDeleted);
       socket.off('tabletop:tokenDragStart', handleTokenDragStart);

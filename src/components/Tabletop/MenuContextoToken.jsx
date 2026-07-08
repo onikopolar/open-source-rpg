@@ -213,6 +213,10 @@ export const MenuContextoToken = React.forwardRef(({
 
         deletarToken(tokenId)
             .then(() => {
+                // Remove IMEDIATAMENTE do estado local para feedback visual instantâneo
+                if (setTokensLocal) {
+                    setTokensLocal((prev) => prev.filter((t) => t.id !== tokenId));
+                }
                 if (socket?.connected) {
                     emitirTokenDeleted(tokenId);
                 }

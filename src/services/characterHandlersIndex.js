@@ -63,7 +63,7 @@ export const createHandlers = ({
   return {
     // Handlers básicos
     handleCharacterInfoSubmit: (values) => 
-      handleCharacterInfoSubmit(character, values, setLoading, clearError, handleApiError),
+      handleCharacterInfoSubmit(character, values, setLoading, clearError, handleApiError, setCharacter),
     
     handleHitPointsUpdate: (newData) => 
       handleHitPointsUpdate(character, newData, setLoading, clearError, handleApiError, setCharacter),

@@ -1,6 +1,3 @@
-// styles/characterSheetStyles.js
-// Versionamento Semântico: 2.1.0 - Retorno dos efeitos de translateY com minimalismo sutil
-
 export const styles = (theme) => ({
   container: {
     padding: '20px',
@@ -934,9 +931,3 @@ export const styles = (theme) => ({
     zIndex: 1
   }
 });
-
-// Fix aplicado: Retorno dos efeitos de translateY mantendo o minimalismo
-// Versão 2.1.0 é um minor update que reintroduz interatividade sutil
-// Todos os elementos interativos agora têm efeito de elevação ao hover
-// Transições mantidas em 0.2s para minimalismo e performance
-// Efeitos visuais limitados apenas a translateY e border-color
