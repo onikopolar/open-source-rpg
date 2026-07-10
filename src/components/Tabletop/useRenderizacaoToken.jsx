@@ -8,16 +8,30 @@ export function useRenderizacaoToken(
     scheduleRender,
     desenharFallbackToken,
     desenharBordaDeArrasto,
-    desenharSelecao
+    desenharSelecao,
+    getDisplayPosition  // (tokenId) => {x, y} | null — interpolação OBR-style
 ) {
-    const drawSingleToken = useCallback((token, context) => {
+    /**
+     * Desenha um token individual.
+     * Se getDisplayPosition retornar posição interpolada para este token,
+     * usa-a em vez de token.posicaoTela (interpolação suave OBR-style).
+     */
+    const drawSingleToken = useCallback((token, context, displayOverride) => {
         const imagemUrl = token.imageBase64 || token.imageUrl;
+
+        // Posição de tela: usa override interpolado se disponível
+        const screenX = displayOverride
+            ? displayOverride.x * uiState.zoom + uiState.position.x
+            : token.posicaoTela.x;
+        const screenY = displayOverride
+            ? displayOverride.y * uiState.zoom + uiState.position.y
+            : token.posicaoTela.y;
 
         if (!imagemUrl) {
             desenharFallbackToken(
                 context,
-                token.posicaoTela.x,
-                token.posicaoTela.y,
+                screenX,
+                screenY,
                 uiState.zoom,
                 token.nome
             );
@@ -30,8 +44,8 @@ export function useRenderizacaoToken(
         if (img && img._failed) {
             desenharFallbackToken(
                 context,
-                token.posicaoTela.x,
-                token.posicaoTela.y,
+                screenX,
+                screenY,
                 uiState.zoom,
                 token.nome
             );
@@ -53,8 +67,8 @@ export function useRenderizacaoToken(
 
             desenharFallbackToken(
                 context,
-                token.posicaoTela.x,
-                token.posicaoTela.y,
+                screenX,
+                screenY,
                 uiState.zoom,
                 token.nome
             );
@@ -64,8 +78,8 @@ export function useRenderizacaoToken(
         if (!img.complete || img.naturalWidth === 0) {
             desenharFallbackToken(
                 context,
-                token.posicaoTela.x,
-                token.posicaoTela.y,
+                screenX,
+                screenY,
                 uiState.zoom,
                 token.nome
             );
@@ -76,8 +90,6 @@ export function useRenderizacaoToken(
             context.globalAlpha = 0.3;
         }
 
-        const x = token.posicaoTela.x;
-        const y = token.posicaoTela.y;
         const largura = token.tamanhoTela.larguraTela;
         const altura = token.tamanhoTela.alturaTela;
 
@@ -86,7 +98,7 @@ export function useRenderizacaoToken(
 
             if (precisaTransformar) {
                 context.save();
-                context.translate(x + largura / 2, y + altura / 2);
+                context.translate(screenX + largura / 2, screenY + altura / 2);
 
                 if (token.invertido) context.scale(-1, 1);
                 if (token.rotacao && token.rotacao !== 0) {
@@ -97,13 +109,13 @@ export function useRenderizacaoToken(
                 context.drawImage(img, 0, 0, largura, altura);
                 context.restore();
             } else {
-                context.drawImage(img, x, y, largura, altura);
+                context.drawImage(img, screenX, screenY, largura, altura);
             }
         } catch (error) {
             desenharFallbackToken(
                 context,
-                token.posicaoTela.x,
-                token.posicaoTela.y,
+                screenX,
+                screenY,
                 uiState.zoom,
                 token.nome
             );
@@ -111,19 +123,20 @@ export function useRenderizacaoToken(
 
         context.globalAlpha = 1.0;
         return true;
-    }, [uiState.zoom, scheduleRender, desenharFallbackToken]);
+    }, [uiState.zoom, uiState.position, scheduleRender, desenharFallbackToken]);
 
-    const drawTokenWithCache = useCallback((token, indice, context) => {
+    const drawTokenWithCache = useCallback((token, indice, context, displayOverride) => {
         if (!context) {
             context = getCanvasContext();
             if (!context) return;
         }
 
-        drawSingleToken(token, context);
+        drawSingleToken(token, context, displayOverride);
 
         if (uiState.tokenSendoArrastado?.indice === indice) {
             const nomeUsuario = uiState.ui.usuarioInteragindo;
             if (nomeUsuario) {
+                // Para o token sendo arrastado localmente, usa posicaoTela original
                 desenharBordaDeArrasto(
                     context,
                     token.posicaoTela.x,
@@ -153,10 +166,12 @@ export function useRenderizacaoToken(
             const item = ordenado[i];
             if (item.tipo === 'token') {
                 if (!isMaster && item.oculto) continue;
-                drawTokenWithCache(item, item.indice, contexto);
+                // Interpolação OBR-style: verifica se há posição display interpolada
+                const displayOverride = getDisplayPosition ? getDisplayPosition(item.id) : null;
+                drawTokenWithCache(item, item.indice, contexto, displayOverride);
             }
         }
-    }, [drawTokenWithCache]);
+    }, [drawTokenWithCache, getDisplayPosition]);
 
     return {
         drawTokenWithCache,     

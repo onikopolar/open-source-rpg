@@ -40,6 +40,7 @@ import { useRenderizacaoToken } from './useRenderizacaoToken';
 import { useSincronizacaoTokens } from './HooksNovos/useSincronizacaoTokens';
 import { useDragDropToken } from './HooksNovos/useDragDropToken';
 import { useHistoricoTokens } from './HooksNovos/useHistoricoTokens';
+import { useInterpolacaoTokens } from './HooksNovos/useInterpolacaoTokens';
 import { useNuvemFOV } from './NuvemFOV';
 import { useMouseTabletop } from './MouseTabletop';
 import { useMobileTabletop } from './Mobile/MobileTabletop';
@@ -114,6 +115,9 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         tokensLocalRef.current = tokensLocal;
     }, [tokensLocal]);
 
+    // Interpolação OBR-style: suaviza movimento de tokens remotos
+    const interpolacao = useInterpolacaoTokens();
+
     const {
         arrastosRemotos,
         emitirSelecao,
@@ -140,6 +144,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         onUIUpdate: (action) => {
             despacharUI(action);
         },
+        onAnimateTarget: interpolacao.animateTo,
     });
 
     useEffect(() => {
@@ -174,6 +179,14 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     const ultimoRenderTimeRef = useRef(0);
     const contextRef = useRef(null);
     const renderCallbackRef = useRef(null);
+    const uiStateRef = useRef(estadoUI);
+
+    // Mantem uiStateRef sempre sincronizado com o estadoUI atual.
+    // Essencial para evitar stale closure nos handlers de touch/mouse
+    // que precisam de zoom e position atualizados em tempo real.
+    useEffect(() => {
+        uiStateRef.current = estadoUI;
+    }, [estadoUI]);
 
     // Hook para histórico de undo/redo de tokens
     const {
@@ -510,7 +523,8 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         agendarRender,
         desenharFallbackToken,
         desenharBordaDeArrasto,
-        desenharSelecao
+        desenharSelecao,
+        interpolacao.getDisplayPosition  // interpolação OBR-style
     );
 
     useDragDropToken({
@@ -695,6 +709,9 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         const container = containerRef.current;
         if (!canvas || !container) return;
 
+        // Tick de interpolação OBR-style: atualiza posições display dos tokens remotos
+        interpolacao.tick(performance.now());
+
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const rect = container.getBoundingClientRect();
         const widthCSS = rect.width;
@@ -735,6 +752,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         nevoa,
         estadoUI.zoom,
         estadoUI.position,
+        interpolacao,
     ]);
 
     useEffect(() => {
@@ -817,6 +835,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         isRightClickDragRef,
         rafRef: frameAnimacaoRef,
         uiState: estadoUI,
+        uiStateRef,  // ref sempre atualizada, evita stale closure
         uiDispatch: despacharUI,
         tokensState: tokensLocal,
         tokensComInfo: tokensInfo,

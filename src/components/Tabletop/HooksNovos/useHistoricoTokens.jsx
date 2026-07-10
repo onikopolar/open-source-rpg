@@ -141,27 +141,19 @@ export function useHistoricoTokens({
     const iniciarCapturaArrasto = useCallback(() => {
         if (!isMaster) return;
         estadoInicialArrastoRef.current = [...tokensState];
-        console.log('[HistoricoTokens] Iniciando captura de arrasto');
         
-        // Se o estado atual é diferente do último estado no histórico, adiciona ao histórico
-        // Isso garante que o estado inicial da ação esteja no histórico
         if (JSON.stringify(tokensState) !== JSON.stringify(ultimoEstadoRef.current)) {
             pushTokensHistory(tokensState);
             ultimoEstadoRef.current = tokensState;
-            console.log('[HistoricoTokens] Estado inicial capturado no histórico');
         }
     }, [isMaster, tokensState, pushTokensHistory]);
 
     const finalizarCapturaArrasto = useCallback(() => {
         if (!isMaster || !estadoInicialArrastoRef.current) return;
         
-        // Verificar se houve mudança real
         if (JSON.stringify(tokensState) !== JSON.stringify(estadoInicialArrastoRef.current)) {
-            // O estado inicial já deve estar no histórico (adicionado por iniciarCapturaArrasto)
-            // Agora adiciona o estado final
             pushTokensHistory(tokensState);
             ultimoEstadoRef.current = tokensState;
-            console.log('[HistoricoTokens] Estado final capturado no histórico');
         }
         
         estadoInicialArrastoRef.current = null;

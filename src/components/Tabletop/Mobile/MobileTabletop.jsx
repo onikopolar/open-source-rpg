@@ -3,7 +3,7 @@ import { useCallback, useRef } from "react";
 import { calcularPosicoesBolinhas } from '../useSelecaoToken';
 
 const MOVE_THRESHOLD = 5;
-const THROTTLE_MS = 16; // 60 FPS fixo — evita oscilação de socket
+const THROTTLE_MS = 8; // 125 FPS — minima latencia — evita oscilação de socket
 const LONG_PRESS_DURATION = 500; // ms para considerar toque longo
 
 export function useMobileTabletop({
@@ -17,6 +17,7 @@ export function useMobileTabletop({
     isRightClickDragRef,
     rafRef,
     uiState,
+    uiStateRef,
     uiDispatch,
     tokensState,
     emitirSelecao,
@@ -62,30 +63,35 @@ export function useMobileTabletop({
         return false;
     }, [uiState.tokensBloqueados, isMaster, fov]);
 
-    // Detecção de bolinhas de redimensionamento — acessa tokensComInfo direto pra pegar rotação
+    // Detecção de bolinhas de redimensionamento — usa uiStateRef pra evitar stale closure
     const verificarResizeHandle = useCallback((mouseX, mouseY, tokenTelaX, tokenTelaY, larguraTela, alturaTela, rotacao = 0) => {
-        const { posicoes, raioDetecao } = calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, alturaTela, uiState.zoom, rotacao);
+        const zoomAtual = uiStateRef?.current?.zoom ?? uiState.zoom;
+        const { posicoes, raioDetecao } = calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, alturaTela, zoomAtual, rotacao);
         for (const bolinha of posicoes) {
             const dx = mouseX - bolinha.x;
             const dy = mouseY - bolinha.y;
             if (Math.sqrt(dx * dx + dy * dy) <= raioDetecao) return bolinha.nome;
         }
         return null;
-    }, [uiState.zoom]);
+    }, [uiState.zoom, uiStateRef]);
 
-    const getPosicaoTela = useCallback((token) => ({
-        x: (token.x * uiState.zoom) + uiState.position.x,
-        y: (token.y * uiState.zoom) + uiState.position.y
-    }), [uiState.zoom, uiState.position]);
+    const getPosicaoTela = useCallback((token) => {
+        const s = uiStateRef?.current ?? uiState;
+        return {
+            x: (token.x * s.zoom) + s.position.x,
+            y: (token.y * s.zoom) + s.position.y
+        };
+    }, [uiState.zoom, uiState.position, uiStateRef]);
 
     const getDimensoesTela = useCallback((token) => {
+        const zoomAtual = uiStateRef?.current?.zoom ?? uiState.zoom;
         const larguraMundo = (token.larguraOriginal || 50) * (token.escala || 1);
         const alturaMundo = (token.alturaOriginal || 50) * (token.escala || 1);
         return {
-            largura: larguraMundo * uiState.zoom,
-            altura: alturaMundo * uiState.zoom
+            largura: larguraMundo * zoomAtual,
+            altura: alturaMundo * zoomAtual
         };
-    }, [uiState.zoom]);
+    }, [uiState.zoom, uiStateRef]);
 
     const iniciarRedimensionamento = useCallback((token, indice, canto, offset, isGroupResize = false, boundingBoxGrupo = null) => {
         const larguraMundo = (token.larguraOriginal || 50) * (token.escala || 1);
@@ -206,8 +212,10 @@ export function useMobileTabletop({
                 // Distância muito pequena, não tratar como pinch
                 return;
             }
+            // Usa uiStateRef para valores atualizados (evita stale closure)
+            const s = uiStateRef?.current ?? uiState;
             initialPinchDistance.current = pinchDistance;
-            initialZoom.current = uiState.zoom;
+            initialZoom.current = s.zoom;
 
             // Calcular o centro do pinch (média das coordenadas dos dois dedos)
             const touch1 = touches[0];
@@ -226,7 +234,7 @@ export function useMobileTabletop({
             };
 
             // Armazenar posição inicial do mapa
-            initialPosition.current = { ...uiState.position };
+            initialPosition.current = { ...s.position };
 
                         // Debug: console.log('[MobileTabletop] Pinch iniciado:', {
             //   distance: initialPinchDistance.current,
@@ -272,7 +280,12 @@ export function useMobileTabletop({
                         }
                     });
                 }
-                touchStartRef.current = null;
+                // Marca que o long-press ja disparou, mas NAO zera o
+                // touchStartRef — o dedo ainda esta na tela e o touchend
+                // precisa limpar o estado corretamente.
+                if (touchStartRef.current) {
+                    touchStartRef.current.longPressFired = true;
+                }
                 longPressTimerRef.current = null;
             }, LONG_PRESS_DURATION);
         }
@@ -285,7 +298,8 @@ export function useMobileTabletop({
             token: tokenSobre,
             isPan: !tokenSobre,
             isDragStarted: false,
-            hasMoved: false
+            hasMoved: false,
+            longPressFired: false
         };
 
         if (tokenSobre) {
@@ -416,6 +430,18 @@ export function useMobileTabletop({
 
             if (!touchStartRef.current) return;
 
+            // Long-press ja disparou — ignora movimento, o menu de
+            // contexto ja esta aberto. O touchend fara a limpeza.
+            if (touchStartRef.current.longPressFired) {
+                event.preventDefault();
+                return;
+            }
+
+            // Usa uiStateRef para zoom/position atualizados em tempo real.
+            // Evita o stale closure que causava teleporte do token/viewport
+            // quando o listener de touchmove estava desatualizado.
+            const s = uiStateRef?.current ?? uiState;
+
             const dx = mouseX - touchStartRef.current.startX;
             const dy = mouseY - touchStartRef.current.startY;
             const distancia = Math.sqrt(dx * dx + dy * dy);
@@ -446,7 +472,7 @@ export function useMobileTabletop({
                         }
                     } else {
                         uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
-                        dragStartRef.current = { x: touch.clientX - uiState.position.x, y: touch.clientY - uiState.position.y };
+                        dragStartRef.current = { x: touch.clientX - s.position.x, y: touch.clientY - s.position.y };
                         isRightClickDragRef.current = true;
                     }
                 } else if (tokenSobre && touchStartRef.current.isResize) {
@@ -459,7 +485,7 @@ export function useMobileTabletop({
                     }
                 } else {
                     uiDispatch({ type: 'SET_UI_STATE', payload: { isDragging: true } });
-                    dragStartRef.current = { x: touch.clientX - uiState.position.x, y: touch.clientY - uiState.position.y };
+                    dragStartRef.current = { x: touch.clientX - s.position.x, y: touch.clientY - s.position.y };
                     isRightClickDragRef.current = true;
                 }
             }
@@ -481,7 +507,7 @@ export function useMobileTabletop({
                         const arrayAtual = isNevoa ? fov.camadasNevoa : tokensState;
                         const novosTokens = processarArrastoToken(
                             mouseX, mouseY, itemInfo, uiState.offsetArrasto, arrayAtual,
-                            uiState.zoom, uiState.position, itemInfo.isGroupDrag || false,
+                            s.zoom, s.position, itemInfo.isGroupDrag || false,
                             itemInfo.isGroupDrag ? uiState.tokensSelecionados : []
                         );
                         if (isNevoa && fov.setCamadasNevoa) {
@@ -547,7 +573,7 @@ export function useMobileTabletop({
                         const novosTokens = processarRedimensionamento(
                             mouseX, mouseY, itemInfo, uiState.modoRedimensionamento,
                             uiState.tamanhoInicialRedimensionamento, uiState.boundingBoxGrupo,
-                            arrayAtual, uiState.zoom, uiState.position,
+                            arrayAtual, s.zoom, s.position,
                             itemInfo.isGroupResize || false, indicesGrupo, tokenRotacao
                         );
                         if (!resizeInProgressRef.current) resizeInProgressRef.current = true;
@@ -576,6 +602,20 @@ export function useMobileTabletop({
         if (longPressTimerRef.current) {
             clearTimeout(longPressTimerRef.current);
             longPressTimerRef.current = null;
+        }
+
+        // Long-press ja abriu o menu de contexto — apenas limpa o estado
+        if (touchStartRef.current?.longPressFired) {
+            touchStartRef.current = null;
+            currentTouchId.current = null;
+            initialPinchDistance.current = 0;
+            dragStartEmitidoRef.current = false;
+            movimentoIniciadoRef.current = false;
+            dragInProgressRef.current = false;
+            resizeInProgressRef.current = false;
+            teveMovimentoRef.current = false;
+            isRightClickDragRef.current = false;
+            return;
         }
 
         if (touchStartRef.current?.isDragStarted) {

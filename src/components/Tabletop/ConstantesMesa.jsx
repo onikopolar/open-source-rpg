@@ -7,7 +7,7 @@ export const WORLD_HEIGHT = BASE_GRID_SIZE * CELLS_Y;
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 4;
 export const TOLERANCIA_CLIQUE = 0.1;
-export const RENDER_INTERVAL = 16;
+export const RENDER_INTERVAL = 8; // 8ms ≈ 120fps (monitores gaming)
 export const GRID_CONFIGS = [
     { zoomThreshold: 0, sizeMultiplier: 8, alpha: 0.08 },
     { zoomThreshold: 0.125, sizeMultiplier: 4, alpha: 0.06 },

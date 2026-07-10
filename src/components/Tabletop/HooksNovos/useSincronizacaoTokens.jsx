@@ -12,6 +12,7 @@ export function useSincronizacaoTokens({
   tokensLocalRef,
   onTokenUpdate,
   onUIUpdate,
+  onAnimateTarget,
 }) {
   const [arrastosRemotos, setArrastosRemotos] = useState({});
   const userId = socket?.id;
@@ -148,6 +149,12 @@ export function useSincronizacaoTokens({
     const handleTokenUpdated = (data) => {
       if (data.userId === userId) return;
 
+      // Interpolação OBR-style: ao receber posição remota, inicia animação
+      // de lerp em vez de snap direto (para movimento suave do token remoto)
+      if (onAnimateTarget && data.x !== undefined && data.y !== undefined) {
+        onAnimateTarget(data.id, data.x, data.y);
+      }
+
       if (onTokenUpdate) {
         onTokenUpdate(data, (prev) => {
           const index = prev.findIndex((t) => t.id === data.id);
@@ -229,6 +236,15 @@ export function useSincronizacaoTokens({
     const handleTokensMoved = (data) => {
       if (data.userId === userId) return;
 
+      // Interpolação OBR-style para batch de tokens (arrasto em grupo)
+      if (onAnimateTarget && data.tokens) {
+        data.tokens.forEach(({ id, x, y }) => {
+          if (x !== undefined && y !== undefined) {
+            onAnimateTarget(id, x, y);
+          }
+        });
+      }
+
       // Batch: atualiza vários tokens de uma vez (arrasto em grupo)
       if (onTokenUpdate && data.tokens) {
         onTokenUpdate(data, (prev) => {
@@ -259,7 +275,7 @@ export function useSincronizacaoTokens({
       socket.off('tabletop:tokenDragStart', handleTokenDragStart);
       socket.off('tabletop:tokenDragEnd', handleTokenDragEnd);
     };
-  }, [socket, onTokenUpdate, onUIUpdate, tokensLocalRef, userId]);
+  }, [socket, onTokenUpdate, onUIUpdate, tokensLocalRef, userId, onAnimateTarget]);
 
   return {
     arrastosRemotos,

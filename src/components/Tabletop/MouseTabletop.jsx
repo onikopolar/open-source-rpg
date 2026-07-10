@@ -3,7 +3,7 @@ import React, { useCallback, useRef } from "react";
 import { calcularPosicoesBolinhas } from './useSelecaoToken';
 
 const MOVE_THRESHOLD = 5;
-const THROTTLE_MS = 16; // 60 FPS fixo — evita oscilação de socket
+const THROTTLE_MS = 8; // 125 FPS — minima latencia — evita oscilação de socket
 
 export function useMouseTabletop({
     containerRef,
@@ -16,6 +16,7 @@ export function useMouseTabletop({
     isRightClickDragRef,
     rafRef,
     uiState,
+    uiStateRef,
     uiDispatch,
     tokensState,
     emitirSelecao,
@@ -185,6 +186,7 @@ export function useMouseTabletop({
             const tokenSobre = verificarSeMouseSobreToken(mouseX, mouseY, 'direito');
             if (tokenSobre) {
                 const tokenBloqueado = isTokenBloqueado(tokenSobre.token.id, tokenSobre.token);
+                // Guarda info para menu de contexto no mouseup (se nao houver movimento)
                 uiDispatch({
                     type: 'SET_MOUSE_DOWN_INFO',
                     payload: {
@@ -196,22 +198,11 @@ export function useMouseTabletop({
                         isBlocked: tokenBloqueado
                     }
                 });
-                if (!tokenBloqueado) {
-                    uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: true } });
-                    const posicao = { x: tokenSobre.telaX, y: tokenSobre.telaY };
-                                        iniciarArrastoToken(
-                        { token: tokenSobre.token, indice: tokenSobre.indice, telaX: posicao.x, telaY: posicao.y, isGroupDrag: false },
-                        mouseX - posicao.x,
-                        mouseY - posicao.y
-                    );
-                    
-                    if (isMaster && iniciarCapturaArrasto) {
-                        iniciarCapturaArrasto();
-                    }
-                } else {
-                    uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: true } });
-                    isRightClickDragRef.current = false;
-                }
+                // Botao direito SEMPRE faz pan da viewport, nunca arrasta token.
+                // Isso permite navegar sobre tokens e nevoas sem move-los.
+                uiDispatch({ type: 'SET_UI_STATE', payload: { isClickingToken: true, isDragging: true } });
+                dragStartRef.current = { x: event.clientX - uiState.position.x, y: event.clientY - uiState.position.y };
+                isRightClickDragRef.current = true;
                 return;
             }
 
@@ -519,6 +510,10 @@ export function useMouseTabletop({
                 return;
             }
 
+            // Usa uiStateRef para zoom/position atualizados em tempo real.
+            // Evita stale closure que causava teleporte do token/viewport.
+            const s = uiStateRef?.current ?? uiState;
+
             if (uiState.tokenSendoArrastado || uiState.camadaSendoArrastada) {
                 const isNevoa = !!uiState.camadaSendoArrastada;
                 const itemInfo = isNevoa ? uiState.camadaSendoArrastada : uiState.tokenSendoArrastado;
@@ -540,7 +535,7 @@ export function useMouseTabletop({
                 const arrayAtual = isNevoa ? fov.camadasNevoa : tokensState;
                 const novosTokens = processarArrastoToken(
                     mouseX, mouseY, itemInfo, uiState.offsetArrasto, arrayAtual,
-                    uiState.zoom, uiState.position, itemInfo.isGroupDrag || false,
+                    s.zoom, s.position, itemInfo.isGroupDrag || false,
                     itemInfo.isGroupDrag ? uiState.tokensSelecionados : []
                 );
 
@@ -635,7 +630,7 @@ export function useMouseTabletop({
                 const novosTokens = processarRedimensionamento(
                     mouseX, mouseY, itemInfo, uiState.modoRedimensionamento,
                     uiState.tamanhoInicialRedimensionamento, uiState.boundingBoxGrupo,
-                    arrayAtual, uiState.zoom, uiState.position,
+                    arrayAtual, s.zoom, s.position,
                     itemInfo.isGroupResize || false, indicesGrupo, tokenRotacao
                 );
 
@@ -701,8 +696,8 @@ export function useMouseTabletop({
         }
 
         if (event.button === 2) {
-            // Clique direito em token → menu de contexto
-            if (uiState.mouseDownInfo && uiState.ui.isClickingToken) {
+            // Clique direito em token SEM movimento → menu de contexto
+            if (uiState.mouseDownInfo && uiState.ui.isClickingToken && !teveMovimentoRef.current) {
                 const tokenSobre = uiState.mouseDownInfo.token;
                 uiDispatch({ type: 'SELECT_TOKEN', payload: tokenSobre.indice });
                 uiDispatch({

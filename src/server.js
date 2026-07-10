@@ -9,13 +9,15 @@ const fs = require('fs');
 const app = express();
 const server = require('http').createServer(app);
 const io = require('socket.io')(server, {
-  // Força WebSocket em produção (evita polling lento)
-  transports: isProd ? ['websocket'] : ['websocket', 'polling'],
-  // Timeouts generosos: navegador em background (mobile/desktop)
-  // pode ficar minutos sem responder a pings. O cliente tem
-  // visibilitychange para forçar reconexão ao voltar.
-  pingTimeout: isProd ? 120000 : 60000,   // 2 min em prod, 1 min em dev
-  pingInterval: isProd ? 30000 : 25000,   // 30s em prod, 25s em dev
+  // WebSocket primeiro, polling como fallback seguro.
+  // Em producao, Cloudflare Tunnel pode bloquear WebSocket —
+  // ter polling evita que o cliente fique reconectando.
+  transports: ['websocket', 'polling'],
+  // Timeouts bem generosos: navegador em background (mobile/desktop)
+  // pode ficar varios minutos sem responder a pings. O cliente tem
+  // visibilitychange para forcar reconexao ao voltar.
+  pingTimeout: isProd ? 600000 : 120000,   // 10 min em prod, 2 min em dev
+  pingInterval: isProd ? 60000 : 30000,    // 60s em prod, 30s em dev
   // Limite de payload (base64 de token deve ir por HTTP, não socket)
   maxHttpBufferSize: 1e6, // 1MB
   // Evita reconexões em cascata
@@ -103,6 +105,9 @@ app.use((req, res, next) => {
 });
 
 io.on('connection', (socket) => {
+  // Ping para medicao de latencia (cliente envia, servidor responde)
+  socket.on('ping', (cb) => { if (typeof cb === 'function') cb(); });
+
   socket.on('room:join', (roomName) => socket.join(roomName));
 
   socket.on('update_hit_points', (data) => {

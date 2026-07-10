@@ -7,7 +7,7 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
     const resizeStartStateRef = useRef(null);
     const redimensionandoRef = useRef(false);
     const ultimoEmitRef = useRef(0);
-    const THROTTLE_MS = 16; // 60 FPS fixo — evita oscilação de socket
+    const THROTTLE_MS = 8; // 125 FPS — minima latencia — evita oscilação de socket
 
     const processarRedimensionamento = useCallback((
         mouseX,
