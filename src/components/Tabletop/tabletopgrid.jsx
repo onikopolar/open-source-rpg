@@ -41,6 +41,7 @@ import { useSincronizacaoTokens } from './HooksNovos/useSincronizacaoTokens';
 import { useDragDropToken } from './HooksNovos/useDragDropToken';
 import { useHistoricoTokens } from './HooksNovos/useHistoricoTokens';
 import { useInterpolacaoTokens } from './HooksNovos/useInterpolacaoTokens';
+import { useP2PImageSync } from '../../p2p/useP2PImageSync';
 import { useNuvemFOV } from './NuvemFOV';
 import { useMouseTabletop } from './MouseTabletop';
 import { useMobileTabletop } from './Mobile/MobileTabletop';
@@ -117,6 +118,22 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
     // Interpolação OBR-style: suaviza movimento de tokens remotos
     const interpolacao = useInterpolacaoTokens();
+
+    // P2P WebRTC: compartilha imagens de tokens diretamente entre peers
+    // (sem custo de banda do servidor)
+    const p2p = useP2PImageSync({
+        socket,
+        tabletopId,
+        onTokenImageReceived: useCallback((tokenId, imageUrl) => {
+            setTokensLocal((prev) =>
+                prev.map((t) =>
+                    (t.id === tokenId || t.tokenId === tokenId)
+                        ? { ...t, imageUrl, imageBase64: null } // imageUrl P2P substitui base64
+                        : t
+                )
+            );
+        }, []),
+    });
 
     const {
         arrastosRemotos,
@@ -537,6 +554,9 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         socket,
         onTokenCreated: (tokenCriado) => {
             setTokensLocal((prev) => [...prev, tokenCriado]);
+        },
+        onTokenImageReady: (tokenId, imageSource) => {
+            p2p.shareTokenImage(tokenId, imageSource);
         },
     });
 

@@ -11,6 +11,7 @@ export function useDragDropToken({
     emitirTokenCreated,
     socket,
     onTokenCreated,
+    onTokenImageReady,  // (tokenId, imageSource) => void — compartilhar via P2P
 }) {
     const isRegisteredRef = useRef(false);
 
@@ -91,6 +92,14 @@ export function useDragDropToken({
                     // Atualiza IMEDIATAMENTE o estado local
                     if (onTokenCreated) {
                         onTokenCreated(tokenCriado);
+                    }
+
+                    // Compartilha imagem via P2P com peers conectados
+                    if (onTokenImageReady && (imageBase64ParaSalvar || imageUrlParaSalvar)) {
+                        onTokenImageReady(
+                            tokenCriado.id || tokenCriado.tokenId,
+                            imageBase64ParaSalvar || imageUrlParaSalvar
+                        );
                     }
 
                     if (socket?.connected) {

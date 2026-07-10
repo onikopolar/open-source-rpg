@@ -123,7 +123,31 @@ io.on('connection', (socket) => {
   });
 
   socket.on('tabletop:join', (data) => {
-    socket.join(`tabletop_${data.tabletopId}`);
+    const room = `tabletop_${data.tabletopId}`;
+    socket.join(room);
+    console.log(`[server] [P2P] user ${socket.id.slice(0, 8)} joined tabletop_${data.tabletopId}`);
+
+    // Notifica peers na sala sobre novo usuário (para WebRTC)
+    socket.to(room).emit('webrtc:user-joined', { userId: socket.id });
+
+    // Responde com lista de usuários na sala (para WebRTC)
+    const roomSockets = io.sockets.adapter.rooms.get(room);
+    if (roomSockets) {
+      const users = Array.from(roomSockets);
+      console.log(`[server] [P2P] room tabletop_${data.tabletopId}: ${users.length} users`);
+      socket.emit('webrtc:room-users', { userIds: users });
+    }
+  });
+
+  // WebRTC: solicita lista de usuários na sala
+  socket.on('webrtc:get-users', (data) => {
+    const room = `tabletop_${data.tabletopId}`;
+    const roomSockets = io.sockets.adapter.rooms.get(room);
+    if (roomSockets) {
+      socket.emit('webrtc:room-users', {
+        userIds: Array.from(roomSockets),
+      });
+    }
   });
 
   socket.on('tabletop:tokenMoved', (data) => {
@@ -191,7 +215,46 @@ io.on('connection', (socket) => {
       io.to(`tabletop_${data.tabletopId}`).emit('tabletop:nevoaMoved', data);
     });
 
-  socket.on('disconnect', () => {});
+  // ─── WebRTC Signaling Relay ──────────────────────────────
+  // Roteia mensagens de sinalização WebRTC entre peers.
+  // O servidor NÃO processa os dados — apenas encaminha
+  // para o peer destinatário usando o socket ID.
+  // Os assets (imagens) vão direto via P2P depois que
+  // a conexão WebRTC é estabelecida.
+
+  socket.on('webrtc:offer', (data) => {
+    if (data.targetUserId) {
+      console.log(`[server] [P2P:SIG] offer ${socket.id.slice(0, 8)} → ${data.targetUserId.slice(0, 8)}`);
+      io.to(data.targetUserId).emit('webrtc:offer', {
+        fromUserId: socket.id,
+        offer: data.offer,
+      });
+    }
+  });
+
+  socket.on('webrtc:answer', (data) => {
+    if (data.targetUserId) {
+      console.log(`[server] [P2P:SIG] answer ${socket.id.slice(0, 8)} → ${data.targetUserId.slice(0, 8)}`);
+      io.to(data.targetUserId).emit('webrtc:answer', {
+        fromUserId: socket.id,
+        answer: data.answer,
+      });
+    }
+  });
+
+  socket.on('webrtc:ice-candidate', (data) => {
+    if (data.targetUserId) {
+      console.log(`[server] [P2P:SIG] ICE ${socket.id.slice(0, 8)} → ${data.targetUserId.slice(0, 8)}`);
+      io.to(data.targetUserId).emit('webrtc:ice-candidate', {
+        fromUserId: socket.id,
+        candidate: data.candidate,
+      });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`[server] [P2P] user ${socket.id.slice(0, 8)} disconnected`);
+  });
 });
 
 nextApp.prepare().then(() => {
