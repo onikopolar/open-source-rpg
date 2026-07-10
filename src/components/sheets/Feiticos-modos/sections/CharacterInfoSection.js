@@ -45,7 +45,7 @@ const CharacterInfoSection = React.memo(({
   handleCharacterInfoClick, 
   classes 
 }) => {
-  console.log('🔴 CharacterInfoSection RENDER - origem:', characterInfo.origem);
+  console.log(' CharacterInfoSection RENDER - origem:', characterInfo.origem);
   
   const fieldProps = React.useMemo(() => {
     console.log('🟡 fieldProps RECALCULADO');
@@ -186,7 +186,7 @@ const CharacterInfoSection = React.memo(({
     prevProps.characterInfo.multiclasse === nextProps.characterInfo.multiclasse &&
     prevProps.characterInfo.especializacao === nextProps.characterInfo.especializacao
   );
-  console.log('🔵 CharacterInfoSection SHOULD_UPDATE:', !isEqual);
+  console.log(' CharacterInfoSection SHOULD_UPDATE:', !isEqual);
   return isEqual;
 });
 

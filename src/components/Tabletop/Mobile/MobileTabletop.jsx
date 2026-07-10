@@ -3,7 +3,7 @@ import { useCallback, useRef } from "react";
 import { calcularPosicoesBolinhas } from '../useSelecaoToken';
 
 const MOVE_THRESHOLD = 5;
-const THROTTLE_MS = 16;
+const THROTTLE_MS = 16; // 60 FPS fixo — evita oscilação de socket
 const LONG_PRESS_DURATION = 500; // ms para considerar toque longo
 
 export function useMobileTabletop({
@@ -289,20 +289,58 @@ export function useMobileTabletop({
         };
 
         if (tokenSobre) {
-            // Se já tem token selecionado, usa ELE pra detecção (visual = detecção)
-            // Assim as bolinhas renderizadas e a área de toque estão sempre alinhadas
-            const tokenParaDeteccao = uiState.tokenSelecionado !== null && tokensComInfo[uiState.tokenSelecionado]
-                ? tokensComInfo[uiState.tokenSelecionado]
-                : tokenSobre;
-
-            const posicao = { x: tokenParaDeteccao.telaX || tokenParaDeteccao.posicaoTela.x, y: tokenParaDeteccao.telaY || tokenParaDeteccao.posicaoTela.y };
-            const dimensoes = { largura: tokenParaDeteccao.larguraTela || tokenParaDeteccao.tamanhoTela?.larguraTela, altura: tokenParaDeteccao.alturaTela || tokenParaDeteccao.tamanhoTela?.alturaTela };
-            const tokenRotacao = tokenParaDeteccao.rotacao || 0;
+            // Usa SEMPRE o token sob o toque para detectar bolinhas.
+            // As bolinhas ficam fora da bounding box do token; se o dedo
+            // acertar a bolinha mas não o retângulo do token, o fallback
+            // abaixo (tokenSelecionado) cuida desse caso.
+            const posicao = {
+                x: tokenSobre.telaX || tokenSobre.posicaoTela?.x,
+                y: tokenSobre.telaY || tokenSobre.posicaoTela?.y
+            };
+            const dimensoes = {
+                largura: tokenSobre.larguraTela || tokenSobre.tamanhoTela?.larguraTela,
+                altura: tokenSobre.alturaTela || tokenSobre.tamanhoTela?.alturaTela
+            };
+            const tokenRotacao = tokenSobre.rotacao || 0;
             const canto = verificarResizeHandle(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, tokenRotacao);
             if (canto) {
                 touchStartRef.current.isResize = true;
                 touchStartRef.current.canto = canto;
                 touchStartRef.current.token = tokenSobre;
+            }
+        }
+
+        // Fallback: se nenhum token está sob o toque mas há um token
+        // selecionado, verifica as bolinhas do token selecionado.
+        // No mobile o dedo pode acertar a bolinha (fora do retângulo do
+        // token) sem que verificarSeMouseSobreToken retorne o token.
+        if (!touchStartRef.current?.isResize && uiState.tokenSelecionado !== null) {
+            const tokenSelInfo = tokensComInfo[uiState.tokenSelecionado];
+            if (tokenSelInfo && !isTokenBloqueado(tokenSelInfo.id, tokenSelInfo)) {
+                const posicao = {
+                    x: tokenSelInfo.posicaoTela?.x,
+                    y: tokenSelInfo.posicaoTela?.y
+                };
+                const dimensoes = {
+                    largura: tokenSelInfo.tamanhoTela?.larguraTela,
+                    altura: tokenSelInfo.tamanhoTela?.alturaTela
+                };
+                const tokenRotacao = tokenSelInfo.rotacao || 0;
+                const canto = verificarResizeHandle(mouseX, mouseY, posicao.x, posicao.y, dimensoes.largura, dimensoes.altura, tokenRotacao);
+                if (canto) {
+                    // Monta objeto no mesmo formato que verificarSeMouseSobreToken retorna
+                    touchStartRef.current.isResize = true;
+                    touchStartRef.current.canto = canto;
+                    touchStartRef.current.token = {
+                        token: tokensState[uiState.tokenSelecionado],
+                        indice: uiState.tokenSelecionado,
+                        telaX: posicao.x,
+                        telaY: posicao.y,
+                        larguraTela: dimensoes.largura,
+                        alturaTela: dimensoes.altura,
+                    };
+                    touchStartRef.current.isPan = false;
+                }
             }
         }
     }, [uiState, verificarSeMouseSobreToken, verificarResizeHandle, isTokenBloqueado, uiDispatch, tokensComInfo]);
@@ -518,16 +556,8 @@ export function useMobileTabletop({
                         } else if (!isNevoa && setStateDirect) {
                             setStateDirect(novosTokens);
                         }
-                        if (!isNevoa) {
-                            const tokenRedimensionado = novosTokens[itemInfo.indice];
-                            if (tokenRedimensionado && tokenRedimensionado.escala !== itemInfo.token?.escala) {
-                                const agora = Date.now();
-                                if (agora - ultimoEmitRef.current >= THROTTLE_MS) {
-                                    ultimoEmitRef.current = agora;
-                                    if (emitirTokenMoved) emitirTokenMoved(tokenRedimensionado.id, { x: tokenRedimensionado.x, y: tokenRedimensionado.y });
-                                }
-                            }
-                        }
+                        // O emit do socket para tokens é feito pelo useRedimensionamentoToken
+                        // (já inclui escala, x, y com throttle de 30fps). Não emitir aqui evita duplicação.
                     }
                 }
                 event.preventDefault();

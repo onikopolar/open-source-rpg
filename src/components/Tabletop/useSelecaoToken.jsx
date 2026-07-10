@@ -16,7 +16,12 @@ export function calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, al
     // clamp entre 0.5 e 2.0 pra não ficar nem invisível nem gigante
     const escalaZoom = Math.min(2.0, Math.max(0.5, Math.sqrt(zoom)));
     const TAMANHO_BOLINHA_TELA = (isMobile ? 24 : 18) * escalaZoom;
-    const DISTANCIA_EXTERNA_TELA = CONFIG_BOLINHAS.DISTANCIA_EXTERNA_TELA;
+    // Mobile: bolinhas mais afastadas do token (dedo grosso precisa de
+    // espaço pra não acertar o corpo do token e iniciar arrasto em vez
+    // de redimensionamento). Desktop: precisão do mouse, 4px basta.
+    const DISTANCIA_EXTERNA_TELA = isMobile
+        ? Math.max(12, TAMANHO_BOLINHA_TELA * 0.6)
+        : CONFIG_BOLINHAS.DISTANCIA_EXTERNA_TELA;
     
     const raioBolinha = TAMANHO_BOLINHA_TELA / 2;
     const distanciaExternaTela = DISTANCIA_EXTERNA_TELA;

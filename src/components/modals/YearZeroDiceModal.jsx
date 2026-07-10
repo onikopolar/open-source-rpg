@@ -749,7 +749,7 @@ function YearZeroDiceModalRaw({
                   marginBottom: 10,
                   fontFamily: THEME.fontPrimary,
                 }}>
-                  Dados de estresse — {result.panics} ☠
+                  Dados de estresse — {result.panics} 
                 </div>
                 <div className={classes.diceGrid}>
                   {result.yellowResults.map((v, i) => (

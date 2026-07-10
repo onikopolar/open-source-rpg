@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   if (req.method === 'PUT') {
     try {
       const { characterId, periciaNome, data } = req.body
-      console.log('🔥 FEITICEIROS PERICIA API - Atualizando:', { characterId, periciaNome, data })
+      console.log(' FEITICEIROS PERICIA API - Atualizando:', { characterId, periciaNome, data })
 
       // Primeiro, verificar se a perícia já existe para este personagem
       const existingPericia = await prisma.feiticeirosPericia.findFirst({
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
             descricao: data.descricao || existingPericia.descricao
           }
         })
-        console.log('🔥 FEITICEIROS PERICIA API - Perícia atualizada com sucesso')
+        console.log(' FEITICEIROS PERICIA API - Perícia atualizada com sucesso')
       } else {
         // Se não existe, criar
         result = await prisma.feiticeirosPericia.create({
@@ -44,10 +44,10 @@ export default async function handler(req, res) {
             outros: parseInt(data.outros) || 0
           }
         })
-        console.log('🔥 FEITICEIROS PERICIA API - Perícia criada com sucesso')
+        console.log(' FEITICEIROS PERICIA API - Perícia criada com sucesso')
       }
 
-      console.log('🔥 FEITICEIROS PERICIA API - Operação concluída com sucesso')
+      console.log(' FEITICEIROS PERICIA API - Operação concluída com sucesso')
       res.status(200).json({ success: true, data: result })
     } catch (error) {
       console.error('Erro ao salvar perícia Feiticeiros:', error)

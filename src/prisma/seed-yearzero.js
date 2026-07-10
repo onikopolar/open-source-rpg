@@ -515,7 +515,7 @@ async function mostrarResumoFinal() {
     
     console.log('Verificação de acentuação:')
     createdAttrs.forEach(attr => {
-        console.log('-', attr.name, '✓' )
+        console.log('-', attr.name, '' )
     })
     
     console.log('Formatação de nomes (AttributeComponents.jsx):')

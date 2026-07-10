@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   if (req.method === 'PUT') {
     try {
       const { characterId, oficioNome, data } = req.body
-      console.log('🔥 FEITICEIROS OFICIO API - Atualizando:', { characterId, oficioNome, data })
+      console.log(' FEITICEIROS OFICIO API - Atualizando:', { characterId, oficioNome, data })
 
       // Primeiro, verificar se o ofício já existe para este personagem
       const existingOficio = await prisma.feiticeirosOficio.findFirst({
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
             descricao: data.descricao || existingOficio.descricao
           }
         })
-        console.log('🔥 FEITICEIROS OFICIO API - Ofício atualizado com sucesso')
+        console.log(' FEITICEIROS OFICIO API - Ofício atualizado com sucesso')
       } else {
         // Se não existe, criar
         result = await prisma.feiticeirosOficio.create({
@@ -44,10 +44,10 @@ export default async function handler(req, res) {
             outros: parseInt(data.outros) || 0
           }
         })
-        console.log('🔥 FEITICEIROS OFICIO API - Ofício criado com sucesso')
+        console.log(' FEITICEIROS OFICIO API - Ofício criado com sucesso')
       }
 
-      console.log('🔥 FEITICEIROS OFICIO API - Operação concluída com sucesso')
+      console.log(' FEITICEIROS OFICIO API - Operação concluída com sucesso')
       res.status(200).json({ success: true, data: result })
     } catch (error) {
       console.error('Erro ao salvar ofício Feiticeiros:', error)

@@ -11,9 +11,11 @@ const server = require('http').createServer(app);
 const io = require('socket.io')(server, {
   // Força WebSocket em produção (evita polling lento)
   transports: isProd ? ['websocket'] : ['websocket', 'polling'],
-  // Timeouts otimizados
-  pingTimeout: isProd ? 20000 : 60000,
-  pingInterval: isProd ? 10000 : 25000,
+  // Timeouts generosos: navegador em background (mobile/desktop)
+  // pode ficar minutos sem responder a pings. O cliente tem
+  // visibilitychange para forçar reconexão ao voltar.
+  pingTimeout: isProd ? 120000 : 60000,   // 2 min em prod, 1 min em dev
+  pingInterval: isProd ? 30000 : 25000,   // 30s em prod, 25s em dev
   // Limite de payload (base64 de token deve ir por HTTP, não socket)
   maxHttpBufferSize: 1e6, // 1MB
   // Evita reconexões em cascata

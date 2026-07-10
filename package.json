@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/dev.js",
-    "dev:funnel": "tailscale funnel status && node src/server.js",
+    "dev:cloudflare": "cloudflared tunnel run",
     "build": "prisma generate && prisma migrate deploy && next build",
     "build:dev": "prisma generate && prisma db push && next build",
     "start": "node src/server.js",

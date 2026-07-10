@@ -3,7 +3,7 @@ import React, { useCallback, useRef } from "react";
 import { calcularPosicoesBolinhas } from './useSelecaoToken';
 
 const MOVE_THRESHOLD = 5;
-const THROTTLE_MS = 20; // 20ms ≈ 50fps — fluido, 20% menos que os 16ms originais
+const THROTTLE_MS = 16; // 60 FPS fixo — evita oscilação de socket
 
 export function useMouseTabletop({
     containerRef,
@@ -519,19 +519,6 @@ export function useMouseTabletop({
                 return;
             }
 
-            const emitirMovimentoToken = (token, id, x, y, escala) => {
-                if (!socket?.connected) return;
-                const agora = Date.now();
-                const timeSinceLastEmit = agora - ultimoEmitRef.current;
-                const emitir = timeSinceLastEmit >= THROTTLE_MS;
-                if (emitir) {
-                    ultimoEmitRef.current = agora;
-                    if (emitirTokenMoved) {
-                        emitirTokenMoved(id, { x, y });
-                    }
-                }
-            };
-
             if (uiState.tokenSendoArrastado || uiState.camadaSendoArrastada) {
                 const isNevoa = !!uiState.camadaSendoArrastada;
                 const itemInfo = isNevoa ? uiState.camadaSendoArrastada : uiState.tokenSendoArrastado;
@@ -663,12 +650,11 @@ export function useMouseTabletop({
                     setStateDirect(novosTokens);
                 }
 
-                                if (!isNevoa) {
-                    const tokenRedimensionado = novosTokens[itemInfo.indice];
-                    if (tokenRedimensionado && tokenRedimensionado.escala !== itemInfo.token?.escala) {
-                        emitirMovimentoToken(tokenRedimensionado, tokenRedimensionado.id, tokenRedimensionado.x, tokenRedimensionado.y, tokenRedimensionado.escala);
-                    }
-                } else {
+                // O emit do socket para tokens é feito pelo useRedimensionamentoToken
+                // (já inclui escala, x, y com throttle de 30fps). Não emitir aqui evita duplicação.
+                // Apenas névoa (camadas) emite aqui pois não passa por useRedimensionamentoToken.
+
+                                if (isNevoa) {
                     // Emitir evento de atualização para névoa redimensionada
                     const camadaRedimensionada = novosTokens[itemInfo.indice];
                                         if (camadaRedimensionada && socket?.connected && isMaster) {

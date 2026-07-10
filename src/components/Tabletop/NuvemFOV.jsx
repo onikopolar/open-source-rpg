@@ -17,7 +17,7 @@ export function useNuvemFOV({
     const uiStateRef = useRef({ zoom: 1, position: { x: 0, y: 0 } });
     const initialLoadDone = useRef(false);
 
-    // ✅ FIX PRINCIPAL: Refs espelho dos states
+    //  FIX PRINCIPAL: Refs espelho dos states
     // renderizarNevoa lê SEMPRE dessas refs, nunca do closure do useCallback.
     // Isso garante que qualquer versão antiga de renderizarTudo (via renderCallbackRef
     // no TabletopGrid) ainda enxergue as camadas mais recentes — resolvendo o problema
@@ -27,7 +27,7 @@ export function useNuvemFOV({
     const inicioDesenhoRef = useRef({ x: 0, y: 0 });
     const fimDesenhoRef = useRef({ x: 0, y: 0 });
 
-    // ✅ FIX: Ref estável para o callback de render — evita race condition no carregamento
+    //  FIX: Ref estável para o callback de render — evita race condition no carregamento
     const onRenderCallbackRef = useRef(onRenderCallback);
     useEffect(() => {
         onRenderCallbackRef.current = onRenderCallback;
@@ -38,7 +38,7 @@ export function useNuvemFOV({
         if (onRenderCallbackRef.current) onRenderCallbackRef.current();
     }, []);
 
-    // ✅ Sincroniza refs com os states e dispara render a cada mudança
+    //  Sincroniza refs com os states e dispara render a cada mudança
     useEffect(() => {
         camadasNevoaRef.current = camadasNevoa;
         dispararRender();
@@ -129,23 +129,35 @@ export function useNuvemFOV({
         }
     }, [isMaster]);
 
-        // ✅ Garantir que o socket entre na sala do tabletop
+        //  Garantir que o socket entre na sala do tabletop
     useEffect(() => {
         if (!socket) return;
 
         console.log('[NuvemFOV] Entrando na sala do tabletop:', tabletopId);
+
+        const joinRoom = () => {
+            socket.emit('tabletop:join', { tabletopId });
+        };
         
         if (!socket.connected) {
-            socket.on('connect', () => {
-                socket.emit('tabletop:join', { tabletopId });
-            });
+            socket.on('connect', joinRoom);
+            // Reconectou após desconexão (ex: aba voltou do background)
+            socket.on('reconnect', joinRoom);
             return;
         }
 
-        socket.emit('tabletop:join', { tabletopId });
+        joinRoom();
+
+        // Re-emitir join sempre que o socket reconectar
+        socket.on('reconnect', joinRoom);
+
+        return () => {
+            socket.off('connect', joinRoom);
+            socket.off('reconnect', joinRoom);
+        };
     }, [socket, tabletopId]);
 
-    // ✅ FIX: Master ignora eventos de socket que ele mesmo emitiu — evita duplicação
+    //  FIX: Master ignora eventos de socket que ele mesmo emitiu — evita duplicação
     useEffect(() => {
         if (!socket) return;
 
@@ -195,7 +207,7 @@ export function useNuvemFOV({
         };
     }, [socket, isMaster]);
 
-    // ✅ FIX: Array vazio — roda exatamente uma vez, sem dependência instável
+    //  FIX: Array vazio — roda exatamente uma vez, sem dependência instável
     useEffect(() => {
         if (initialLoadDone.current) return;
         initialLoadDone.current = true;
@@ -216,7 +228,7 @@ export function useNuvemFOV({
         };
 
         carregarCamadas();
-    }, []); // ✅ Array vazio — sem dependências instáveis
+    }, []); //  Array vazio — sem dependências instáveis
 
         const adicionarCamada = useCallback(async (camada) => {
         if (!isMaster) return;
@@ -225,13 +237,13 @@ export function useNuvemFOV({
         const camadaPersistida = await criarCamadaServidor(camada);
         if (!camadaPersistida) return;
 
-        // ✅ Master adiciona localmente
+        //  Master adiciona localmente
         setCamadasNevoa(prev => {
             if (prev.some(c => c.id === camadaPersistida.id)) return prev;
             return [...prev, { ...camadaPersistida, tipo: 'nevoa' }];
         });
 
-        // ✅ Emite para os outros (servidor deve usar broadcast, não io.emit)
+        //  Emite para os outros (servidor deve usar broadcast, não io.emit)
         console.log('[NuvemFOV] Emitindo nevoaCreated, socket conectado?', socket?.connected);
         if (socket?.connected) {
             socket.emit('tabletop:nevoaCreated', { tabletopId, ...camadaPersistida });

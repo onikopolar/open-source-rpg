@@ -5,21 +5,21 @@ export default async function handler(req, res) {
   if (req.method === 'PUT') {
     try {
       const { characterId, bonuses } = req.body
-      console.log('🔥 FEITICEIROS DERIVED VALUES API - Atualizando:', { characterId, bonuses })
+      console.log(' FEITICEIROS DERIVED VALUES API - Atualizando:', { characterId, bonuses })
 
       // Validar dados
       if (!characterId || !bonuses) {
         return res.status(400).json({ error: 'Dados inválidos' })
       }
 
-      // ✅ CORREÇÃO CRÍTICA: Detectar e reconstruir JSON corrompido
+      //  CORREÇÃO CRÍTICA: Detectar e reconstruir JSON corrompido
       let cleanBonuses = {};
       
       // Se tem propriedades numéricas, está CORROMPIDO
       const hasNumericKeys = Object.keys(bonuses).some(key => !isNaN(parseInt(key)));
       
       if (hasNumericKeys) {
-        console.log('🚨 DADOS CORROMPIDOS DETECTADOS - Tentando reconstruir...');
+        console.log(' DADOS CORROMPIDOS DETECTADOS - Tentando reconstruir...');
         
         // Tentar reconstruir o JSON a partir dos caracteres
         try {
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
             .map(key => bonuses[key])
             .join('');
           
-          console.log('🔧 String reconstruída:', jsonString);
+          console.log(' String reconstruída:', jsonString);
           
           // Tentar parsear o JSON reconstruído
           const reconstructed = JSON.parse(jsonString);
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
             deslocamento: parseInt(reconstructed.deslocamento) || 0
           };
         } catch (parseError) {
-          console.error('❌ Erro ao reconstruir JSON:', parseError);
+          console.error(' Erro ao reconstruir JSON:', parseError);
           // Fallback: usar apenas propriedades não numéricas
           cleanBonuses = {
             atencao: parseInt(bonuses.atencao) || 0,
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
         };
       }
 
-      console.log('🔥 FEITICEIROS DERIVED VALUES API - Dados LIMPOS:', cleanBonuses)
+      console.log(' FEITICEIROS DERIVED VALUES API - Dados LIMPOS:', cleanBonuses)
 
       // Preparar dados para atualização
       const updateData = {
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
         deslocamento_bonus: cleanBonuses.deslocamento
       }
 
-      console.log('🔥 FEITICEIROS DERIVED VALUES API - Dados para atualização:', updateData)
+      console.log(' FEITICEIROS DERIVED VALUES API - Dados para atualização:', updateData)
 
       // Atualizar os bônus no character
       const result = await prisma.character.update({
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
         data: updateData
       })
 
-      console.log('🔥 FEITICEIROS DERIVED VALUES API - Atualizado com sucesso:', result.id)
+      console.log(' FEITICEIROS DERIVED VALUES API - Atualizado com sucesso:', result.id)
       res.status(200).json({ 
         success: true, 
         data: result,

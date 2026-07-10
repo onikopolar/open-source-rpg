@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   if (req.method === 'PUT') {
     try {
       const { characterId, attributeName, value } = req.body
-      console.log('🔥 FEITICEIROS ATTRIBUTE API - Atualizando:', { characterId, attributeName, value })
+      console.log(' FEITICEIROS ATTRIBUTE API - Atualizando:', { characterId, attributeName, value })
 
       // Buscar o ID do atributo pelo nome
       const attribute = await prisma.feiticeirosAttribute.findFirst({
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
         }
       })
 
-      console.log('🔥 FEITICEIROS ATTRIBUTE API - Atualizado com sucesso')
+      console.log(' FEITICEIROS ATTRIBUTE API - Atualizado com sucesso')
       res.status(200).json({ success: true, data: result })
     } catch (error) {
       console.error('Erro ao salvar atributo Feiticeiros:', error)

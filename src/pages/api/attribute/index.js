@@ -77,9 +77,9 @@ export default async function handler(req, res) {
               }
             });
             vinculados++;
-            console.log(`  ✓ Vinculado a ${character.name} (ID: ${character.id})`);
+            console.log(`   Vinculado a ${character.name} (ID: ${character.id})`);
           } catch (charError) {
-            console.error(`  ✗ Erro ao vincular a ${character.name}:`, charError.message);
+            console.error(`   Erro ao vincular a ${character.name}:`, charError.message);
           }
         }
 

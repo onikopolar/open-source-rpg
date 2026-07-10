@@ -247,7 +247,7 @@ function TokenDesign({
                                     }
                                 }}
                             >
-                                ✕
+                                
                             </Button>
                         </Box>
 

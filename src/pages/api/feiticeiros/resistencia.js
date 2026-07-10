@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   if (req.method === 'PUT') {
     try {
       const { characterId, resistenciaNome, data } = req.body
-      console.log('🔥 FEITICEIROS RESISTENCIA API - Atualizando:', { characterId, resistenciaNome, data })
+      console.log(' FEITICEIROS RESISTENCIA API - Atualizando:', { characterId, resistenciaNome, data })
 
       // Primeiro, verificar se a resistência já existe para este personagem
       const existingResistencia = await prisma.feiticeirosResistencia.findFirst({
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
             descricao: data.descricao || existingResistencia.descricao
           }
         })
-        console.log('🔥 FEITICEIROS RESISTENCIA API - Resistência atualizada com sucesso')
+        console.log(' FEITICEIROS RESISTENCIA API - Resistência atualizada com sucesso')
       } else {
         // Se não existe, criar
         result = await prisma.feiticeirosResistencia.create({
@@ -44,10 +44,10 @@ export default async function handler(req, res) {
             outros: parseInt(data.outros) || 0
           }
         })
-        console.log('🔥 FEITICEIROS RESISTENCIA API - Resistência criada com sucesso')
+        console.log(' FEITICEIROS RESISTENCIA API - Resistência criada com sucesso')
       }
 
-      console.log('🔥 FEITICEIROS RESISTENCIA API - Operação concluída com sucesso')
+      console.log(' FEITICEIROS RESISTENCIA API - Operação concluída com sucesso')
       res.status(200).json({ success: true, data: result })
     } catch (error) {
       console.error('Erro ao salvar resistência Feiticeiros:', error)

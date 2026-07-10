@@ -120,14 +120,26 @@ export function useSincronizacaoTokens({
   useEffect(() => {
     if (!socket) return;
 
+    const joinRoom = () => {
+      socket.emit('tabletop:join', { tabletopId });
+    };
+
     if (!socket.connected) {
-      socket.on('connect', () => {
-        socket.emit('tabletop:join', { tabletopId });
-      });
+      socket.on('connect', joinRoom);
+      // Reconectou após desconexão (ex: aba voltou do background)
+      socket.on('reconnect', joinRoom);
       return;
     }
 
-    socket.emit('tabletop:join', { tabletopId });
+    joinRoom();
+
+    // Re-emitir join sempre que o socket reconectar
+    socket.on('reconnect', joinRoom);
+
+    return () => {
+      socket.off('connect', joinRoom);
+      socket.off('reconnect', joinRoom);
+    };
   }, [tabletopId, socket]);
 
   useEffect(() => {

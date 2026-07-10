@@ -88,7 +88,7 @@ export const MenuContextoToken = React.forwardRef(({
         const token = tokensLocal.find((t) => t.id === tokenId);
         const novoEstado = token ? !token.invertido : false;
 
-        // 🔧 CORREÇÃO: Atualiza localmente primeiro (otimista)
+        //  CORREÇÃO: Atualiza localmente primeiro (otimista)
         if (setTokensLocal) {
             setTokensLocal(prev => prev.map(t => 
                 t.id === tokenId ? { ...t, invertido: novoEstado } : t
@@ -110,7 +110,7 @@ export const MenuContextoToken = React.forwardRef(({
             })
             .catch((err) => {
                 console.error('[MenuContextoToken] Erro ao inverter token:', err);
-                // 🔧 CORREÇÃO: Reverte a mudança local em caso de erro
+                //  CORREÇÃO: Reverte a mudança local em caso de erro
                 if (setTokensLocal) {
                     setTokensLocal(prev => prev.map(t => 
                         t.id === tokenId ? { ...t, invertido: !novoEstado } : t
@@ -151,7 +151,7 @@ export const MenuContextoToken = React.forwardRef(({
         const token = tokensLocal.find((t) => t.id === tokenId);
         const novoEstado = token ? !token.bloqueado : false;
 
-        // 🔧 CORREÇÃO: Atualiza localmente primeiro (otimista)
+        //  CORREÇÃO: Atualiza localmente primeiro (otimista)
         if (setTokensLocal) {
             setTokensLocal(prev => prev.map(t => 
                 t.id === tokenId ? { ...t, bloqueado: novoEstado } : t
@@ -177,7 +177,7 @@ export const MenuContextoToken = React.forwardRef(({
             })
             .catch((err) => {
                 console.error('[MenuContextoToken] Erro ao alterar bloqueio:', err);
-                // 🔧 CORREÇÃO: Reverte a mudança local em caso de erro
+                //  CORREÇÃO: Reverte a mudança local em caso de erro
                 if (setTokensLocal) {
                     setTokensLocal(prev => prev.map(t => 
                         t.id === tokenId ? { ...t, bloqueado: !novoEstado } : t
