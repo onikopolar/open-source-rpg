@@ -10,7 +10,6 @@ export function useTabletopTokens() {
   const carregarTokens = useCallback(async () => {
     try {
       setLoading(true);
-      // Novo endpoint que retorna apenas instâncias (parentId != null)
       const response = await fetch('/api/Tabletop/tokens/instancias');
       
       const data = await response.json();
@@ -19,9 +18,7 @@ export function useTabletopTokens() {
         throw new Error(data.error || 'Erro ao carregar tokens');
       }
       
-      // Ordenar por zIndex (menor primeiro)
       const tokensOrdenados = [...data].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
-      
       setTokens(tokensOrdenados);
       return tokensOrdenados;
     } catch (err) {
@@ -61,6 +58,10 @@ export function useTabletopTokens() {
   }, []);
 
   const atualizarToken = useCallback(async (id, updates) => {
+    // Tokens otimistas (temp-*) ainda nao existem no banco — nao faz PUT
+    if (typeof id === 'string' && id.startsWith('temp-')) {
+      return null;
+    }
     try {
       const response = await fetch(`/api/Tabletop/${id}`, {
         method: 'PUT',
@@ -87,6 +88,10 @@ export function useTabletopTokens() {
   }, []);
 
   const deletarToken = useCallback(async (id) => {
+    // Tokens otimistas (temp-*) ainda nao existem no banco — nao faz DELETE
+    if (typeof id === 'string' && id.startsWith('temp-')) {
+      return true;
+    }
     try {
       const response = await fetch(`/api/Tabletop/${id}`, {
         method: 'DELETE'

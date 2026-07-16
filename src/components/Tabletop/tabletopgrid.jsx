@@ -26,6 +26,11 @@ import {
     BASE_GRID_SIZE,
     GRID_CONFIGS,
     clamp,
+    isMobileDevice,
+    getStorageKey,
+    loadSavedView,
+    computeScreenInfo,
+    showFeedback,
 } from './ConstantesMesa';
 import { initialUIState, uiReducer } from './RedutorUI';
 import { useMovimentoToken } from './useMovimentoToken';
@@ -39,6 +44,7 @@ import {
 import { useRenderizacaoToken } from './useRenderizacaoToken';
 import { useSincronizacaoTokens } from './HooksNovos/useSincronizacaoTokens';
 import { useDragDropToken } from './HooksNovos/useDragDropToken';
+import { useImageDropPaste } from './HooksNovos/useImageDropPaste';
 import { useHistoricoTokens } from './HooksNovos/useHistoricoTokens';
 import { useInterpolacaoTokens } from './HooksNovos/useInterpolacaoTokens';
 import { useP2PImageSync } from '../../p2p/useP2PImageSync';
@@ -48,17 +54,6 @@ import { useMobileTabletop } from './Mobile/MobileTabletop';
 import { useTabletopTokens } from '../../hooks/useTabletopTokens';
 import { useRotacaoToken } from './useRotacaoToken';
 import socket from '../../utils/socket';
-
-const isMobileDevice = () => {
-    if (typeof window === 'undefined') return false;
-    const mobileRegex = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i;
-    return mobileRegex.test(navigator.userAgent) || window.innerWidth < 768;
-};
-
-const getStorageKey = (tabletopId, isMaster, sheetId, playerName) => {
-    const userPart = isMaster ? 'master' : `player_${sheetId || playerName || 'anon'}`;
-    return `tabletop_view_${tabletopId}_${userPart}`;
-};
 
 function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     const [isClient, setIsClient] = useState(false);
@@ -71,19 +66,10 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         setIsClient(true);
     }, []);
 
-    const loadSavedView = useCallback(() => {
-        try {
-            const key = getStorageKey(tabletopId, isMaster, sheetId, playerName);
-            const saved = localStorage.getItem(key);
-            if (saved) {
-                const { zoom, position } = JSON.parse(saved);
-                return { zoom: zoom ?? 1, position: position ?? { x: 0, y: 0 } };
-            }
-        } catch (e) { }
-        return { zoom: 1, position: { x: 0, y: 0 } };
-    }, [tabletopId, isMaster, sheetId, playerName]);
-
-    const savedView = loadSavedView();
+    const savedView = useMemo(
+        () => loadSavedView(tabletopId, isMaster, sheetId, playerName),
+        [tabletopId, isMaster, sheetId, playerName]
+    );
     const customInitialState = {
         ...initialUIState,
         zoom: savedView.zoom,
@@ -111,10 +97,30 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
 
     const [tokensLocal, setTokensLocal] = useState([]);
     const tokensLocalRef = useRef(tokensLocal);
+    const dbInitializedRef = useRef(false);
 
     useEffect(() => {
         tokensLocalRef.current = tokensLocal;
     }, [tokensLocal]);
+
+    // Inicializa tokensLocal com dados do banco na primeira carga.
+    // Usa ref para evitar condição de corrida com StrictMode (double-mount).
+    useEffect(() => {
+        if (tokens.length > 0 && !dbInitializedRef.current) {
+            dbInitializedRef.current = true;
+            setTokensLocal(tokens);
+            console.log(`[TabletopGrid] Inicializado com ${tokens.length} tokens do banco`);
+
+            tokens.forEach((token) => {
+                if (token.bloqueado) {
+                    despacharUI({
+                        type: 'SET_TOKEN_BLOCK',
+                        payload: { tokenId: token.id, bloqueado: true },
+                    });
+                }
+            });
+        }
+    }, [tokens]);
 
     // Interpolação OBR-style: suaviza movimento de tokens remotos
     const interpolacao = useInterpolacaoTokens();
@@ -163,21 +169,6 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         },
         onAnimateTarget: interpolacao.animateTo,
     });
-
-    useEffect(() => {
-        if (tokens.length > 0 && tokensLocal.length === 0) {
-            setTokensLocal(tokens);
-
-            tokens.forEach((token) => {
-                if (token.bloqueado) {
-                    despacharUI({
-                        type: 'SET_TOKEN_BLOCK',
-                        payload: { tokenId: token.id, bloqueado: true },
-                    });
-                }
-            });
-        }
-    }, [tokens]);
 
     const menuAbertoTimestampRef = useRef(0);
     const estaArrastandoRef = useRef(false);
@@ -240,14 +231,20 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     });
 
     const { processarArrastoToken } = useMovimentoToken();
-    const { processarRedimensionamento, resizeStartStateRef, redimensionandoRef: redimensionandoRefHook, finalizarRedimensionamento } = useRedimensionamentoToken({
-        salvarToken: (tokenId, dados) => {
+
+    const salvarToken = useCallback(
+        (tokenId, dados) => {
             atualizarTokenComHistorico(tokenId, dados);
             if (socket?.connected) {
                 emitirTokenMovedComHistorico(tokenId, dados);
                 emitirDragEnd(tokenId);
             }
         },
+        [atualizarTokenComHistorico, emitirTokenMovedComHistorico, emitirDragEnd, socket]
+    );
+
+    const { processarRedimensionamento, resizeStartStateRef, redimensionandoRef: redimensionandoRefHook, finalizarRedimensionamento } = useRedimensionamentoToken({
+        salvarToken,
         emitirTokenMoved: emitirTokenMovedComHistorico,
         emitirDragEnd
     });
@@ -341,48 +338,21 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     }, [estadoUI.zoom]);
 
     const tokensInfo = useMemo(() => {
-        return tokensLocal
-            .map((token, indice) => {
-                const larguraOriginal = token.larguraOriginal || 50;
-                const alturaOriginal = token.alturaOriginal || 50;
-                const escala = token.escala || 1;
-
-                const posicaoTela = {
-                    x: token.x * estadoUI.zoom + estadoUI.position.x,
-                    y: token.y * estadoUI.zoom + estadoUI.position.y,
-                };
-
-                const larguraMundo = larguraOriginal * escala;
-                const alturaMundo = alturaOriginal * escala;
-                const larguraTela = larguraMundo * estadoUI.zoom;
-                const alturaTela = alturaMundo * estadoUI.zoom;
-
-                const estaSelecionado =
+        return tokensLocal.map((token, indice) => {
+            const info = computeScreenInfo(
+                token, indice,
+                estadoUI.zoom, estadoUI.position,
+                estadoUI.tokensBloqueados,
+                'token'
+            );
+            return {
+                ...info,
+                oculto: estadoUI.visibilidadeTokens[token.id] === true,
+                estaSelecionado:
                     estadoUI.tokenSelecionado === indice ||
-                    estadoUI.tokensSelecionados.includes(indice);
-                const estaBloqueado = estadoUI.tokensBloqueados[token.id] === true;
-                const estaOculto = estadoUI.visibilidadeTokens[token.id] === true;
-
-                return {
-                    ...token,
-                    indice,
-                    posicaoTela,
-                    larguraOriginal,
-                    alturaOriginal,
-                    tamanhoTela: {
-                        larguraOriginal,
-                        alturaOriginal,
-                        larguraMundo,
-                        alturaMundo,
-                        larguraTela,
-                        alturaTela,
-                    },
-                    oculto: estaOculto,
-                    bloqueado: estaBloqueado,
-                    estaSelecionado,
-                    tipo: 'token',
-                };
-            });
+                    estadoUI.tokensSelecionados.includes(indice),
+            };
+        });
     }, [
         tokensLocal,
         estadoUI.zoom,
@@ -416,34 +386,14 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     });
 
     const camadasInfo = useMemo(() => {
-        return nevoa.camadasNevoa.map((camada, indice) => {
-            const larguraMundo = camada.larguraOriginal * camada.escala;
-            const alturaMundo = camada.alturaOriginal * camada.escala;
-
-            const posicaoTela = {
-                x: camada.x * estadoUI.zoom + estadoUI.position.x,
-                y: camada.y * estadoUI.zoom + estadoUI.position.y,
-            };
-
-            const larguraTela = larguraMundo * estadoUI.zoom;
-            const alturaTela = alturaMundo * estadoUI.zoom;
-
-            return {
-                ...camada,
-                indice,
-                posicaoTela,
-                tamanhoTela: {
-                    larguraOriginal: camada.larguraOriginal,
-                    alturaOriginal: camada.alturaOriginal,
-                    larguraMundo,
-                    alturaMundo,
-                    larguraTela,
-                    alturaTela,
-                },
-                bloqueado: estadoUI.camadasBloqueadas?.[camada.id] === true,
-                tipo: 'nevoa',
-            };
-        });
+        return nevoa.camadasNevoa.map((camada, indice) =>
+            computeScreenInfo(
+                camada, indice,
+                estadoUI.zoom, estadoUI.position,
+                estadoUI.camadasBloqueadas,
+                'nevoa'
+            )
+        );
     }, [
         nevoa.camadasNevoa,
         estadoUI.zoom,
@@ -560,138 +510,142 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         },
     });
 
+    // Hook para drag & drop de imagens do SO e Ctrl+V (paste) direto no tabletop
+    useImageDropPaste({
+        isMaster,
+        containerRef,
+        criarToken,
+        telaParaMundo,
+        emitirTokenCreated: emitirTokenCreatedComHistorico,
+        socket,
+        onTokenCreated: (tokenOtimista) => {
+            // UI otimista: token aparece instantaneamente
+            setTokensLocal((prev) => [...prev, tokenOtimista]);
+        },
+        onTokenConfirmed: (tempId, tokenReal) => {
+            // Servidor confirmou: substitui o temp pelo real (ou remove se falhou)
+            setTokensLocal((prev) => {
+                if (tokenReal === null) {
+                    // Falhou: remove o token otimista
+                    return prev.filter((t) => t.id !== tempId);
+                }
+                // Sucesso: substitui o token temporario pelo real do banco
+                return prev.map((t) => (t.id === tempId ? { ...tokenReal, _otimista: false } : t));
+            });
+        },
+        onTokenImageReady: (tokenId, imageSource) => {
+            p2p.shareTokenImage(tokenId, imageSource);
+        },
+    });
+
     useEffect(() => {
         nevoa.setUIStateRef(estadoUI.zoom, estadoUI.position);
     }, [nevoa, estadoUI.zoom, estadoUI.position]);
 
+    const desenharItemArrastado = useCallback(
+        (contexto, arrastandoState, offsetIndice, nomeFallback, cor) => {
+            if (!arrastandoState) return;
+            const itemInfo = todosItens[offsetIndice + arrastandoState.indice];
+            if (!itemInfo) return;
+            desenharBordaDeArrasto(
+                contexto,
+                itemInfo.posicaoTela.x,
+                itemInfo.posicaoTela.y,
+                itemInfo.tamanhoTela.larguraTela,
+                itemInfo.tamanhoTela.alturaTela,
+                nomeFallback,
+                cor
+            );
+        },
+        [todosItens]
+    );
+
     const desenharArrastoProprio = useCallback(
         (contexto) => {
-            if (estadoUI.tokenSendoArrastado) {
-                const itemInfo = todosItens[estadoUI.tokenSendoArrastado.indice];
-                if (itemInfo) {
-                    const nome = itemInfo.tipo === 'token' ? itemInfo.nome || 'Token' : 'Névoa';
-                    const minhaCor = getCorSheet(sheetId);
-                    desenharBordaDeArrasto(
-                        contexto,
-                        itemInfo.posicaoTela.x,
-                        itemInfo.posicaoTela.y,
-                        itemInfo.tamanhoTela.larguraTela,
-                        itemInfo.tamanhoTela.alturaTela,
-                        nome,
-                        minhaCor
-                    );
-                }
-            }
-
-            if (estadoUI.camadaSendoArrastada) {
-                const itemInfo = todosItens[tokensInfo.length + estadoUI.camadaSendoArrastada.indice];
-                if (itemInfo) {
-                    desenharBordaDeArrasto(
-                        contexto,
-                        itemInfo.posicaoTela.x,
-                        itemInfo.posicaoTela.y,
-                        itemInfo.tamanhoTela.larguraTela,
-                        itemInfo.tamanhoTela.alturaTela,
-                        'Névoa'
-                    );
-                }
-            }
+            desenharItemArrastado(
+                contexto,
+                estadoUI.tokenSendoArrastado,
+                0,
+                (todosItens[estadoUI.tokenSendoArrastado?.indice]?.nome || ''),
+                getCorSheet(sheetId)
+            );
+            desenharItemArrastado(
+                contexto,
+                estadoUI.camadaSendoArrastada,
+                tokensInfo.length,
+                'Névoa'
+            );
         },
-        [estadoUI, todosItens, tokensInfo.length, sheetId]
+        [estadoUI, todosItens, tokensInfo.length, sheetId, desenharItemArrastado]
     );
 
     const desenharSelecoes = useCallback(
         (contexto) => {
-            if (estadoUI.tokensSelecionados.length > 1) {
-                const itensSelecionados = estadoUI.tokensSelecionados
-                    .map((indice) => todosItens[indice])
-                    .filter((item) => {
-                        if (!item || item.bloqueado || item.tipo !== 'token') return false;
-                        if (!isMaster && item.oculto) return false;
-                        return true;
-                    });
+            const { zoom, tokensSelecionados, tokenSelecionado, tokenSendoArrastado,
+                camadasSelecionadas, camadaSelecionada, camadaSendoArrastada,
+                tokenRedimensionando, camadaRedimensionando, areaSelecao } = estadoUI;
 
-                if (itensSelecionados.length > 0) {
-                    const boundingBox = calcularBoundingBoxGrupo(itensSelecionados);
-                    desenharSelecao(
-                        contexto,
-                        boundingBox,
-                        estadoUI.zoom,
-                        itensSelecionados.length,
-                        true
-                    );
+            // --- Helper: bounding box de um item individual ---
+            const bboxDoItem = (item) => item ? {
+                x: item.posicaoTela.x,
+                y: item.posicaoTela.y,
+                largura: item.tamanhoTela.larguraTela,
+                altura: item.tamanhoTela.alturaTela,
+            } : null;
+
+            // --- Helper: filtro de itens válidos (não bloqueados, tipo esperado) ---
+            const itemValido = (item, tipo) =>
+                item && !item.bloqueado && item.tipo === tipo && (isMaster || !item.oculto);
+
+            // --- Grupo de tokens ---
+            if (tokensSelecionados.length > 1) {
+                const itens = tokensSelecionados
+                    .map((i) => todosItens[i])
+                    .filter((item) => itemValido(item, 'token'));
+                if (itens.length > 0) {
+                    desenharSelecao(contexto, calcularBoundingBoxGrupo(itens), zoom, itens.length, true);
                 }
             }
 
-            if (
-                estadoUI.tokenSelecionado !== null &&
-                !estadoUI.tokenSendoArrastado &&
-                !estadoUI.camadaSendoArrastada
-            ) {
-                const itemInfo = todosItens[estadoUI.tokenSelecionado];
-                if (itemInfo && !itemInfo.bloqueado && itemInfo.tipo === 'token') {
-                    if (!isMaster && itemInfo.oculto) {
-                        return;
-                    }
-                    const isPartOfGroup = estadoUI.tokensSelecionados.length > 1;
-                    if (!isPartOfGroup) {
-                        const boundingBox = {
-                            x: itemInfo.posicaoTela.x,
-                            y: itemInfo.posicaoTela.y,
-                            largura: itemInfo.tamanhoTela.larguraTela,
-                            altura: itemInfo.tamanhoTela.alturaTela,
-                        };
-                        desenharSelecao(contexto, boundingBox, estadoUI.zoom, 1, true, itemInfo.escala, itemInfo.rotacao);
-                    }
+            // --- Token individual (se não estiver em grupo) ---
+            if (tokenSelecionado !== null && !tokenSendoArrastado && !camadaSendoArrastada
+                && tokensSelecionados.length <= 1) {
+                const item = todosItens[tokenSelecionado];
+                if (itemValido(item, 'token')) {
+                    if (!isMaster && item.oculto) return; // preserva early-exit original
+                    desenharSelecao(contexto, bboxDoItem(item), zoom, 1, true,
+                        item.escala, item.rotacao, !!tokenRedimensionando);
                 }
             }
 
-            if (estadoUI.camadasSelecionadas.length > 1) {
-                const itensSelecionados = estadoUI.camadasSelecionadas
-                    .map((indice) => todosItens[tokensInfo.length + indice])
-                    .filter((item) => item && item.tipo === 'nevoa');
-
-                if (itensSelecionados.length > 0) {
-                    const boundingBox = calcularBoundingBoxGrupo(itensSelecionados);
-                    desenharSelecao(
-                        contexto,
-                        boundingBox,
-                        estadoUI.zoom,
-                        itensSelecionados.length,
-                        true
-                    );
+            // --- Grupo de camadas de névoa ---
+            if (camadasSelecionadas.length > 1) {
+                const offset = tokensInfo.length;
+                const itens = camadasSelecionadas
+                    .map((i) => todosItens[offset + i])
+                    .filter((item) => itemValido(item, 'nevoa'));
+                if (itens.length > 0) {
+                    desenharSelecao(contexto, calcularBoundingBoxGrupo(itens), zoom, itens.length, true);
                 }
             }
 
-            if (
-                estadoUI.camadaSelecionada !== null &&
-                !estadoUI.camadaSendoArrastada &&
-                !estadoUI.tokenSendoArrastado
-            ) {
-                const itemInfo = todosItens[tokensInfo.length + estadoUI.camadaSelecionada];
-                if (itemInfo && itemInfo.tipo === 'nevoa') {
-                    const boundingBox = {
-                        x: itemInfo.posicaoTela.x,
-                        y: itemInfo.posicaoTela.y,
-                        largura: itemInfo.tamanhoTela.larguraTela,
-                        altura: itemInfo.tamanhoTela.alturaTela,
-                    };
-                    desenharSelecao(contexto, boundingBox, estadoUI.zoom, 1, true, itemInfo.escala);
+            // --- Camada de névoa individual ---
+            if (camadaSelecionada !== null && !camadaSendoArrastada && !tokenSendoArrastado) {
+                const item = todosItens[tokensInfo.length + camadaSelecionada];
+                if (itemValido(item, 'nevoa')) {
+                    desenharSelecao(contexto, bboxDoItem(item), zoom, 1, true,
+                        item.escala, 0, !!camadaRedimensionando);
                 }
             }
 
-            if (estadoUI.areaSelecao.ativo) {
-                const boundingBox = {
-                    x: Math.min(estadoUI.areaSelecao.inicioX, estadoUI.areaSelecao.fimX),
-                    y: Math.min(estadoUI.areaSelecao.inicioY, estadoUI.areaSelecao.fimY),
-                    largura: Math.abs(
-                        estadoUI.areaSelecao.fimX - estadoUI.areaSelecao.inicioX
-                    ),
-                    altura: Math.abs(
-                        estadoUI.areaSelecao.fimY - estadoUI.areaSelecao.inicioY
-                    ),
-                };
-                desenharSelecao(contexto, boundingBox, estadoUI.zoom, 1, false);
+            // --- Área de seleção retangular (arrasto do mouse) ---
+            if (areaSelecao.ativo) {
+                desenharSelecao(contexto, {
+                    x: Math.min(areaSelecao.inicioX, areaSelecao.fimX),
+                    y: Math.min(areaSelecao.inicioY, areaSelecao.fimY),
+                    largura: Math.abs(areaSelecao.fimX - areaSelecao.inicioX),
+                    altura: Math.abs(areaSelecao.fimY - areaSelecao.inicioY),
+                }, zoom, 1, false);
             }
         },
         [estadoUI, todosItens, tokensInfo.length, isMaster]
@@ -881,13 +835,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         isMaster,
         iniciarCapturaArrasto,
         finalizarCapturaArrasto,
-        salvarToken: (tokenId, dados) => {
-            atualizarTokenComHistorico(tokenId, dados);
-            if (socket?.connected) {
-                emitirTokenMovedComHistorico(tokenId, dados);
-                emitirDragEnd(tokenId);
-            }
-        },
+        salvarToken,
     }), [
         containerRef,
         inicioArrastoRef,
@@ -924,6 +872,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         isMaster,
         iniciarCapturaArrasto,
         finalizarCapturaArrasto,
+        salvarToken,
     ]);
 
     const isMobile = isMobileDevice();
@@ -931,55 +880,31 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
     const mobileEvents = useMobileTabletop(commonProps);
     const { handleMouseDown, handleMouseMove, handleMouseUp } = isMobile ? mobileEvents : mouseEvents;
 
-    const handleUndo = useCallback(() => {
-        if (isMaster) {
-            const resultado = handleUndoTokens();
-            if (resultado) {
-                despacharUI({
-                    type: 'SET_FEEDBACK',
-                    payload: { message: 'Ação desfeita', type: 'success' },
-                });
-                setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
-            } else {
-                despacharUI({
-                    type: 'SET_FEEDBACK',
-                    payload: { message: 'Nada para desfazer', type: 'info' },
-                });
-                setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
+    const createHistoryHandler = useCallback(
+        (actionFn, successMsg, emptyMsg) => () => {
+            if (!isMaster) {
+                showFeedback(despacharUI, 'Histórico não disponível para jogadores', 'warning');
+                return;
             }
-        } else {
-            despacharUI({
-                type: 'SET_FEEDBACK',
-                payload: { message: 'Histórico não disponível para jogadores', type: 'warning' },
-            });
-            setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
-        }
-    }, [isMaster, handleUndoTokens, despacharUI]);
+            const resultado = actionFn();
+            if (resultado) {
+                showFeedback(despacharUI, successMsg, 'success');
+            } else {
+                showFeedback(despacharUI, emptyMsg, 'info');
+            }
+        },
+        [isMaster, despacharUI]
+    );
 
-    const handleRedo = useCallback(() => {
-        if (isMaster) {
-            const resultado = handleRedoTokens();
-            if (resultado) {
-                despacharUI({
-                    type: 'SET_FEEDBACK',
-                    payload: { message: 'Ação refeita', type: 'success' },
-                });
-                setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
-            } else {
-                despacharUI({
-                    type: 'SET_FEEDBACK',
-                    payload: { message: 'Nada para refazer', type: 'info' },
-                });
-                setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
-            }
-        } else {
-            despacharUI({
-                type: 'SET_FEEDBACK',
-                payload: { message: 'Histórico não disponível para jogadores', type: 'warning' },
-            });
-            setTimeout(() => despacharUI({ type: 'RESET_UI_FEEDBACK' }), 1000);
-        }
-    }, [isMaster, handleRedoTokens, despacharUI]);
+    const handleUndo = useMemo(
+        () => createHistoryHandler(handleUndoTokens, 'Ação desfeita', 'Nada para desfazer'),
+        [createHistoryHandler, handleUndoTokens]
+    );
+
+    const handleRedo = useMemo(
+        () => createHistoryHandler(handleRedoTokens, 'Ação refeita', 'Nada para refazer'),
+        [createHistoryHandler, handleRedoTokens]
+    );
 
     useAtalhosTeclado(handleUndo, handleRedo);
 
@@ -996,6 +921,8 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
         todosItens,
         estadoUI.tokenSendoArrastado,
         estadoUI.camadaSendoArrastada,
+        estadoUI.tokenRedimensionando,
+        estadoUI.camadaRedimensionando,
         estadoUI.tokenSelecionado,
         estadoUI.camadaSelecionada,
         estadoUI.zoom,
@@ -1115,7 +1042,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                 {isMaster ? (
                     <>
                         <BarraLateral
-                            onAbrirModal={() => setModalTokenAberto(true)}
+                            onAbrirModal={() => setModalTokenAberto(prev => !prev)}
                             onAbrirModalNevoa={(event) => {
                                 const rect = event.currentTarget.getBoundingClientRect();
                                 setMenuNevoaPosicao({ x: rect.right, y: rect.top });
@@ -1139,6 +1066,7 @@ function TabletopGrid({ isMaster = true, sheetId = null, playerName = null }) {
                 tokenId={estadoUI.menuContexto.tokenId}
                 camadaId={estadoUI.menuContexto.camadaId}
                 tipo={estadoUI.menuContexto.tipo || 'token'}
+                grupoSelecionado={estadoUI.menuContexto.grupoSelecionado || []}
                 tokenNome={
                     estadoUI.menuContexto.tipo === 'nevoa'
                         ? 'Camada de Névoa'

@@ -1,5 +1,6 @@
 // src/components/Tabletop/useRenderizacaoToken.jsx
 import { useCallback } from "react";
+import { anguloRotacaoCanvas } from "./useRotacaoToken";
 
 export function useRenderizacaoToken(
     uiState,
@@ -102,7 +103,7 @@ export function useRenderizacaoToken(
 
                 if (token.invertido) context.scale(-1, 1);
                 if (token.rotacao && token.rotacao !== 0) {
-                    context.rotate((token.rotacao * Math.PI) / 180);
+                    context.rotate(anguloRotacaoCanvas(token.rotacao, 'token'));
                 }
 
                 context.translate(-largura / 2, -altura / 2);

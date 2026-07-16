@@ -2,8 +2,9 @@ import React, { useRef, useEffect, useState } from "react";
 import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import EditIcon from '@mui/icons-material/Edit'; // ícone de lápis
-import DeleteIcon from '@mui/icons-material/Delete'; // ícone de lixeira
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCutIcon from '@mui/icons-material/ContentCut';
 import ReactDOM from 'react-dom';
 
 // Mostra o ícone da pasta com badge de quantidade e input de renomeação
@@ -144,7 +145,9 @@ export function MenuContextualPasta(props) {
         y,
         onRenomear,
         onExcluir,
-        onFechar
+        onFechar,
+        onRecortar,
+        onColar,
     } = props;
 
     const menuRef = useRef(null);
@@ -278,6 +281,46 @@ export function MenuContextualPasta(props) {
             >
                 <EditIcon fontSize="small" /> Renomear
             </button>
+
+            {(onRecortar || onColar) && (
+                <>
+                    <div style={{ height: '1px', backgroundColor: '#3a4050', margin: '4px 0' }} />
+
+                    <button
+                        style={{
+                            padding: '10px 16px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            color: '#5b8cff',
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            width: '100%',
+                            border: 'none',
+                            background: 'transparent',
+                            textAlign: 'left',
+                            fontWeight: 500
+                        }}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            if (onColar) onColar();
+                            if (onRecortar) onRecortar();
+                            if (onFechar) onFechar();
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#2a3a50';
+                            e.currentTarget.style.color = '#8ab4ff';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.color = '#5b8cff';
+                        }}
+                    >
+                        <ContentCutIcon fontSize="small" /> {onColar ? 'Colar' : 'Recortar'}
+                    </button>
+                </>
+            )}
 
             <div style={{ height: '1px', backgroundColor: '#3a4050', margin: '4px 0' }} />
 
@@ -503,7 +546,8 @@ export function TokenVisual(props) {
         onContextMenu,
         onDragStart,
         onDragOver,
-        onDrop
+        onDrop,
+        opacity,
     } = props;
 
     const inputRef = useRef(null);
@@ -598,11 +642,11 @@ export function TokenVisual(props) {
         cursor: estaRenomeando ? 'default' : 'grab',
         transition: 'all 0.2s ease',
         position: 'relative',
-        opacity: estaRenomeando ? 0.95 : 1,
-        boxShadow: estaRenomeando 
-            ? '0 0 12px rgba(91,140,255,0.5)' 
-            : isHovered 
-                ? '0 8px 16px rgba(0,0,0,0.3)' 
+        opacity: opacity ?? (estaRenomeando ? 0.95 : 1),
+        boxShadow: estaRenomeando
+            ? '0 0 12px rgba(91,140,255,0.5)'
+            : isHovered
+                ? '0 8px 16px rgba(0,0,0,0.3)'
                 : '0 4px 8px rgba(0,0,0,0.2)',
         width: '100%',
         height: '100%',
@@ -680,21 +724,6 @@ export function TokenVisual(props) {
                 <div style={nomeStyle}>
                     {token.nome}
                 </div>
-            )}
-
-            {isHovered && !estaRenomeando && (
-                <MoreVertIcon
-                    style={{
-                        position: 'absolute',
-                        bottom: '8px',
-                        right: '8px',
-                        fontSize: '18px',
-                        color: '#a0a8b8',
-                        cursor: 'context-menu',
-                        transition: 'color 0.2s ease',
-                        opacity: 0.8
-                    }}
-                />
             )}
         </div>
     );

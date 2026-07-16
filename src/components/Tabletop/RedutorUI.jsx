@@ -42,7 +42,8 @@ export const initialUIState = {
         token: null,
         camadaId: null,
         camada: null,
-        tipo: null
+        tipo: null,
+        grupoSelecionado: []
     },
 
     ui: {
@@ -357,15 +358,10 @@ export function uiReducer(state, action) {
             return {
                 ...state,
                 menuContexto: {
-                    aberto: false,
-                    x: 0,
-                    y: 0,
-                    tokenIndice: null,
-                    tokenId: null,
-                    token: null,
-                    camadaId: null,
-                    camada: null,
-                    tipo: null
+                    aberto: false, x: 0, y: 0,
+                    tokenIndice: null, tokenId: null, token: null,
+                    camadaId: null, camada: null, tipo: null,
+                    grupoSelecionado: []
                 }
             };
         }

@@ -7,7 +7,7 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
     const resizeStartStateRef = useRef(null);
     const redimensionandoRef = useRef(false);
     const ultimoEmitRef = useRef(0);
-    const THROTTLE_MS = 8; // 125 FPS — minima latencia — evita oscilação de socket
+    const THROTTLE_MS = 16; // 60 FPS — suficiente para movimento suave, evita sobrecarga
 
     const processarRedimensionamento = useCallback((
         mouseX,
@@ -44,6 +44,11 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
                 const centroX = minX + (maxX - minX) / 2;
                 const centroY = minY + (maxY - minY) / 2;
 
+                const mouseInicialMundo = {
+                    x: (mouseX - position.x) / zoom,
+                    y: (mouseY - position.y) / zoom
+                };
+
                 const estadoInicialTokens = {};
                 indicesGrupo.forEach(indice => {
                     const token = tokensAtuais[indice];
@@ -59,7 +64,7 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
                 });
 
                 resizeStartStateRef.current = {
-                    mouseInicial: { x: mouseX, y: mouseY },
+                    mouseInicialMundo,
                     boundingBox: {
                         x: minX,
                         y: minY,
@@ -91,24 +96,37 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
                 return tokensAtuais;
             }
             
-            const escalaCalculada = calcularNovaEscalaToken(
-                mundo.mundoX, mundo.mundoY,
-                estadoInicial.boundingBox.x, 
-                estadoInicial.boundingBox.y,
-                estadoInicial.boundingBox.width,
-                estadoInicial.boundingBox.height,
-                modoRedimensionamento?.toLowerCase(),
-                { 
-                    largura: estadoInicial.boundingBox.width, 
-                    altura: estadoInicial.boundingBox.height 
-                },
-                4
-            );
+            // Para GRUPO: usa distancia diagonal do mouse ao canto ancora para escala UNIFORME
+            const boxW = estadoInicial.boundingBox.width;
+            const boxH = estadoInicial.boundingBox.height;
+            const bx = estadoInicial.boundingBox.x;
+            const by = estadoInicial.boundingBox.y;
+            const modo = modoRedimensionamento?.toLowerCase();
 
-            // Normaliza: compensa o amortecimento do bounding box grande
-            const REF = 100;
-            const fator = Math.max(estadoInicial.boundingBox.width, estadoInicial.boundingBox.height) / REF;
-            let escalaFinal = 1 + (escalaCalculada - 1) * fator;
+            let anchorX, anchorY;
+            if (modo === 'se')      { anchorX = bx;       anchorY = by; }
+            else if (modo === 'sw') { anchorX = bx + boxW; anchorY = by; }
+            else if (modo === 'ne') { anchorX = bx;        anchorY = by + boxH; }
+            else                    { anchorX = bx + boxW; anchorY = by + boxH; } // nw
+
+            // Posicao inicial do mouse em coordenadas de mundo (salva no mousedown)
+            const mouseInicialX = estadoInicial.mouseInicialMundo.x;
+            const mouseInicialY = estadoInicial.mouseInicialMundo.y;
+
+            // Projecao do movimento do mouse na DIAGONAL da caixa (com sinal!)
+            const distDiagonal = Math.sqrt(boxW * boxW + boxH * boxH);
+            // Direcao de crescimento: sempre pra FORA da ancora
+            let signX = 1, signY = 1;
+            if (modo === 'sw' || modo === 'nw') signX = -1; // ancora na direita → cresce pra esquerda
+            if (modo === 'ne' || modo === 'nw') signY = -1; // ancora em baixo → cresce pra cima
+            const dirX = signX * boxW / Math.max(distDiagonal, 1);
+            const dirY = signY * boxH / Math.max(distDiagonal, 1);
+            // Movimento do mouse projetado na direcao da diagonal
+            const dx = mundo.mundoX - mouseInicialX;
+            const dy = mundo.mundoY - mouseInicialY;
+            const deltaProjetado = dx * dirX + dy * dirY;
+            let escalaFinal = 1 + deltaProjetado / distDiagonal;
+            escalaFinal = Math.max(0.1, escalaFinal);
 
             // Limite por token: cada token tem sua escala individual (0.1 ~ 4.0)
             // O grupo para quando o PRIMEIRO token atinge o limite
@@ -239,8 +257,6 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
                 escala: estadoInicial.itemInicial.escala
             }
         );
-        console.log('[useRedimensionamentoToken] Redimensionando item:', itemAtual.id, 'novaEscala:', novaEscala, 'modo:', modoRedimensionamento);
-
         if (isNaN(novaEscala) || novaEscala <= 0) {
             return tokensAtuais;
         }
@@ -295,8 +311,6 @@ export function useRedimensionamentoToken({ salvarToken, emitirTokenMoved, emiti
 
     const finalizarRedimensionamento = useCallback(() => {
         if (redimensionandoRef.current) {
-            // Não precisamos mais salvar aqui, pois o save já é feito pelo movimento
-            // e pelo mouseup no useMouseTabletop
             redimensionandoRef.current = false;
             resizeStartStateRef.current = null;
         } else {

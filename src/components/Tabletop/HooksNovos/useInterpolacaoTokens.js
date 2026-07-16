@@ -13,12 +13,12 @@
 
 import { useRef, useCallback } from 'react';
 
-// Threshold em pixels de mundo: quando a distância entre display e target
-// for menor que isso, "snapa" direto (evita micro-animações infinitas)
+// Threshold em pixels de mundo: quando a distancia entre display e target
+// for menor que isso, "snapa" direto (evita micro-animacoes infinitas)
 const SNAP_THRESHOLD = 0.5;
 
-// Duração da animação em ms. Valores baixos = mais responsivo, valores altos = mais suave.
-// 80ms é um bom meio-termo: suave mas não parece "lagado"
+// Duracao da animacao em ms. Valores baixos = mais responsivo, valores altos = mais suave.
+// 80ms eh um bom meio-termo: suave mas nao parece "lagado"
 const ANIMATION_DURATION = 80;
 
 /**
@@ -36,31 +36,47 @@ export function useInterpolacaoTokens() {
   const displaySnapshotRef = useRef(new Map());
 
   /**
-   * Inicia (ou atualiza) uma animação de interpolação para um token.
-   * Chamado quando chega uma atualização de posição remota.
+   * Inicia (ou atualiza) uma animacao de interpolacao para um token.
+   * Chamado quando chega uma atualizacao de posicao remota.
    *
    * @param {string} tokenId
-   * @param {number} x - posição X de mundo (target)
-   * @param {number} y - posição Y de mundo (target)
+   * @param {number} x - posicao X de mundo (target)
+   * @param {number} y - posicao Y de mundo (target)
+   * @param {boolean} [snap] - se true, aplica posicao direto sem animacao
    */
-  const animateTo = useCallback((tokenId, x, y) => {
+  const animateTo = useCallback((tokenId, x, y, snap = false) => {
     const anims = animationsRef.current;
+
+    if (snap) {
+      // Snap: cancela qualquer animacao e remove do snapshot.
+      // O token passa a renderizar pela posicao real do tokensLocal,
+      // sem interpolacao. Usado durante drag remoto ativo.
+      anims.delete(tokenId);
+      displaySnapshotRef.current.delete(tokenId);
+      return;
+    }
+
     const existing = anims.get(tokenId);
-    const now = performance.now();
 
-    // Se já existe animação, usa a posição display atual como "from"
-    // para evitar saltos quando chegam múltiplas atualizações rápidas
-    const fromX = existing ? existing.toX : (displaySnapshotRef.current.get(tokenId)?.x ?? x);
-    const fromY = existing ? existing.toY : (displaySnapshotRef.current.get(tokenId)?.y ?? y);
+    if (existing) {
+      // Animacao ja ativa: apenas atualiza o target, sem resetar startTime.
+      existing.toX = x;
+      existing.toY = y;
+    } else {
+      // Nova animacao: parte da posicao display atual
+      const now = performance.now();
+      const fromX = displaySnapshotRef.current.get(tokenId)?.x ?? x;
+      const fromY = displaySnapshotRef.current.get(tokenId)?.y ?? y;
 
-    anims.set(tokenId, {
-      fromX,
-      fromY,
-      toX: x,
-      toY: y,
-      startTime: now,
-      duration: ANIMATION_DURATION,
-    });
+      anims.set(tokenId, {
+        fromX,
+        fromY,
+        toX: x,
+        toY: y,
+        startTime: now,
+        duration: ANIMATION_DURATION,
+      });
+    }
   }, []);
 
   /**

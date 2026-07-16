@@ -2,6 +2,11 @@ import io from 'socket.io-client';
 
 const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
 
+// ⏱️ Habilita debug interno do socket.io-client (mostra timing de cada pacote)
+if (!isProd && typeof localStorage !== 'undefined') {
+  localStorage.debug = 'socket.io-client:*';
+}
+
 const socket = io({
   // WebSocket primeiro, polling como fallback
   // Essencial: mobile/Funnel frequentemente falha WebSocket puro
@@ -17,37 +22,21 @@ const socket = io({
 });
 
 // ─── Log de transporte: WebSocket vs Polling ───────────────────
-// Polling HTTP adiciona 50-200ms por evento. Se aparecer "polling"
-// no console, ha um problema de conectividade WebSocket.
 socket.on('connect', () => {
   const transport = socket.io?.engine?.transport?.name || 'desconhecido';
-  console.log(
-    `%c[socket] Conectado via ${transport}`,
-    transport === 'websocket' ? 'color: #4caf50' : 'color: #ff9800'
-  );
   if (transport !== 'websocket') {
-    console.warn(
-      '[socket] ATENCAO: usando polling HTTP. Latencia aumentada.\n' +
-      '  Verifique se ha firewall/proxy bloqueando WebSocket.\n' +
-      '  Cloudflare Tunnel requer configuracao adicional para WebSocket.'
-    );
+    console.warn('[socket] Usando polling HTTP. Latencia aumentada.');
   }
 });
 
-// Upgrade de polling → WebSocket
-socket.io?.engine?.on?.('upgrade', (transport) => {
-  console.log(`%c[socket] Upgrade para ${transport.name}`, 'color: #4caf50');
-});
+socket.io?.engine?.on?.('upgrade', () => {});
 
 // Log de latencia a cada 30s
 if (isProd) {
   setInterval(() => {
     if (socket.connected) {
       const start = Date.now();
-      socket.emit('ping', () => {
-        const rtt = Date.now() - start;
-        console.log(`[socket] Latencia round-trip: ${rtt}ms`);
-      });
+      socket.emit('ping', () => { void (Date.now() - start); });
     }
   }, 30000);
 }

@@ -3,7 +3,7 @@ import React, { useCallback, useRef } from "react";
 import { calcularPosicoesBolinhas } from './useSelecaoToken';
 
 const MOVE_THRESHOLD = 5;
-const THROTTLE_MS = 8; // 125 FPS — minima latencia — evita oscilação de socket
+const THROTTLE_MS = 16; // 60 FPS — suficiente para movimento suave, evita sobrecarga
 
 export function useMouseTabletop({
     containerRef,
@@ -699,16 +699,25 @@ export function useMouseTabletop({
             // Clique direito em token SEM movimento → menu de contexto
             if (uiState.mouseDownInfo && uiState.ui.isClickingToken && !teveMovimentoRef.current) {
                 const tokenSobre = uiState.mouseDownInfo.token;
-                uiDispatch({ type: 'SELECT_TOKEN', payload: tokenSobre.indice });
+                const tokenIndice = tokenSobre.indice;
+                const jaEstaNoGrupo = uiState.tokensSelecionados.includes(tokenIndice);
+                const grupoSelecionado = uiState.tokensSelecionados.length > 1 && jaEstaNoGrupo;
+
+                if (!grupoSelecionado) {
+                    uiDispatch({ type: 'SELECT_TOKEN', payload: tokenIndice });
+                }
+
                 uiDispatch({
                     type: 'OPEN_CONTEXT_MENU',
                     payload: {
                         aberto: true,
                         x: event.clientX,
                         y: event.clientY,
-                        tokenIndice: tokenSobre.indice,
+                        tokenIndice: tokenIndice,
                         tokenId: tokenSobre.token.id,
-                        token: tokenSobre.token
+                        token: tokenSobre.token,
+                        // Multi-seleção: envia array de tokens selecionados para ações em lote
+                        grupoSelecionado: grupoSelecionado ? uiState.tokensSelecionados : [],
                     }
                 });
             }

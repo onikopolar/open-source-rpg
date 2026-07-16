@@ -3,7 +3,7 @@ import { useCallback, useRef } from "react";
 import { calcularPosicoesBolinhas } from '../useSelecaoToken';
 
 const MOVE_THRESHOLD = 5;
-const THROTTLE_MS = 8; // 125 FPS — minima latencia — evita oscilação de socket
+const THROTTLE_MS = 8; // Touch events ja sao limitados pelo SO (~60Hz), throttle leve evita perda
 const LONG_PRESS_DURATION = 500; // ms para considerar toque longo
 
 export function useMobileTabletop({

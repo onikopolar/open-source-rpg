@@ -173,12 +173,16 @@ export function useHistoricoTokens({
 
     // Wrappers para funções que devem capturar histórico
     const atualizarTokenComHistorico = useCallback(async (tokenId, dados) => {
+        // Tokens otimistas (temp-*) nao existem no banco — nao persiste
+        if (typeof tokenId === 'string' && tokenId.startsWith('temp-')) return null;
         const resultado = await atualizarToken(tokenId, dados);
         capturarAcaoDiscreta('Atualização de token');
         return resultado;
     }, [atualizarToken, capturarAcaoDiscreta]);
 
     const emitirTokenMovedComHistorico = useCallback((tokenId, dados) => {
+        // Tokens otimistas (temp-*) nao devem ser broadcastados
+        if (typeof tokenId === 'string' && tokenId.startsWith('temp-')) return;
         emitirTokenMoved(tokenId, dados);
         // NÃO capturar histórico aqui - será capturado no final do arrasto
         // capturarAcao('Movimento de token');
@@ -190,27 +194,32 @@ export function useHistoricoTokens({
     }, [emitirTokenCreated, capturarAcaoDiscreta]);
 
     const emitirTokenDeletedComHistorico = useCallback((tokenId) => {
+        if (typeof tokenId === 'string' && tokenId.startsWith('temp-')) return;
         emitirTokenDeleted(tokenId);
         capturarAcaoDiscreta('Exclusão de token');
     }, [emitirTokenDeleted, capturarAcaoDiscreta]);
 
     // Wrappers para outras funções de emitir
     const emitirTokenVisibilityChangedComHistorico = useCallback((tokenId, oculto) => {
+        if (typeof tokenId === 'string' && tokenId.startsWith('temp-')) return;
         emitirTokenVisibilityChanged(tokenId, oculto);
         capturarAcaoDiscreta(`Visibilidade alterada: ${oculto ? 'oculto' : 'visível'}`);
     }, [emitirTokenVisibilityChanged, capturarAcaoDiscreta]);
 
     const emitirTokenLockChangedComHistorico = useCallback((tokenId, bloqueado) => {
+        if (typeof tokenId === 'string' && tokenId.startsWith('temp-')) return;
         emitirTokenLockChanged(tokenId, bloqueado);
         capturarAcaoDiscreta(`Bloqueio alterado: ${bloqueado ? 'bloqueado' : 'desbloqueado'}`);
     }, [emitirTokenLockChanged, capturarAcaoDiscreta]);
 
-    const emitirTokenInvertedComHistorico = useCallback((tokenId, invertido) => {
-        emitirTokenInverted(tokenId, invertido);
+    const emitirTokenInvertedComHistorico = useCallback((tokenId, invertido, _traceId, _tsClique) => {
+        if (typeof tokenId === 'string' && tokenId.startsWith('temp-')) return;
+        emitirTokenInverted(tokenId, invertido, _traceId, _tsClique);
         capturarAcaoDiscreta(`Inversão alterada: ${invertido ? 'invertido' : 'normal'}`);
     }, [emitirTokenInverted, capturarAcaoDiscreta]);
 
     const emitirTokenZIndexChangedComHistorico = useCallback((tokenId, zIndex) => {
+        if (typeof tokenId === 'string' && tokenId.startsWith('temp-')) return;
         emitirTokenZIndexChanged(tokenId, zIndex);
         capturarAcaoDiscreta('Z-index alterado');
     }, [emitirTokenZIndexChanged, capturarAcaoDiscreta]);

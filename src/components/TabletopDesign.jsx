@@ -4,6 +4,7 @@ import { Box } from "@mui/material";
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import BrushIcon from '@mui/icons-material/Brush';
 import { calcularPosicoesBolinhas } from "./Tabletop/useSelecaoToken";
+import { anguloRotacaoCanvas } from "./Tabletop/useRotacaoToken";
 
 // Cores fixas para cada sheetId
 const coresPorSheet = {};
@@ -42,10 +43,12 @@ export function desenharFallbackToken(ctx, x, y, zoomAtual, nomeToken) {
     ctx.font = '10px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(nomeToken || "Token", x + (50 * zoomAtual) / 2, y + (50 * zoomAtual) / 2);
+    if (nomeToken) {
+        ctx.fillText(nomeToken, x + (50 * zoomAtual) / 2, y + (50 * zoomAtual) / 2);
+    }
 }
 
-export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, semFundo = false, escala = null, rotacao = 0) {
+export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, semFundo = false, escala = null, rotacao = 0, mostrarInfo = false) {
     if (!boundingBox) return;
     ctx.save();
     const padding = 4;
@@ -58,7 +61,7 @@ export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, sem
 
     if (rotacao && rotacao !== 0) {
         ctx.translate(cx, cy);
-        ctx.rotate((rotacao * Math.PI) / 180);
+        ctx.rotate(anguloRotacaoCanvas(rotacao, 'selecao'));
         ctx.translate(-cx, -cy);
     }
     if (!semFundo) {
@@ -75,17 +78,24 @@ export function desenharSelecao(ctx, boundingBox, zoom, quantidadeItens = 1, sem
     ctx.fillRect(x + width - tamanhoCanto + 2, y - 2, tamanhoCanto, tamanhoCanto);
     ctx.fillRect(x - 2, y + height - tamanhoCanto + 2, tamanhoCanto, tamanhoCanto);
     ctx.fillRect(x + width - tamanhoCanto + 2, y + height - tamanhoCanto + 2, tamanhoCanto, tamanhoCanto);
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 4;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.font = 'bold 12px Arial';
-    ctx.textAlign = 'center';
-    if (quantidadeItens > 1) {
-        ctx.fillText(`${quantidadeItens} itens selecionados`, x + width / 2, y - 10);
-    } else if (escala !== null && escala !== undefined) {
-        ctx.fillText(`${escala.toFixed(2)}×`, x + width / 2, y - 10);
-    } else {
-        ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + width / 2, y - 10);
+
+    // Texto de info só aparece durante redimensionamento ou multi-seleção
+    if (mostrarInfo || quantidadeItens > 1) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const textoX = x + width + 8; // à direita da caixa de seleção
+        const textoY = y + height / 2;
+        if (quantidadeItens > 1) {
+            ctx.fillText(`${quantidadeItens} itens selecionados`, textoX, textoY);
+        } else if (escala !== null && escala !== undefined) {
+            ctx.fillText(`${escala.toFixed(2)}×`, textoX, textoY);
+        } else {
+            ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, textoX, textoY);
+        }
     }
     ctx.restore();
     // Bolinhas desenhadas fora do ctx.rotate() — usam rotação via calcularPosicoesBolinhas

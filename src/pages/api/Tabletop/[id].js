@@ -25,22 +25,34 @@ export default async function handler(req, res) {
 
   if (req.method === 'PUT') {
     try {
-      const { x, y, escala, invertido, oculto, bloqueado, zIndex, rotacao } = req.body;
+      const { x, y, escala, invertido, oculto, bloqueado, zIndex, rotacao, nome } = req.body;
+
+      const updateData = {
+        ...(x !== undefined && { x }),
+        ...(y !== undefined && { y }),
+        ...(escala !== undefined && { escala }),
+        ...(invertido !== undefined && { invertido }),
+        ...(oculto !== undefined && { oculto }),
+        ...(bloqueado !== undefined && { bloqueado }),
+        ...(zIndex !== undefined && { zIndex }),
+        ...(rotacao !== undefined && { rotacao }),
+        ...(nome !== undefined && { nome }),
+        updatedAt: new Date()
+      };
 
       const token = await prisma.tabletopToken.update({
         where: { id },
-        data: {
-          x: x !== undefined ? x : undefined,
-          y: y !== undefined ? y : undefined,
-          escala: escala !== undefined ? escala : undefined,
-          invertido: invertido !== undefined ? invertido : undefined,
-          oculto: oculto !== undefined ? oculto : undefined,
-          bloqueado: bloqueado !== undefined ? bloqueado : undefined,
-          zIndex: zIndex !== undefined ? zIndex : undefined,
-          rotacao: rotacao !== undefined ? rotacao : undefined,
-          updatedAt: new Date()
-        }
+        data: updateData
       });
+
+      // Se renomeou um token de biblioteca (parentId=null), propaga o nome
+      // para todas as instâncias filhas no tabletop.
+      if (nome !== undefined && token.parentId === null) {
+        await prisma.tabletopToken.updateMany({
+          where: { parentId: id },
+          data: { nome, updatedAt: new Date() }
+        });
+      }
 
       return res.status(200).json(token);
     } catch (error) {
@@ -59,9 +71,10 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'Token não encontrado' });
       }
 
-      if (token.imageUrl) {
+      // Só deleta o arquivo se for token de biblioteca (parentId=null).
+      // Instâncias compartilham o arquivo com o token original.
+      if (token.imageUrl && token.parentId === null) {
         const filePath = path.join(process.cwd(), 'public', token.imageUrl);
-
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
@@ -71,7 +84,7 @@ export default async function handler(req, res) {
         where: { id }
       });
 
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true, deletedParentId: token.parentId });
     } catch (error) {
       console.error('[API Tabletop/[id]] DELETE - Erro:', error.message);
       return res.status(500).json({ error: 'Erro ao deletar token' });

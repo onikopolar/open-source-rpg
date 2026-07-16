@@ -39,7 +39,25 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       }
 
-      const ext = path.extname(file.originalFilename);
+      // MIME type do arquivo (para determinar extensão quando o blob não tem nome)
+      const mimeType = file.mimetype || 'image/png';
+      
+      // Extensão: usa a do arquivo original, ou deduz do MIME type para blobs
+      let ext = path.extname(file.originalFilename || '');
+      if (!ext) {
+        // Blob sem nome (ex: imagem redimensionada) — deduz extensão do MIME
+        const mimeMap = {
+          'image/png': '.png',
+          'image/jpeg': '.jpg',
+          'image/jpg': '.jpg',
+          'image/gif': '.gif',
+          'image/webp': '.webp',
+          'image/bmp': '.bmp',
+          'image/svg+xml': '.svg',
+        };
+        ext = mimeMap[mimeType] || '.png';
+      }
+      
       const nomeArquivo = `${Date.now()}${ext}`;
       const caminhoAntigo = file.filepath;
       const caminhoNovo = path.join(uploadDir, nomeArquivo);

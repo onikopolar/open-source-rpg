@@ -1,84 +1,7 @@
 // src/components/TokenModal/TokenModal.jsx
 import React, { useState, useEffect, useRef } from "react";
 import TokenDesign from "./TokenDesign";
-
-const DragDropSystem = {
-    listeners: new Map(),
-
-    register(id, element, handler) {
-        this.listeners.set(id, { element, handler });
-    },
-
-    unregister(id) {
-        this.listeners.delete(id);
-    },
-
-    processDrop(event, dados) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const listenersValidos = [];
-
-        for (let [id, listener] of this.listeners) {
-            if (!listener.element || !document.body.contains(listener.element)) {
-                this.listeners.delete(id);
-                continue;
-            }
-
-            try {
-                const rect = listener.element.getBoundingClientRect();
-                const area = rect.width * rect.height;
-                listenersValidos.push({ id, ...listener, rect, area });
-            } catch (e) {
-                // Silently skip invalid elements
-            }
-        }
-
-        const listenersComMouseDentro = listenersValidos.filter(l => {
-            return event.clientX >= l.rect.left &&
-                event.clientX <= l.rect.right &&
-                event.clientY >= l.rect.top &&
-                event.clientY <= l.rect.bottom;
-        });
-
-        if (listenersComMouseDentro.length === 0) {
-            if (this.listeners.has('BibliotecaRaiz')) {
-                this.listeners.get('BibliotecaRaiz').handler(dados, event);
-            }
-            return;
-        }
-
-        let elementoMaisProfundo = null;
-        let maiorProfundidade = -1;
-
-        listenersComMouseDentro.forEach(l => {
-            try {
-                if (l.element.contains(event.target) || event.target.contains(l.element)) {
-                    let profundidade = 0;
-                    let elemento = l.element;
-                    while (elemento.parentElement) {
-                        profundidade++;
-                        elemento = elemento.parentElement;
-                    }
-
-                    if (profundidade > maiorProfundidade) {
-                        maiorProfundidade = profundidade;
-                        elementoMaisProfundo = l;
-                    }
-                }
-            } catch (e) {
-                // Silently skip depth calculation errors
-            }
-        });
-
-        const alvo = elementoMaisProfundo || listenersComMouseDentro.sort((a, b) => a.area - b.area)[0];
-        try {
-            alvo.handler(dados, event);
-        } catch (erro) {
-            // Silently ignore handler errors
-        }
-    }
-};
+import DragDropSystem from "../../utils/DragDropSystem";
 
 function renomearPastaUtil(idPasta, novoNome, setBibliotecaTokens, setPastaAtual) {
     setBibliotecaTokens(prev => {
@@ -100,8 +23,14 @@ function renomearPastaUtil(idPasta, novoNome, setBibliotecaTokens, setPastaAtual
     }
 }
 
-function renomearTokenUtil(idToken, novoNome, setBibliotecaTokens) {
+async function renomearTokenUtil(idToken, novoNome, setBibliotecaTokens) {
+    console.log('[renomearTokenUtil] INÍCIO - idToken:', idToken, 'novoNome:', novoNome);
+    
+    // Atualiza local primeiro (otimista)
     setBibliotecaTokens(prev => {
+        console.log('[renomearTokenUtil] Atualizando state local, total itens:', prev.length);
+        const token = prev.find(item => item.id === idToken && item.tipo === 'token');
+        console.log('[renomearTokenUtil] Token encontrado no state?', !!token, 'nome antigo:', token?.nome, 'tipo:', token?.tipo, 'parentId:', token?.parentId);
         const novos = prev.map(item =>
             item.id === idToken && item.tipo === "token"
                 ? { ...item, nome: novoNome }
@@ -109,18 +38,35 @@ function renomearTokenUtil(idToken, novoNome, setBibliotecaTokens) {
         );
         return novos;
     });
+    // Persiste no banco
+    try {
+        console.log('[renomearTokenUtil] Enviando PUT /api/Tabletop/' + idToken + ' com body:', JSON.stringify({ nome: novoNome }));
+        const response = await fetch(`/api/Tabletop/${idToken}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: novoNome })
+        });
+        const data = await response.json();
+        console.log('[renomearTokenUtil] Resposta do servidor - status:', response.status, 'body:', JSON.stringify(data));
+        if (!response.ok) {
+            console.error('[renomearTokenUtil] ❌ Servidor retornou erro:', data);
+        } else {
+            console.log('[renomearTokenUtil] ✅ Token renomeado no servidor. parentId retornado:', data.parentId);
+        }
+    } catch (e) {
+        console.error('[renomearTokenUtil] ❌ Erro de rede:', e.message);
+    }
 }
 
 function TokenModal(props) {
+    console.log('[TokenModal] 🟢 COMPONENTE MONTADO, open=', props.open);
     const [open, setOpen] = useState(props.open || false);
     const [isDragging, setIsDragging] = useState(false);
     const modalRef = useRef(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (isDragging && props.open === false) {
-            return;
-        }
+        if (isDragging && props.open === false) return;
         setOpen(props.open || false);
     }, [props.open, isDragging]);
 
@@ -131,15 +77,10 @@ function TokenModal(props) {
     };
 
     useEffect(() => {
-        const handleDragStartGlobal = () => {
-            setIsDragging(true);
-        };
-
+        const handleDragStartGlobal = () => setIsDragging(true);
         const handleDragEndGlobal = () => {
             setIsDragging(false);
-            if (!props.open) {
-                setOpen(false);
-            }
+            if (!props.open) setOpen(false);
         };
 
         window.addEventListener('dragstart', handleDragStartGlobal);
@@ -184,6 +125,56 @@ function TokenModal(props) {
     const [menuContextualToken, setMenuContextualToken] = useState({
         aberto: false, x: 0, y: 0, idToken: null, nomeToken: null
     });
+    const [tokenClipboard, setTokenClipboard] = useState(null); // { id, nome, pastaPai }
+
+    // Recortar token: marca com flag visual (nao remove)
+    const recortarToken = (idToken, pastaPai) => {
+        let token;
+        if (pastaPai) {
+            const pasta = bibliotecaTokens.find(p => p.id === pastaPai && p.tipo === 'pasta');
+            token = pasta?.itens?.find(t => t.id === idToken && t.tipo === 'token');
+        } else {
+            token = bibliotecaTokens.find(t => t.id === idToken && t.tipo === 'token');
+        }
+        if (!token) return;
+        setTokenClipboard({ id: token.id, nome: token.nome, pastaPai });
+        setMenuContextualToken({ aberto: false, x: 0, y: 0, idToken: null, nomeToken: null });
+    };
+
+    // Colar token: remove do local anterior e adiciona ao novo
+    const colarToken = (pastaDestinoId) => {
+        if (!tokenClipboard) return;
+
+        let token;
+        if (tokenClipboard.pastaPai) {
+            const pasta = bibliotecaTokens.find(p => p.id === tokenClipboard.pastaPai && p.tipo === 'pasta');
+            token = pasta?.itens?.find(t => t.id === tokenClipboard.id && t.tipo === 'token');
+        } else {
+            token = bibliotecaTokens.find(t => t.id === tokenClipboard.id && t.tipo === 'token');
+        }
+
+        if (!token) { setTokenClipboard(null); return; }
+
+        // Remove do local anterior
+        if (tokenClipboard.pastaPai) {
+            removerItemDaPastaAtual(tokenClipboard.pastaPai, tokenClipboard.id);
+        } else {
+            setBibliotecaTokens(prev => prev.filter(t => t.id !== tokenClipboard.id));
+        }
+
+        // Adiciona ao novo local
+        const tokenLimpo = { ...token, _recortado: false };
+        if (pastaDestinoId) {
+            adicionarItemNaPastaAtual(pastaDestinoId, tokenLimpo);
+        } else {
+            setBibliotecaTokens(prev => {
+                const jaExiste = prev.some(t => t.id === tokenLimpo.id && t.tipo === 'token');
+                if (jaExiste) return prev;
+                return [...prev, tokenLimpo];
+            });
+        }
+        setTokenClipboard(null);
+    };
 
     const handleDragStart = (e, dados) => {
         setIsDragging(true);
@@ -200,46 +191,60 @@ function TokenModal(props) {
         }
     };
 
-    const handleDragOver = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.dataTransfer.dropEffect = 'move';
-    };
-
-    const handleDrop = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        try {
-            const dados = JSON.parse(e.dataTransfer.getData('application/json'));
-            DragDropSystem.processDrop(e, dados);
-
-            if (e.target.closest('.MuiModal-root')) {
-                setOpen(true);
-            }
-        } catch (erro) {
-            // Silently ignore parse errors
-        }
-    };
-
     const carregarTokensBiblioteca = async () => {
         try {
             setLoading(true);
             const response = await fetch('/api/Tabletop/tokens');
             const data = await response.json();
+            console.log('[carregarTokensBiblioteca] Resposta do servidor - total tokens:', data.length);
+            data.forEach(t => {
+                console.log(`[carregarTokensBiblioteca]   id=${t.id} tokenId=${t.tokenId} nome="${t.nome}" parentId=${t.parentId}`);
+            });
 
             if (response.ok) {
-                const tokensBiblioteca = data.map(token => ({
-                    id: token.id,
-                    tipo: "token",
-                    nome: token.nome,
-                    imagemUrl: token.imageUrl,
-                    larguraOriginal: token.larguraOriginal,
-                    alturaOriginal: token.alturaOriginal,
-                    pastaPai: null,
-                    dataCriacao: token.createdAt
-                }));
-                setBibliotecaTokens(tokensBiblioteca);
+                // Remove duplicatas por tokenId (mantem o primeiro encontrado = mais recente)
+                const seenTokenIds = new Set();
+                const tokensServidor = data
+                    .filter(token => {
+                        if (seenTokenIds.has(token.tokenId)) {
+                            console.warn(`[Biblioteca] Token duplicado ignorado: ${token.tokenId} (DB id: ${token.id})`);
+                            return false;
+                        }
+                        seenTokenIds.add(token.tokenId);
+                        return true;
+                    })
+                    .map(token => ({
+                        id: token.id,
+                        tokenId: token.tokenId,
+                        tipo: "token",
+                        nome: token.nome,
+                        imagemUrl: token.imageUrl,
+                        imagemBase64: token.imageBase64 || null,
+                        larguraOriginal: token.larguraOriginal,
+                        alturaOriginal: token.alturaOriginal,
+                        mimeType: token.mimeType || null,
+                        parentId: token.parentId,
+                        pastaPai: null,
+                        dataCriacao: token.createdAt
+                    }));
+
+                // Carrega pastas do banco (via API)
+                let pastasSalvas = [];
+                try {
+                    const res = await fetch('/api/Tabletop/folders');
+                    if (res.ok) pastasSalvas = await res.json();
+                } catch (e) { /* ignora */ }
+
+                // 🔒 DEDUP GLOBAL: remove duplicatas por ID (mantem primeira ocorrencia)
+                const todosItens = [...tokensServidor, ...pastasSalvas];
+                const seenIds = new Set();
+                const deduped = todosItens.filter(item => {
+                    if (seenIds.has(item.id)) return false;
+                    seenIds.add(item.id);
+                    return true;
+                });
+
+                setBibliotecaTokens(deduped);
             }
         } catch (error) {
             // Silently ignore fetch errors
@@ -247,6 +252,25 @@ function TokenModal(props) {
             setLoading(false);
         }
     };
+
+    // Persiste pastas no banco (via API) - COM DEDUP
+    useEffect(() => {
+        const pastas = bibliotecaTokens.filter(item => item.tipo === 'pasta');
+        // 🔒 Dedup pastas antes de persistir
+        const seenPastaIds = new Set();
+        const pastasDeduped = pastas.filter(p => {
+            if (seenPastaIds.has(p.id)) return false;
+            seenPastaIds.add(p.id);
+            return true;
+        });
+        if (pastasDeduped.length > 0) {
+            fetch('/api/Tabletop/folders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(pastasDeduped)
+            }).catch(() => {});
+        }
+    }, [bibliotecaTokens]);
 
     const salvarTokenNaAPI = async (token) => {
         try {
@@ -286,9 +310,7 @@ function TokenModal(props) {
     };
 
     const salvarTokenNaBiblioteca = async () => {
-        if (!imagemSelecionada || !nomeToken.trim()) {
-            return;
-        }
+        if (!imagemSelecionada || !nomeToken.trim()) return;
 
         try {
             setLoading(true);
@@ -322,6 +344,7 @@ function TokenModal(props) {
             if (tokenSalvo) {
                 const tokenParaBiblioteca = {
                     id: tokenSalvo.id,
+                    tokenId: tokenSalvo.tokenId || novoToken.tokenId,
                     tipo: "token",
                     nome: nomeToken.trim(),
                     imagemUrl: imagemSelecionada,
@@ -332,7 +355,18 @@ function TokenModal(props) {
                     dataCriacao: new Date().toISOString()
                 };
 
-                setBibliotecaTokens(prev => [...prev, tokenParaBiblioteca]);
+                // Anti-duplicata: se token ja existe na biblioteca, atualiza em vez de duplicar
+                setBibliotecaTokens(prev => {
+                    const jaExiste = prev.some(t => t.id === tokenParaBiblioteca.id && t.tipo === 'token');
+                    if (jaExiste) {
+                        return prev.map(t =>
+                            t.id === tokenParaBiblioteca.id && t.tipo === 'token'
+                                ? tokenParaBiblioteca
+                                : t
+                        );
+                    }
+                    return [...prev, tokenParaBiblioteca];
+                });
                 setImagemSelecionada(null);
                 setImagemBase64(null);
                 setNomeToken("");
@@ -353,8 +387,38 @@ function TokenModal(props) {
     };
 
     const renomearToken = (id, novoNome) => {
+        console.log('[renomearToken] Chamado - id:', id, 'novoNome:', novoNome);
         renomearTokenUtil(id, novoNome, setBibliotecaTokens);
     };
+
+    const renomearPasta = (id, novoNome) => {
+        renomearPastaUtil(id, novoNome, setBibliotecaTokens, setPastaAtual);
+    };
+
+    // === Utilitarios de renomeacao genericos (pasta e token) ===
+    const _iniciar = (setId, setNome, setMenu) => (id, nomeAtual) => {
+        console.log('[_iniciar] Iniciando renomeação - id:', id, 'nomeAtual:', nomeAtual);
+        setId(id); setNome(nomeAtual); setMenu(prev => ({ ...prev, aberto: false }));
+    };
+    const _salvar = (idState, nomeState, setId, setNome, onRename) => () => {
+        console.log('[_salvar] Salvando renomeação - idState:', idState, 'nomeState:', nomeState, 'nomeState.trim():', nomeState?.trim());
+        if (idState && nomeState?.trim()) {
+            console.log('[_salvar] ✅ Vai chamar onRename');
+            onRename(idState, nomeState.trim());
+        } else {
+            console.log('[_salvar] ❌ Condição FALHOU - idState ou nomeState.trim() é falsy. Não vai renomear!');
+        }
+        setId(null); setNome("");
+    };
+    const _cancelar = (setId, setNome) => () => { setId(null); setNome(""); };
+
+    const iniciarRenomeacaoPasta = _iniciar(setPastaRenomeando, setNovoNomePasta, setMenuContextual);
+    const salvarRenomeacaoPasta = _salvar(pastaRenomeando, novoNomePasta, setPastaRenomeando, setNovoNomePasta, renomearPasta);
+    const cancelarRenomeacaoPasta = _cancelar(setPastaRenomeando, setNovoNomePasta);
+
+    const iniciarRenomeacaoToken = _iniciar(setTokenRenomeando, setNovoNomeToken, setMenuContextualToken);
+    const salvarRenomeacaoToken = _salvar(tokenRenomeando, novoNomeToken, setTokenRenomeando, setNovoNomeToken, renomearToken);
+    const cancelarRenomeacaoToken = _cancelar(setTokenRenomeando, setNovoNomeToken);
 
     const criarPasta = (itensDentro, nomeSugerido) => {
         const pastasExistentes = bibliotecaTokens.filter(item => item.tipo === "pasta");
@@ -369,122 +433,49 @@ function TokenModal(props) {
         return novaPasta;
     };
 
+    // === Utilitarios de manipulacao de pasta ===
+
+    const atualizarItens = (idPasta, operacao) => (prev) =>
+        prev.map(p => p.id === idPasta && p.tipo === "pasta" ? operacao(p) : p);
+
     const adicionarItemNaPasta = (idPasta, item) => {
-        setBibliotecaTokens(prev => {
-            const novos = prev.map(p =>
-                p.id === idPasta && p.tipo === "pasta"
-                    ? { ...p, itens: [...p.itens, item] }
-                    : p
-            );
-            return novos;
-        });
+        setBibliotecaTokens(atualizarItens(idPasta, p => {
+            const semDuplicata = p.itens.filter(i => i.id !== item.id);
+            return { ...p, itens: [...semDuplicata, item] };
+        }));
     };
 
     const removerItemDaPasta = (idPasta, idItem) => {
-        setBibliotecaTokens(prev => {
-            const novos = prev.map(p =>
-                p.id === idPasta && p.tipo === "pasta"
-                    ? { ...p, itens: p.itens.filter(i => i.id !== idItem) }
-                    : p
-            );
-            return novos;
+        setBibliotecaTokens(atualizarItens(idPasta, p => ({ ...p, itens: p.itens.filter(i => i.id !== idItem) })));
+    };
+
+    // Wrappers que tambem atualizam pastaAtual
+    const adicionarItemNaPastaAtual = (idPasta, item) => {
+        adicionarItemNaPasta(idPasta, item);
+        setPastaAtual(prev => {
+            if (prev?.id !== idPasta) return prev;
+            const jaExiste = prev.itens?.some(i => i.id === item.id);
+            if (jaExiste) return prev;
+            return { ...prev, itens: [...(prev.itens || []), item] };
         });
+    };
+
+    const removerItemDaPastaAtual = (idPasta, idItem) => {
+        removerItemDaPasta(idPasta, idItem);
+        setPastaAtual(prev => prev?.id === idPasta ? { ...prev, itens: prev.itens.filter(i => i.id !== idItem) } : prev);
     };
 
     const excluirPasta = (idPasta) => {
         setBibliotecaTokens(prev => {
             const pasta = prev.find(item => item.id === idPasta && item.tipo === "pasta");
-            if (pasta) {
-                const novos = [...prev.filter(item => item.id !== idPasta), ...(pasta.itens || [])];
-                return novos;
-            }
+            if (pasta) return [...prev.filter(item => item.id !== idPasta), ...(pasta.itens || [])];
             return prev;
         });
     };
 
-    const renomearPasta = (id, novoNome) => {
-        renomearPastaUtil(id, novoNome, setBibliotecaTokens, setPastaAtual);
-    };
-
-    const iniciarRenomeacaoPasta = (id, nomeAtual) => {
-        setPastaRenomeando(id);
-        setNovoNomePasta(nomeAtual);
-        setMenuContextual({ aberto: false, x: 0, y: 0, idPasta: null, nomePasta: null });
-    };
-
-    const iniciarRenomeacaoToken = (id, nomeAtual) => {
-        setTokenRenomeando(id);
-        setNovoNomeToken(nomeAtual);
-        setMenuContextualToken({ aberto: false, x: 0, y: 0, idToken: null, nomeToken: null });
-    };
-
-    const salvarRenomeacaoPasta = () => {
-        if (pastaRenomeando && novoNomePasta?.trim()) {
-            renomearPasta(pastaRenomeando, novoNomePasta.trim());
-        }
-        setPastaRenomeando(null);
-        setNovoNomePasta("");
-    };
-
-    const salvarRenomeacaoToken = () => {
-        if (tokenRenomeando && novoNomeToken?.trim()) {
-            renomearToken(tokenRenomeando, novoNomeToken.trim());
-        }
-        setTokenRenomeando(null);
-        setNovoNomeToken("");
-    };
-
-    const cancelarRenomeacaoPasta = () => {
-        setPastaRenomeando(null);
-        setNovoNomePasta("");
-    };
-
-    const cancelarRenomeacaoToken = () => {
-        setTokenRenomeando(null);
-        setNovoNomeToken("");
-    };
-
-    const buscarItensPorPastaPai = (idPastaPai) => {
-        const itens = bibliotecaTokens.filter(item =>
-            idPastaPai === null ? !item.pastaPai : item.pastaPai === idPastaPai
-        );
-        return itens;
-    };
-
-    const adicionarItemNaPastaAtual = (idPasta, item) => {
-        setBibliotecaTokens(prev => {
-            const novos = prev.map(p =>
-                p.id === idPasta && p.tipo === "pasta"
-                    ? { ...p, itens: [...p.itens, item] }
-                    : p
-            );
-            return novos;
-        });
-
-        setPastaAtual(prev => {
-            if (prev?.id === idPasta) {
-                return { ...prev, itens: [...prev.itens, item] };
-            }
-            return prev;
-        });
-    };
-
-    const removerItemDaPastaAtual = (idPasta, idItem) => {
-        setBibliotecaTokens(prev => {
-            return prev.map(p =>
-                p.id === idPasta && p.tipo === "pasta"
-                    ? { ...p, itens: p.itens.filter(i => i.id !== idItem) }
-                    : p
-            );
-        });
-
-        setPastaAtual(prev => {
-            if (prev?.id === idPasta) {
-                return { ...prev, itens: prev.itens.filter(i => i.id !== idItem) };
-            }
-            return prev;
-        });
-    };
+    const buscarItensPorPastaPai = (idPastaPai) => bibliotecaTokens.filter(item =>
+        idPastaPai === null ? !item.pastaPai : item.pastaPai === idPastaPai
+    );
 
     const abrirSubPasta = (subPasta) => {
         setHistoricoPastas(prev => [...prev, pastaAtual]);
@@ -547,75 +538,47 @@ function TokenModal(props) {
     }, [open]);
 
     useEffect(() => {
-        if (open && modalRef.current) {
-            DragDropSystem.register('BibliotecaRaiz', modalRef.current, (dados) => {
-                if (dados.tipo !== "token") return;
+        if (modalPastaAberto && pastaAtual && pastaModalRef.current) {
+            DragDropSystem.registerZone(`Pasta-${pastaAtual.id}`, pastaModalRef.current, {
+                onJsonDrop: (dados) => {
+                    if (dados.tipo !== "token" || !dados.id) return;
 
-                setBibliotecaTokens(prev => {
-                    const semPasta = prev.map(item =>
-                        item.tipo === "pasta" && item.itens?.some(i => i.id === dados.id)
-                            ? { ...item, itens: item.itens.filter(i => i.id !== dados.id) }
-                            : item
-                    );
+                    // Remove de qualquer pasta/raiz e adiciona nesta pasta (tudo sincrono)
+                    setBibliotecaTokens(prev => {
+                        // Remove de todas as pastas e da raiz
+                        const limpo = prev
+                            .filter(item => !(item.id === dados.id && item.tipo === 'token'))
+                            .map(item =>
+                                item.tipo === 'pasta'
+                                    ? { ...item, itens: item.itens.filter(i => i.id !== dados.id) }
+                                    : item
+                            );
+                        // Adiciona na pasta atual (evita duplicata)
+                        return limpo.map(item =>
+                            item.id === pastaAtual.id && item.tipo === 'pasta'
+                                ? {
+                                    ...item,
+                                    itens: item.itens.some(i => i.id === dados.id)
+                                        ? item.itens
+                                        : [...item.itens, dados]
+                                }
+                                : item
+                        );
+                    });
 
-                    const tokenJaExiste = semPasta.some(
-                        item => item.id === dados.id && item.tipo === "token"
-                    );
-
-                    if (tokenJaExiste) return semPasta;
-
-                    const novos = [...semPasta, { ...dados, pastaPai: null }];
-                    return novos;
-                });
-
-                if (pastaAtual?.itens?.some(i => i.id === dados.id)) {
-                    setPastaAtual(prev => ({
-                        ...prev,
-                        itens: prev.itens.filter(i => i.id !== dados.id)
-                    }));
+                    setPastaAtual(prev => {
+                        if (!prev) return prev;
+                        const jaExiste = prev.itens?.some(i => i.id === dados.id);
+                        if (jaExiste) return prev;
+                        return { ...prev, itens: [...(prev.itens || []), dados] };
+                    });
                 }
             });
         }
 
         return () => {
-            DragDropSystem.unregister('BibliotecaRaiz');
-        };
-    }, [open, pastaAtual]);
-
-    useEffect(() => {
-        if (modalPastaAberto && pastaAtual && pastaModalRef.current) {
-            DragDropSystem.register(`Pasta-${pastaAtual.id}`, pastaModalRef.current, (dados) => {
-                if (dados.tipo !== "token" || !dados.id) return;
-
-                setBibliotecaTokens(prev => {
-                    return prev.map(item =>
-                        item.id === pastaAtual.id && item.tipo === "pasta"
-                            ? { ...item, itens: item.itens.filter(i => i.id !== dados.id) }
-                            : item
-                    );
-                });
-
-                setTimeout(() => {
-                    setBibliotecaTokens(prev => {
-                        const novos = prev.map(item =>
-                            item.id === pastaAtual.id && item.tipo === "pasta"
-                                ? { ...item, itens: [...item.itens, dados] }
-                                : item
-                        );
-                        return novos;
-                    });
-
-                    setPastaAtual(prev => ({
-                        ...prev,
-                        itens: [...prev.itens, dados]
-                    }));
-                }, 50);
-            });
-        }
-
-        return () => {
             if (pastaAtual) {
-                DragDropSystem.unregister(`Pasta-${pastaAtual.id}`);
+                DragDropSystem.unregisterZone(`Pasta-${pastaAtual.id}`);
             }
         };
     }, [modalPastaAberto, pastaAtual]);
@@ -646,7 +609,70 @@ function TokenModal(props) {
         }
     }, [open]);
 
-    if (!open) return null;
+    // � DEDUP SILENCIOSO: corrige duplicatas em tempo real
+    useEffect(() => {
+        if (!open || bibliotecaTokens.length === 0) return;
+
+        const seenIds = new Set();
+        let temDuplicataRaiz = false;
+        for (const item of bibliotecaTokens) {
+            if (seenIds.has(item.id)) { temDuplicataRaiz = true; break; }
+            seenIds.add(item.id);
+        }
+
+        const idsNaRaiz = new Set(bibliotecaTokens.filter(t => t.tipo === 'token').map(t => t.id));
+        const idsEmPastas = new Set();
+        for (const item of bibliotecaTokens) {
+            if (item.tipo === 'pasta' && item.itens) {
+                for (const sub of item.itens) {
+                    if (sub.tipo === 'token') idsEmPastas.add(sub.id);
+                }
+            }
+        }
+        let temTokenEm2Lugares = false;
+        for (const id of idsEmPastas) {
+            if (idsNaRaiz.has(id)) { temTokenEm2Lugares = true; break; }
+        }
+
+        if (!temDuplicataRaiz && !temTokenEm2Lugares) return;
+
+        // Corrige silenciosamente
+        const uniqueSeen = new Set();
+        let fixed = bibliotecaTokens.filter(item => {
+            if (uniqueSeen.has(item.id)) return false;
+            uniqueSeen.add(item.id);
+            return true;
+        });
+
+        const idsEmPastasFinal = new Set();
+        for (const item of fixed) {
+            if (item.tipo === 'pasta' && item.itens) {
+                for (const sub of item.itens) {
+                    if (sub.tipo === 'token') idsEmPastasFinal.add(sub.id);
+                }
+            }
+        }
+        fixed = fixed.filter(item => {
+            if (item.tipo === 'token' && idsEmPastasFinal.has(item.id)) return false;
+            return true;
+        });
+
+        const tokenJaVistoEmPasta = new Set();
+        fixed = fixed.map(item => {
+            if (item.tipo !== 'pasta' || !item.itens) return item;
+            return {
+                ...item,
+                itens: item.itens.filter(sub => {
+                    if (sub.tipo !== 'token') return true;
+                    if (tokenJaVistoEmPasta.has(sub.id)) return false;
+                    tokenJaVistoEmPasta.add(sub.id);
+                    return true;
+                })
+            };
+        });
+
+        setBibliotecaTokens(fixed);
+    }, [bibliotecaTokens, open]);
 
     return (
         <TokenDesign
@@ -684,8 +710,9 @@ function TokenModal(props) {
             criandoSubPasta={criandoSubPasta}
             setCriandoSubPasta={setCriandoSubPasta}
             handleDragStart={handleDragStart}
-            handleDragOver={handleDragOver}
-            handleDrop={handleDrop}
+            recortarToken={recortarToken}
+            colarToken={colarToken}
+            tokenClipboard={tokenClipboard}
             salvarTokenNaBiblioteca={salvarTokenNaBiblioteca}
             criarPasta={criarPasta}
             adicionarItemNaPasta={adicionarItemNaPasta}

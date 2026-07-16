@@ -18,6 +18,75 @@ export const GRID_CONFIGS = [
 ];
 
 // FUNÇÕES UTILITÁRIAS
+
 export const clamp = (valor, minimo, maximo) => {
     return Math.min(Math.max(valor, minimo), maximo);
+};
+
+/** Detecta se o dispositivo atual é mobile */
+export const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false;
+    const mobileRegex = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i;
+    return mobileRegex.test(navigator.userAgent) || window.innerWidth < 768;
+};
+
+/** Gera chave de localStorage para salvar o estado da view */
+export const getStorageKey = (tabletopId, isMaster, sheetId, playerName) => {
+    const userPart = isMaster ? 'master' : `player_${sheetId || playerName || 'anon'}`;
+    return `tabletop_view_${tabletopId}_${userPart}`;
+};
+
+/** Carrega view salva do localStorage, com fallback */
+export const loadSavedView = (tabletopId, isMaster, sheetId, playerName) => {
+    try {
+        const key = getStorageKey(tabletopId, isMaster, sheetId, playerName);
+        const saved = localStorage.getItem(key);
+        if (saved) {
+            const { zoom, position } = JSON.parse(saved);
+            return { zoom: zoom ?? 1, position: position ?? { x: 0, y: 0 } };
+        }
+    } catch (e) { /* ignora erros de parse */ }
+    return { zoom: 1, position: { x: 0, y: 0 } };
+};
+
+/**
+ * Calcula informações de renderização na tela para um item (token ou camada de névoa).
+ * Evita duplicação entre tokensInfo e camadasInfo.
+ */
+export const computeScreenInfo = (item, indice, zoom, position, bloqueadoMap, tipo) => {
+    const larguraOriginal = item.larguraOriginal || 50;
+    const alturaOriginal = item.alturaOriginal || 50;
+    const escala = item.escala || 1;
+
+    const posicaoTela = {
+        x: item.x * zoom + position.x,
+        y: item.y * zoom + position.y,
+    };
+
+    const larguraMundo = larguraOriginal * escala;
+    const alturaMundo = alturaOriginal * escala;
+
+    return {
+        ...item,
+        indice,
+        posicaoTela,
+        larguraOriginal,
+        alturaOriginal,
+        tamanhoTela: {
+            larguraOriginal,
+            alturaOriginal,
+            larguraMundo,
+            alturaMundo,
+            larguraTela: larguraMundo * zoom,
+            alturaTela: alturaMundo * zoom,
+        },
+        bloqueado: bloqueadoMap?.[item.id] === true,
+        tipo,
+    };
+};
+
+/** Exibe feedback visual e limpa após o timeout padrão */
+export const showFeedback = (dispatch, message, type = 'info') => {
+    dispatch({ type: 'SET_FEEDBACK', payload: { message, type } });
+    setTimeout(() => dispatch({ type: 'RESET_UI_FEEDBACK' }), 1000);
 };

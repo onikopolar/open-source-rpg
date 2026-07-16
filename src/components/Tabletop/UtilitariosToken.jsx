@@ -33,8 +33,9 @@ export const calcularNovaEscalaToken = (
     const escalaX = novaLargura / (tamanhoInicial.largura || larguraBase);
     const escalaY = novaAltura / (tamanhoInicial.altura || alturaBase);
     const menorEscala = Math.min(escalaX, escalaY);
+    const resultado = clamp(menorEscala, 0.1, escalaMaxima);
 
-    return clamp(menorEscala, 0.1, escalaMaxima);
+    return resultado;
 };
 
 // Calcula o bounding box de um grupo de tokens

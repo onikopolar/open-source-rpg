@@ -1,6 +1,7 @@
 // components/Tabletop/useSelecaoToken.jsx
 import { useCallback } from "react";
 import { TOLERANCIA_CLIQUE } from "./ConstantesMesa";
+import { anguloRotacaoCanvas } from "./useRotacaoToken";
 
 // Tamanhos fixos em pixels na tela - não escalam com zoom
 export const CONFIG_BOLINHAS = {
@@ -40,7 +41,7 @@ export function calcularPosicoesBolinhas(tokenTelaX, tokenTelaY, larguraTela, al
     if (rotacao !== 0 && rotacao !== undefined) {
         const cx = tokenTelaX + larguraTela / 2;
         const cy = tokenTelaY + alturaTela / 2;
-        const angulo = (rotacao * Math.PI) / 180;
+        const angulo = anguloRotacaoCanvas(rotacao, 'selecao');
         const cos = Math.cos(angulo);
         const sin = Math.sin(angulo);
         for (const p of posicoes) {

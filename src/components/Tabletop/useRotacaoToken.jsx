@@ -2,6 +2,19 @@ import React, { useMemo, useRef, useCallback, useEffect } from 'react';
 import { Box } from '@mui/material';
 import RotateRightIcon from '@mui/icons-material/RotateRight';
 
+/**
+ * Ângulo correto para ctx.rotate() conforme o contexto de renderização.
+ * 
+ * Ambos usam translate(centro) + rotate + translate(-offset), mas:
+ * - 'token': drawImage() com translate(-w/2, -h/2) → inverte visualmente → fator -1
+ * - 'selecao': strokeRect() com translate(-cx, -cy) → normal → fator +1
+ */
+export function anguloRotacaoCanvas(rotacaoGraus, contexto = 'selecao') {
+    if (!rotacaoGraus || rotacaoGraus === 0) return 0;
+    const fator = contexto === 'token' ? -1 : 1;
+    return (fator * rotacaoGraus * Math.PI) / 180;
+}
+
 export function useRotacaoToken({ tokenSelecionado, zoom, tokensInfo, onGirar, containerRef, arrastando }) {
     const arrastandoRef = useRef(false);
     const ultimoRef = useRef(0);

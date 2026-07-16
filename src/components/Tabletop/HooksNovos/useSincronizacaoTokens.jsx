@@ -15,12 +15,43 @@ export function useSincronizacaoTokens({
   onAnimateTarget,
 }) {
   const [arrastosRemotos, setArrastosRemotos] = useState({});
+  const arrastosRemotosRef = useRef({});
   const userId = socket?.id;
+
+  // Mantem ref sincronizada para uso nos handlers de socket (evita stale closure)
+  useEffect(() => {
+    arrastosRemotosRef.current = arrastosRemotos;
+  }, [arrastosRemotos]);
 
   const emitirEvento = useCallback(
     (evento, dados) => {
+      // ⏱️ TRACING: log detalhado do estado do socket
+      if (dados._traceId) {
+        const _tsRef = dados._tsClique || 0;
+        if (!socket || !socket.connected) {
+          console.log(
+            `%c[⏱️ INVERT] %ctraceId=${dados._traceId} %cetapa=SOCKET-FALHOU %cmotivo=${!socket ? 'socket-nulo' : 'desconectado'} %cts=+${(performance.now() - _tsRef).toFixed(1)}ms`,
+            'font-weight:bold;color:#ff9800', 'color:#4fc3f7', 'color:#f44336', 'color:#f44336', 'color:#888'
+          );
+          return;
+        }
+        console.log(
+          `%c[⏱️ INVERT] %ctraceId=${dados._traceId} %cetapa=SOCKET-EMIT-REAL %cts=+${(performance.now() - _tsRef).toFixed(1)}ms %ctransport=${socket.io?.engine?.transport?.name || '?'} %csid=${socket.id?.slice(0, 8)}`,
+          'font-weight:bold;color:#ff9800', 'color:#4fc3f7', 'color:#ab47bc', 'color:#888', 'color:#888', 'color:#888'
+        );
+      }
       if (!socket || !socket.connected) return;
-      socket.emit(`tabletop:${evento}`, dados);
+      // ⏱️ Adiciona timestamp Date.now() no payload (compara com relógio do servidor)
+      if (dados._traceId) {
+        dados._tsEmit = Date.now();
+      }
+      // Ack callback: servidor confirma recebimento → mede roundtrip client→server
+      socket.emit(`tabletop:${evento}`, dados, dados._traceId ? () => {
+        console.log(
+          `%c[⏱️ INVERT] %ctraceId=${dados._traceId} %cetapa=SOCKET-ACK %cts=+${(performance.now() - (dados._tsClique || 0)).toFixed(1)}ms %c✅ servidor confirmou`,
+          'font-weight:bold;color:#ff9800', 'color:#4fc3f7', 'color:#ce93d8', 'color:#888', 'color:#4caf50'
+        );
+      } : undefined);
     },
     [socket]
   );
@@ -78,7 +109,12 @@ export function useSincronizacaoTokens({
 
   const emitirTokenCreated = useCallback(
     (token) => {
-      emitirEvento('tokenCreated', { tabletopId, ...token, userId });
+      if (!socket || !socket.connected) return;
+      // Remove imageBase64 do payload — imagens grandes excedem o limite
+      // de 1MB do Socket.IO e sao descartadas silenciosamente.
+      // O P2P (WebRTC) cuida da transferencia da imagem.
+      const { imageBase64, ...tokenSemBase64 } = token;
+      emitirEvento('tokenCreated', { tabletopId, ...tokenSemBase64, userId });
     },
     [socket, tabletopId, emitirEvento, userId]
   );
@@ -105,8 +141,8 @@ export function useSincronizacaoTokens({
   );
 
   const emitirTokenInverted = useCallback(
-    (tokenId, invertido) => {
-      emitirEvento('tokenInverted', { tabletopId, id: tokenId, invertido, userId });
+    (tokenId, invertido, _traceId, _tsClique) => {
+      emitirEvento('tokenInverted', { tabletopId, id: tokenId, invertido, userId, ...(_traceId && { _traceId, _tsClique }) });
     },
     [socket, tabletopId, emitirEvento, userId]
   );
@@ -149,10 +185,35 @@ export function useSincronizacaoTokens({
     const handleTokenUpdated = (data) => {
       if (data.userId === userId) return;
 
-      // Interpolação OBR-style: ao receber posição remota, inicia animação
-      // de lerp em vez de snap direto (para movimento suave do token remoto)
+      // ⏱️ TRACING: log quando chega no cliente destino
+      if (data._traceId) {
+        const _tRecebido = performance.now();
+        console.log(
+          `%c[⏱️ INVERT] %ctraceId=${data._traceId} %cetapa=CLIENTE-RECEBE %cts=+${_tRecebido.toFixed(1)}ms %ctokenId=${data.id} invertido=${data.invertido}`,
+          'font-weight:bold;color:#ff9800', 'color:#4fc3f7', 'color:#ef5350', 'color:#888', 'color:#aaa'
+        );
+        // Mede render: setTimeout(0) dispara após React processar o state + microtasks.
+        // RAF mediria paint mas é throttled em background tabs (pode dar 1s+ falso).
+        const _traceRecebido = data._traceId;
+        const _tRecebidoRef = _tRecebido;
+        setTimeout(() => {
+          console.log(
+            `%c[⏱️ INVERT] %ctraceId=${_traceRecebido} %cetapa=RENDER %cts=+${performance.now().toFixed(1)}ms %cdiff=+${(performance.now() - _tRecebidoRef).toFixed(1)}ms`,
+            'font-weight:bold;color:#ff9800', 'color:#4fc3f7', 'color:#66bb6a', 'color:#888', 'color:#888'
+          );
+        }, 0);
+      }
+
+      const sendoArrastadoRemotamente = !!arrastosRemotosRef.current[data.id];
+
       if (onAnimateTarget && data.x !== undefined && data.y !== undefined) {
-        onAnimateTarget(data.id, data.x, data.y);
+        if (sendoArrastadoRemotamente) {
+          // Snap: cancela interpolacao, token renderiza via tokensLocal
+          onAnimateTarget(data.id, data.x, data.y, true);
+        } else {
+          // Interpolacao normal para settle suave
+          onAnimateTarget(data.id, data.x, data.y);
+        }
       }
 
       if (onTokenUpdate) {
@@ -188,12 +249,19 @@ export function useSincronizacaoTokens({
     };
 
     const handleTokenCreated = (data) => {
-      if (data.userId === userId) return;
-
-      if (tokensLocalRef?.current && tokensLocalRef.current.some((t) => t.id === data.id)) {
+      console.log(`[SincTokens] handleTokenCreated recebido: data.userId=${data.userId?.slice(0,8)}, meu userId=${userId?.slice(0,8)}, data.id=${data.id}, data.nome=${data.nome}`);
+      
+      if (data.userId === userId) {
+        console.log(`[SincTokens] handleTokenCreated: IGNORADO (evento proprio)`);
         return;
       }
 
+      if (tokensLocalRef?.current && tokensLocalRef.current.some((t) => t.id === data.id)) {
+        console.log(`[SincTokens] handleTokenCreated: IGNORADO (token ja existe localmente)`);
+        return;
+      }
+
+      console.log(`[SincTokens] handleTokenCreated: ADICIONANDO token remoto, id=${data.id}, nome=${data.nome}`);
       if (onTokenUpdate) {
         onTokenUpdate(data, (prev) => {
           const novos = [...prev, data];

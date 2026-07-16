@@ -44,6 +44,20 @@ console.log(`[Server] Iniciando na porta ${port} (${dev ? 'dev' : 'prod'})`);
 // Configuração de arquivos estáticos
 const uploadsPath = path.join(process.cwd(), 'public/uploads');
 if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
+
+// Remove trailing slash de URLs de arquivos estáticos.
+// Com trailingSlash: true no Next.js, algumas requisições podem vir com
+// barra no final (ex: /uploads/tokens/img.png/), e o express.static
+// interpreta como diretório, retornando 404 para o arquivo.
+app.use('/uploads', (req, res, next) => {
+  if (req.path.endsWith('/') && req.path.length > 1) {
+    // Redireciona /uploads/tokens/img.png/ → /uploads/tokens/img.png
+    const cleanPath = req.path.replace(/\/+$/, '');
+    return res.redirect(301, cleanPath + (req.url.slice(req.path.length) || ''));
+  }
+  next();
+});
+
 app.use('/uploads', express.static(uploadsPath));
 
 // ─── Filtro anti-scanner ────────────────────────────────────────
@@ -101,6 +115,38 @@ app.use((req, res, next) => {
     // (que escuta no server HTTP diretamente) processar a requisição
     return;
   }
+  next();
+});
+
+// ⏱️ DIAGNÓSTICO DE LATÊNCIA: intercepta pacotes ANTES dos handlers
+// Mede: (1) latência de rede/fila, (2) tempo de processamento interno
+io.use((socket, next) => {
+  const originalOnevent = socket.onevent;
+  socket.onevent = (packet) => {
+    const tArrivalNs = process.hrtime.bigint();
+    const eventName = Array.isArray(packet.data) ? packet.data[0] : packet.type;
+    const data = Array.isArray(packet.data) ? packet.data[1] : packet.data;
+
+    if (data && typeof data === 'object' && data._traceId) {
+      const nowMs = Date.now();
+      const clientEmitMs = data._tsEmit || 0;
+      const networkDiffMs = clientEmitMs ? nowMs - clientEmitMs : -1;
+      console.log(
+        `[⏱️ DIAG] traceId=${data._traceId} evento=${eventName} RAW-CHEGOU arrivalNs=${tArrivalNs} ` +
+        `serverNow=${nowMs} clientEmit=${clientEmitMs} redeOuFila=${networkDiffMs}ms`
+      );
+    }
+
+    // Executa o handler original do socket.io
+    originalOnevent.call(socket, packet);
+
+    if (data && typeof data === 'object' && data._traceId) {
+      const elapsedUs = Number(process.hrtime.bigint() - tArrivalNs) / 1000;
+      console.log(
+        `[⏱️ DIAG] traceId=${data._traceId} evento=${eventName} HANDLER-FIM elapsedUs=${elapsedUs.toFixed(1)}µs (${(elapsedUs/1000).toFixed(3)}ms)`
+      );
+    }
+  };
   next();
 });
 
@@ -171,7 +217,32 @@ io.on('connection', (socket) => {
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenDeleted', data);
   });
 
-  socket.on('tabletop:tokenInverted', (data) => {
+  socket.on('tabletop:tokenInverted', (data, ack) => {
+    // ⏱️ TRACING: nanosegundo no servidor + ack callback
+    if (data._traceId) {
+      const tServidorNs = process.hrtime.bigint();
+      console.log(
+        `[⏱️ INVERT] traceId=${data._traceId} etapa=SERVIDOR-RECEBE ns=${tServidorNs} tokenId=${data.id} temAck=${typeof ack === 'function'}`
+      );
+      // Confirma recebimento para o cliente (ack → mede roundtrip)
+      if (typeof ack === 'function') {
+        ack();
+        console.log(
+          `[⏱️ INVERT] traceId=${data._traceId} etapa=SERVIDOR-ACK-ENVIADO`
+        );
+      } else {
+        console.log(
+          `[⏱️ INVERT] traceId=${data._traceId} etapa=SERVIDOR-ACK-PULADO motivo=ack-nao-eh-funcao tipo=${typeof ack}`
+        );
+      }
+      // Broadcast com medição precisa
+      io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenUpdated', data);
+      const diffUs = Number(process.hrtime.bigint() - tServidorNs) / 1000;
+      console.log(
+        `[⏱️ INVERT] traceId=${data._traceId} etapa=SERVIDOR-BROADCAST diffUs=${diffUs.toFixed(1)}µs (${(diffUs / 1000).toFixed(3)}ms)`
+      );
+      return;
+    }
     io.to(`tabletop_${data.tabletopId}`).emit('tabletop:tokenUpdated', data);
   });
 
